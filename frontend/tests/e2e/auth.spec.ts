@@ -69,7 +69,9 @@ test.describe("Authentication", () => {
   test("authenticated user can open the actions page", async ({ page }) => {
     await page.goto("/actions");
 
-    await expect(page.getByRole("heading", { name: "Actions" })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Actions", exact: true }),
+    ).toBeVisible();
   });
 
   test("authenticated user sees header with the app name", async ({ page }) => {

@@ -82,7 +82,7 @@
 ### Phase 3: Local dev and CI
 **Code work**
 - [x] `docker-compose.yml`, `Makefile` (format fixed, mypy in lint, seed removed), `.env.example`, `.dockerignore` (compose db `pmo_intelligence`, ports as II, `docker compose config` valid; Makefile adds `test-e2e`, lint = ruff + `mypy app` / eslint + typecheck + format:check, both pass; `.env.example` lists only what `config.py` reads, copy to `backend/.env`; `backend/` and `frontend/` `.dockerignore`)
-- [ ] Dockerfiles (backend without the WeasyPrint libraries)
+- [x] Dockerfiles (backend without the WeasyPrint libraries) (backend: II's minus WeasyPrint, uv 0.9.18; frontend: pnpm 12.6.0, copies `pnpm-workspace.yaml`, `HOSTNAME=0.0.0.0` so the in-container health check reaches the server; `docker compose up --build` all healthy, `make migrate` applied 001, first e2e run 9/9 after fixing an ambiguous heading locator in `auth.spec.ts`)
 - [ ] `ci.yml`: default token checkout, mypy, e2e with local auth
 - [ ] Deploy workflow: ECR `pmo-intelligence-*`; deploys only after CI succeeds; `develop` deploys to staging
 
@@ -125,20 +125,20 @@
 
 >>> CURRENT PHASE: Phase 3 — Local dev and CI
 
-## Session State (last updated: 2026-10-06 18:10)
+## Session State (last updated: 2026-10-07 09:40)
 - **Sprint**: 0 — Bootstrap
 - **Current phase**: Phase 3 — Local dev and CI (Phases 1 and 2 done)
-- **Phase progress**: Phase 3 1 of 6
-- **Last completed task**: Phase 3 task 1: `docker-compose.yml`, `Makefile`, `.env.example`, `backend/.dockerignore`, `frontend/.dockerignore`
-- **Next task**: Phase 3 task 2: Dockerfiles. Copy II's backend Dockerfile without the WeasyPrint libraries (keep curl); frontend Dockerfile pins pnpm 12.6.0 (it still says `pnpm@10`); then `docker compose up --build`, `make migrate`, first e2e run
-- **Last commit**: 54f9ee1 "chore: add docker compose, makefile and local env example"
-- **Uncommitted changes**: `Makefile` (help pattern includes digits so `test-e2e` is listed), `docs/planning/CURRENT-SPRINT.md`
-- **Blockers**: Teams connector app pending tenant admin approval (external; affects only the exit-gate ticket item). Local: none (GNU make 4.4.1 installed via winget on the user PATH, a new shell picks it up; Docker engine 29.1.3 running)
-- **Tests passing**: 241 unit + 33 integration (backend) + 86 frontend unit = 360 (e2e: 9 listed, not run locally); `lint-backend` and `lint-frontend` commands pass
-- **Files created this session**: `docker-compose.yml`, `Makefile`, `.env.example`, `backend/.dockerignore`, `frontend/.dockerignore`
-- **Files modified this session**: `docs/planning/CURRENT-SPRINT.md`, `docs/planning/BACKLOG.md` (mypy-on-tests tech debt)
-- **Key decisions this session**: make via winget; compose ports as II; lint gates as CI; one `.dockerignore` per build context; mypy over `app` only (see Decisions Log)
-- **Recovery instructions**: Phase 3 task 1 is written (commit pending or done, check `git log`). Next: Dockerfiles, then `ci.yml` and the deploy workflow, then README/ARCHITECTURE/CHANGELOG and the phase commit. The image does not run migrations; run `make migrate` from the host against port 5432. Deleting files needs the user to run the command (the tool permission layer denies `rm`).
+- **Phase progress**: Phase 3 2 of 6
+- **Last completed task**: Phase 3 task 2: Dockerfiles; compose stack built and healthy, migration 001 applied, e2e 9/9
+- **Next task**: Phase 3 task 3: `.github/workflows/ci.yml` from II: default `GITHUB_TOKEN` checkout, uv 0.9.18, pnpm 12.6.0 / Node 22, `make lint` gates (ruff, `mypy app`, eslint, typecheck, format:check), backend unit + integration, frontend unit, e2e against compose with local auth
+- **Last commit**: ffecbab "fix: list targets with digits in make help"
+- **Uncommitted changes**: `backend/Dockerfile` (new), `frontend/Dockerfile`, `frontend/tests/e2e/auth.spec.ts`, `docs/planning/CURRENT-SPRINT.md`
+- **Blockers**: Teams connector app pending tenant admin approval (external; affects only the exit-gate ticket item)
+- **Tests passing**: 241 unit + 33 integration (backend) + 86 frontend unit + 9 e2e (first local run against compose) = 369; `make lint` passes
+- **Files created this session**: `docker-compose.yml`, `Makefile`, `.env.example`, `backend/.dockerignore`, `frontend/.dockerignore`, `backend/Dockerfile`
+- **Files modified this session**: `frontend/Dockerfile`, `frontend/tests/e2e/auth.spec.ts`, `docs/planning/CURRENT-SPRINT.md`, `docs/planning/BACKLOG.md`
+- **Key decisions this session**: make via winget; compose ports as II; lint gates as CI; one `.dockerignore` per build context; mypy over `app` only; uv 0.9.18 pinned (see Decisions Log)
+- **Recovery instructions**: Phase 3 tasks 1–2 written (54f9ee1, ffecbab, then the Dockerfile commit; check `git log`). Local stack: `make dev-build` (or `docker compose up -d --build`), `make migrate`, `make test-e2e`. make lives at `%LOCALAPPDATA%\Microsoft\WinGet\Packages\ezwinports.make_*\bin` (on the user PATH; a shell opened before the install needs it prepended). Next: `ci.yml`, deploy workflow, then README/ARCHITECTURE/CHANGELOG and the phase commit. Deleting files needs the user to run the command (the tool permission layer denies `rm`).
 
 ## Decisions Log
 | Decision | Rationale |
@@ -168,4 +168,5 @@
 | GNU make installed locally with `winget install ezwinports.make`; the Makefile stays POSIX (Git Bash locally, Ubuntu in CI) | User decision 2026-10-06; make was not on the Windows dev machine; one Makefile, no PowerShell twin |
 | Compose host ports as II: 5432 (db), 8000 (api), 3000 (web) | User decision 2026-10-06; matches the config defaults, the SSO redirect URI and Playwright; the two stacks cannot run at once |
 | `make lint` frontend = eslint + typecheck + format:check; backend = ruff check + ruff format --check + `mypy app` | User decision 2026-10-06; the same gates CI runs. mypy covers `app` only: `app tests` has 57 errors in 8 test files (tech debt) |
+| uv pinned to exactly 0.9.18 in the backend Dockerfile (`ghcr.io/astral-sh/uv:0.9.18`) and in CI | User decision 2026-10-07; `uv.lock` is revision 3, written by local uv 0.9.18; II's `uv:0.6` predates that format. Bumped deliberately, like pnpm 12.6.0 |
 | One `.dockerignore` per build context (`backend/`, `frontend/`), tests excluded from images | User decision 2026-10-06; compose builds from `./backend` and `./frontend`, so a root file would not apply |
