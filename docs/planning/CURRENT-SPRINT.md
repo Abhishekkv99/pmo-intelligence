@@ -64,12 +64,12 @@
 
 ### Phase 2: Frontend skeleton
 **Code work**
-- [ ] Copy the frontend (without `.next`, `node_modules` and the tsbuildinfo file); upgrade `next` and `eslint-config-next` to the latest 16.x (≥ 16.2.11)
-- [ ] Delete the interview, company, technology, meeting, search, dashboard, cost, daily-report, ingestion-admin and API-key code, plus the branch provider, switcher and lib
-- [ ] Prune `lib/constants.ts`; redirect after login to `/`; new sidebar nav (Risk board, Actions, Admin, Settings); `role` replaces `branch`/`access_level`
-- [ ] Empty dashboard: Risk board placeholder at `/`, Actions placeholder
-- [ ] Rebrand (app name, metadata, login copy, e2e heading)
-- [ ] Add Prettier, `format` and `typecheck` scripts, the `packageManager` field and `engines`; drop unused dependencies
+- [x] Copy the frontend (without `.next`, `node_modules` and the tsbuildinfo file); upgrade `next` and `eslint-config-next` to the latest 16.x (≥ 16.2.11) (16.3.8; pnpm 12 with `allowBuilds` in `pnpm-workspace.yaml`; unchanged copy: 466 unit tests pass, lint 0 errors, build compiles; type errors only in II interview tests, deleted next)
+- [x] Delete the interview, company, technology, meeting, search, dashboard, cost, daily-report, ingestion-admin and API-key code, plus the branch provider, switcher and lib (78 files left in `src`/`tests`; kept `ProcessingStatusPanel` for Admin and the generic helpers Pagination, DateRangeFilter, LoadingSpinner, useDebounce, useScrollRestore, `lib/download`; `score-utils` deleted)
+- [x] Prune `lib/constants.ts`; redirect after login to `/`; new sidebar nav (Risk board, Actions, Admin, Settings); `role` replaces `branch`/`access_level` (`lib/roles.ts` mirrors `Role`/`GLOBAL_ROLES`; Admin link for global roles only, others get a no-access message; queue panel shows generic job kinds, no links)
+- [x] Empty dashboard: Risk board placeholder at `/`, Actions placeholder (`app/page.tsx`, `app/actions/page.tsx`; done with the task above because the old home page linked to the removed dashboard route)
+- [x] Rebrand (app name, metadata, login copy, e2e heading) (`APP_NAME` "PMO Intelligence", `APP_TAGLINE` "Live health for every consultant placement" in `lib/constants.ts`, used by metadata and the login page)
+- [x] Add Prettier, `format` and `typecheck` scripts, the `packageManager` field and `engines`; drop unused dependencies (Prettier 3.9.9 defaults + `eslint-config-prettier`, one format pass over all files incl. `ui/`; `format`, `format:check`, `typecheck` scripts; `packageManager` `pnpm@12.6.0`, engines node >=22, pnpm >=12; dropped date-fns, react-markdown, remark-gfm, @tailwindcss/typography)
 - [ ] Tests: keep the generic unit tests, rewrite the Sidebar, AuthProvider, layout and callback tests; e2e auth only
 
 **Doc updates (concurrent)**
@@ -128,13 +128,13 @@
 ## Session State (last updated: 2026-10-06 17:03)
 - **Sprint**: 0 — Bootstrap
 - **Current phase**: Phase 2 — Frontend skeleton (Phase 1 done)
-- **Phase progress**: 12 of 12 tasks complete (Phase 1 committed)
-- **Last completed task**: Phase 1 doc updates (ARCHITECTURE, API, TESTS, FEATURES, CHANGELOG)
-- **Next task**: Phase 2: copy the frontend from Interview Intelligence and upgrade Next.js to ≥16.2.11
-- **Last commit**: 5969dda "feat: add backend skeleton with auth, role scope and migration 001"
-- **Uncommitted changes**: none (Phase 1 code and docs are in 5969dda)
+- **Phase progress**: 6 of 10 tasks complete
+- **Last completed task**: Prettier, scripts, packageManager/engines, unused deps dropped; typecheck 0, 83 unit tests, lint 0 errors, format:check clean, build green
+- **Next task**: Tests: keep the generic unit tests, rewrite the Sidebar, AuthProvider, layout and callback tests; e2e auth only
+- **Last commit**: 9e233e0 "docs: mark phase 1 complete in sprint plan"
+- **Uncommitted changes**: `frontend/` (new), `docs/planning/CURRENT-SPRINT.md`
 - **Blockers**: Teams connector app pending tenant admin approval (external; affects only the exit-gate ticket item)
-- **Tests passing**: 241 unit + 33 integration + 0 frontend = 274
+- **Tests passing**: 241 unit + 33 integration (backend) + 83 frontend unit = 357
 - **Files created this session**: `backend/` (copied from Interview Intelligence and adapted; new: `app/models/enums.py`, `app/models/register.py`, `app/models/access_log.py`, `app/db/repositories/access_log_repo.py`, `alembic/versions/001_create_initial_schema.py`, `tests/unit/test_entitlements.py`, `tests/unit/test_entitlement_coverage.py`, `tests/integration/test_placement_scope.py`, `tests/integration/test_migrations.py`)
 - **Files modified this session**: `.gitignore` (adopted II's Python/Node/Terraform ignores, tool lines dropped), the docs listed above
 - **Key decisions this session**: queue tiers chat < session < backlog; runners and takeover steps are registered by the owning module (no imports from pipelines into the queue); a placement-id route must carry a placement-scope guard specifically (coverage test); processing_jobs is generic (`kind`, `subject_id`)
@@ -157,3 +157,11 @@
 | Deploy only after CI succeeds | II deploys even when CI fails |
 | CI checks out with the default `GITHUB_TOKEN` | A same-repo checkout needs no PAT, so there is no token expiry to track |
 | Prod infra defined but applied at the product's Phase 5 | Avoids idle prod ALB cost before the first release |
+| pnpm 12 (not II's pnpm 10) for `packageManager`, CI and Docker | User decision 2026-10-06; matches the local toolchain. pnpm 12 ignores the `pnpm` field in `package.json`, so build approvals live in `pnpm-workspace.yaml` `allowBuilds` (esbuild allowed; msw, unrs-resolver denied) |
+| Frontend deps: drop date-fns, react-markdown, remark-gfm, @tailwindcss/typography; keep zod, @hookform/resolvers, @tanstack/react-table | User decision 2026-10-06; nothing imports the dropped ones; forms (register) and TanStack tables (risk board) come next sprint |
+| Prettier 3 defaults over every file, `ui/` included, with `eslint-config-prettier` | User decision 2026-10-06; lets `format:check` gate CI |
+| `engines` node >=22, pnpm >=12; `packageManager` pnpm@12.6.0 | User decision 2026-10-06; Node 22 matches II's CI and Docker image; corepack needs an exact version |
+| Tagline "Live health for every consultant placement" | User decision 2026-10-06; from the PRD purpose line |
+| Admin link hidden from non-global roles; `/admin` shows them a no-access message and never requests the queue | User decision 2026-10-06; the backend answers 403 to them |
+| Admin page keeps II's `ProcessingStatusPanel` (pmo_manager/admin only); generic helpers kept, `score-utils` deleted | User decision 2026-10-06; the backend already serves `/processing/status`; the risk board and actions need the helpers; score-utils' 0.7/0.4 cutoffs conflict with the configured RAG thresholds |
+| Next.js 16.3.8 (latest 16.x on 2026-10-06), React kept at 19.2.3 | Clears the 16.0.0–16.2.10 CVEs; React 19.2.3 is within Next's peer range, so no React upgrade in Sprint 0 |
