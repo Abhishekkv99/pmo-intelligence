@@ -1,0 +1,38 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/teams/v1.30/MicrosoftTeams.schema.json",
+  "manifestVersion": "1.30",
+  "version": "{{VERSION}}",
+  "id": "0f2eaf35-928a-4321-9261-692893f270ff",
+  "developer": {
+    "name": "Information Tech Consultants",
+    "websiteUrl": "https://informationtechconsultants.com",
+    "privacyUrl": "https://informationtechconsultants.com",
+    "termsOfUseUrl": "https://informationtechconsultants.com"
+  },
+  "name": {
+    "short": "PMO Intelligence",
+    "full": "PMO Intelligence: placement health monitoring"
+  },
+  "description": {
+    "short": "Lets the PMO read this chat for placement health monitoring.",
+    "full": "When added to a consultant's group chat, PMO Intelligence reads the messages in this chat only, so the PMO can follow the health of the placement. It reads no other chats. It never posts, and it takes no action on anyone; people in the PMO review what it finds. Remove the app from the chat to stop access."
+  },
+  "icons": {
+    "color": "color.png",
+    "outline": "outline.png"
+  },
+  "accentColor": "#1F4E79",
+  "validDomains": [],
+  "webApplicationInfo": {
+    "id": "{{ENTRA_APP_ID}}",
+    "resource": "https://pmo-intelligence"
+  },
+  "authorization": {
+    "permissions": {
+      "resourceSpecific": [
+        { "name": "ChatMessage.Read.Chat", "type": "Application" },
+        { "name": "ChatMember.Read.Chat", "type": "Application" }
+      ]
+    }
+  }
+}

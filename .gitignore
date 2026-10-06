@@ -2,3 +2,6 @@
 .env
 .env.*
 !.env.example
+
+# Teams app package build output
+teams-app/build/
