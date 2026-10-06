@@ -131,9 +131,9 @@
 - **Phase progress**: Phase 3 1 of 6
 - **Last completed task**: Phase 3 task 1: `docker-compose.yml`, `Makefile`, `.env.example`, `backend/.dockerignore`, `frontend/.dockerignore`
 - **Next task**: Phase 3 task 2: Dockerfiles. Copy II's backend Dockerfile without the WeasyPrint libraries (keep curl); frontend Dockerfile pins pnpm 12.6.0 (it still says `pnpm@10`); then `docker compose up --build`, `make migrate`, first e2e run
-- **Last commit**: d8e47de "docs: mark phase 2 complete in sprint plan"
-- **Uncommitted changes**: `docker-compose.yml`, `Makefile`, `.env.example`, `backend/.dockerignore`, `frontend/.dockerignore`, `docs/planning/CURRENT-SPRINT.md`, `docs/planning/BACKLOG.md`
-- **Blockers**: Teams connector app pending tenant admin approval (external; affects only the exit-gate ticket item). Local: GNU make not installed yet (user runs `winget install ezwinports.make`); Docker Desktop engine not running
+- **Last commit**: 54f9ee1 "chore: add docker compose, makefile and local env example"
+- **Uncommitted changes**: `Makefile` (help pattern includes digits so `test-e2e` is listed), `docs/planning/CURRENT-SPRINT.md`
+- **Blockers**: Teams connector app pending tenant admin approval (external; affects only the exit-gate ticket item). Local: none (GNU make 4.4.1 installed via winget on the user PATH, a new shell picks it up; Docker engine 29.1.3 running)
 - **Tests passing**: 241 unit + 33 integration (backend) + 86 frontend unit = 360 (e2e: 9 listed, not run locally); `lint-backend` and `lint-frontend` commands pass
 - **Files created this session**: `docker-compose.yml`, `Makefile`, `.env.example`, `backend/.dockerignore`, `frontend/.dockerignore`
 - **Files modified this session**: `docs/planning/CURRENT-SPRINT.md`, `docs/planning/BACKLOG.md` (mypy-on-tests tech debt)
