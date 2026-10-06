@@ -21,10 +21,10 @@ describe("ErrorFallback", () => {
       <ErrorFallback
         error={makeError()}
         reset={() => {}}
-        title="Failed to load interviews"
+        title="Failed to load placements"
       />,
     );
-    expect(screen.getByText("Failed to load interviews")).toBeInTheDocument();
+    expect(screen.getByText("Failed to load placements")).toBeInTheDocument();
   });
 
   it("renders custom description instead of error message", () => {

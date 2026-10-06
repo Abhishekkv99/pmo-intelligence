@@ -1,6 +1,6 @@
 # Architecture Overview
 
-> **Status**: Sprint 0 in progress. **Built**: the backend skeleton (see "Backend (as built)"), with migration 001. Everything else is the planned design from `docs/PRD.md`; update each section as it is built.
+> **Status**: Sprint 0 in progress. **Built**: the backend skeleton (see "Backend (as built)"), with migration 001, and the frontend skeleton (see "Frontend (as built)"). Everything else is the planned design from `docs/PRD.md`; update each section as it is built.
 
 ## System Design
 PMO Intelligence has 3 inputs, 1 queue, 2 pipelines and 1 health model. Every input becomes a signal, and every placement gets one health reading.
@@ -44,6 +44,34 @@ FastAPI app in `backend/app/`, layered routes → services → repositories → 
 - `NULL` (a newly provisioned SSO account) reads nothing.
 - A denied by-id read answers 404, identical to a missing row, and logs a WARNING with user id and role.
 - `BOOTSTRAP_ADMIN_EMAILS` raises listed users to `pmo_manager` at startup and at first sign-in (elevate-only).
+
+## Frontend (as built)
+Next.js 16.3.8 App Router app in `frontend/`, TypeScript strict, React 19.2, shadcn/ui, SWR, Tailwind 4. Packages via pnpm 12 (`packageManager: pnpm@12.6.0`; build-script approvals in `pnpm-workspace.yaml` `allowBuilds`). Node 22 or later.
+
+| Area | Path | Notes |
+|------|------|-------|
+| Root layout | `src/app/layout.tsx` | Theme (light/dark/system), `AuthProvider`, `SWRProvider`, toasts; metadata from `APP_NAME` and `APP_TAGLINE` |
+| Shell | `src/components/layout/{MainLayout,Sidebar,Header,ThemeToggle}.tsx` | Sidebar: Risk board, Actions, Admin (global roles only), Settings; header: app name, theme toggle, user menu with sign-out |
+| Pages | `src/app/page.tsx` (Risk board), `actions/`, `admin/`, `settings/`, `login/`, `auth/callback/microsoft/` | Risk board, Actions and Settings are empty-state placeholders; Admin shows the processing queue |
+| Admin | `src/components/admin/{AdminView,ProcessingStatusPanel}.tsx`, `src/hooks/useProcessingStatus.ts` | Queue depth, running jobs by kind, backend memory; polls every 5 s while busy, 30 s when idle; other roles see a no-access message and the queue is never requested |
+| Roles | `src/lib/roles.ts` | Mirrors `Role` and `GLOBAL_ROLES` from `backend/app/models/enums.py`; `hasGlobalRole()` |
+| Routes and API paths | `src/lib/constants.ts` | `ROUTES`, `API_ROUTES`, `APP_NAME`, `APP_TAGLINE` |
+| API client | `src/lib/api.ts`, `src/lib/auth-token.ts` | Bearer token held in memory; one shared, time-limited refresh on a 401, one retry |
+| Route guard | `src/proxy.ts` | No refresh cookie on a protected path → `/login`; a cookie on `/login` or the callback → `/` |
+| Generic UI | `src/components/common/`, `src/components/ui/` | Empty state, error fallback, pagination, date-range filter, spinner; the shadcn component set |
+| Health check | `src/app/api/health/route.ts` | `GET /api/health` for the load balancer |
+| Tests | `src/**/*.test.ts(x)` (Vitest, Testing Library, jsdom), `tests/e2e/` (Playwright) | See `docs/tracking/TESTS.md` |
+
+**Auth flow**:
+1. The login page offers only "Sign in with Microsoft". `useSSOLogin` fetches `/auth/sso/microsoft/config`, creates a PKCE verifier (kept in `sessionStorage`) and sends the browser to the Entra authorize URL.
+2. Entra redirects to `/auth/callback/microsoft`. The page posts the code, the verifier and the redirect URI to `/auth/sso/microsoft/callback`. The backend sets the `refresh_token` httpOnly cookie and returns an access token.
+3. The page stores the access token in memory and does a full navigation to `/`, so the proxy sees the new cookie.
+4. On every page load `AuthProvider` restores the session: `POST /auth/refresh` (cookie) for a new access token, then `GET /auth/me` for the user and role. It sends a signed-out user to `/login` and a signed-in user away from `/login` to `/`.
+5. A request that answers 401 triggers one shared refresh and one retry. If that fails, the session expires and the browser goes to `/login`.
+
+**Role in the UI**: the frontend only decides what to show; the backend enforces every permission. The Admin link appears for `pmo_manager` and `admin` only. A user with no role signs in and sees the empty Risk board, Actions and Settings pages.
+
+**Tooling**: `pnpm lint` (ESLint with Next's rules and `eslint-config-prettier`), `pnpm typecheck` (`tsc --noEmit`), `pnpm format` / `format:check` (Prettier 3 defaults over every file), `pnpm test` (Vitest), `pnpm test:e2e` (Playwright; signs in with local auth, so it needs a backend with `LOCAL_AUTH_ENABLED=true`).
 
 ## Component Architecture
 | Component | Technology | Responsibility | Reuse or new |

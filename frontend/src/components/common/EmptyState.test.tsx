@@ -5,19 +5,19 @@ import { EmptyState } from "./EmptyState";
 
 describe("EmptyState", () => {
   it("renders title", () => {
-    render(<EmptyState title="No interviews found" />);
-    expect(screen.getByText("No interviews found")).toBeInTheDocument();
+    render(<EmptyState title="No placements found" />);
+    expect(screen.getByText("No placements found")).toBeInTheDocument();
   });
 
   it("renders description when provided", () => {
     render(
       <EmptyState
         title="No data"
-        description="Upload an interview to get started."
+        description="Add a placement to get started."
       />,
     );
     expect(
-      screen.getByText("Upload an interview to get started."),
+      screen.getByText("Add a placement to get started."),
     ).toBeInTheDocument();
   });
 
@@ -29,12 +29,12 @@ describe("EmptyState", () => {
   it("renders link action when href is provided", () => {
     render(
       <EmptyState
-        title="No interviews"
-        action={{ label: "Upload interview", href: "/interviews/upload" }}
+        title="No placements"
+        action={{ label: "Add placement", href: "/admin" }}
       />,
     );
-    const link = screen.getByRole("link", { name: "Upload interview" });
-    expect(link).toHaveAttribute("href", "/interviews/upload");
+    const link = screen.getByRole("link", { name: "Add placement" });
+    expect(link).toHaveAttribute("href", "/admin");
   });
 
   it("renders button action when onClick is provided", async () => {

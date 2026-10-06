@@ -70,11 +70,11 @@
 - [x] Empty dashboard: Risk board placeholder at `/`, Actions placeholder (`app/page.tsx`, `app/actions/page.tsx`; done with the task above because the old home page linked to the removed dashboard route)
 - [x] Rebrand (app name, metadata, login copy, e2e heading) (`APP_NAME` "PMO Intelligence", `APP_TAGLINE` "Live health for every consultant placement" in `lib/constants.ts`, used by metadata and the login page)
 - [x] Add Prettier, `format` and `typecheck` scripts, the `packageManager` field and `engines`; drop unused dependencies (Prettier 3.9.9 defaults + `eslint-config-prettier`, one format pass over all files incl. `ui/`; `format`, `format:check`, `typecheck` scripts; `packageManager` `pnpm@12.6.0`, engines node >=22, pnpm >=12; dropped date-fns, react-markdown, remark-gfm, @tailwindcss/typography)
-- [ ] Tests: keep the generic unit tests, rewrite the Sidebar, AuthProvider, layout and callback tests; e2e auth only
+- [x] Tests: keep the generic unit tests, rewrite the Sidebar, AuthProvider, layout and callback tests; e2e auth only (86 unit tests in 17 files; new `roles`, `AdminView` tests; generic tests' sample data made PMO; e2e: setup lands on the risk board, 8 role-agnostic auth specs, listed with `playwright test --list` but not run: no local stack until Phase 3)
 
 **Doc updates (concurrent)**
-- [ ] `ARCHITECTURE.md`: frontend layout and auth flow
-- [ ] `TESTS.md`, `FEATURES.md`, `CHANGELOG.md`
+- [x] `ARCHITECTURE.md`: frontend layout and auth flow
+- [x] `TESTS.md`, `FEATURES.md`, `CHANGELOG.md`
 
 **Commit checkpoint**
 - [ ] `feat: add frontend skeleton with SSO sign-in and empty dashboard` (tests, lint, typecheck and build green)
@@ -128,17 +128,17 @@
 ## Session State (last updated: 2026-10-06 17:03)
 - **Sprint**: 0 — Bootstrap
 - **Current phase**: Phase 2 — Frontend skeleton (Phase 1 done)
-- **Phase progress**: 6 of 10 tasks complete
-- **Last completed task**: Prettier, scripts, packageManager/engines, unused deps dropped; typecheck 0, 83 unit tests, lint 0 errors, format:check clean, build green
-- **Next task**: Tests: keep the generic unit tests, rewrite the Sidebar, AuthProvider, layout and callback tests; e2e auth only
-- **Last commit**: 9e233e0 "docs: mark phase 1 complete in sprint plan"
-- **Uncommitted changes**: `frontend/` (new), `docs/planning/CURRENT-SPRINT.md`
+- **Phase progress**: 9 of 10 tasks complete (phase commit pending user approval)
+- **Last completed task**: Phase 2 doc updates (ARCHITECTURE "Frontend (as built)" with the auth flow; TESTS with per-file counts from the run; FEATURES; CHANGELOG)
+- **Next task**: Phase 2 commit `feat: add frontend skeleton with SSO sign-in and empty dashboard` (awaiting user approval), then stop; Phase 3 (local dev and CI) only when the user asks
+- **Last commit**: ef19b70 "feat: prune frontend to the PMO shell with role-based navigation and formatting tooling" (Phase 2 tasks 1–6; the phase commit follows after tests and docs)
+- **Uncommitted changes**: frontend tests (AuthProvider, callback, EmptyState, ErrorFallback, useScrollRestore, api, e2e auth setup/spec), `docs/ARCHITECTURE.md`, `docs/tracking/{TESTS,FEATURES,CHANGELOG}.md`, `docs/planning/CURRENT-SPRINT.md`
 - **Blockers**: Teams connector app pending tenant admin approval (external; affects only the exit-gate ticket item)
-- **Tests passing**: 241 unit + 33 integration (backend) + 83 frontend unit = 357
+- **Tests passing**: 241 unit + 33 integration (backend) + 86 frontend unit = 360 (e2e: 9 listed, not run locally)
 - **Files created this session**: `backend/` (copied from Interview Intelligence and adapted; new: `app/models/enums.py`, `app/models/register.py`, `app/models/access_log.py`, `app/db/repositories/access_log_repo.py`, `alembic/versions/001_create_initial_schema.py`, `tests/unit/test_entitlements.py`, `tests/unit/test_entitlement_coverage.py`, `tests/integration/test_placement_scope.py`, `tests/integration/test_migrations.py`)
 - **Files modified this session**: `.gitignore` (adopted II's Python/Node/Terraform ignores, tool lines dropped), the docs listed above
 - **Key decisions this session**: queue tiers chat < session < backlog; runners and takeover steps are registered by the owning module (no imports from pipelines into the queue); a placement-id route must carry a placement-scope guard specifically (coverage test); processing_jobs is generic (`kind`, `subject_id`)
-- **Recovery instructions**: Phase 1 code and docs are complete and verified (ruff, mypy strict, 274 tests). Commit them, then start Phase 2 by copying the II frontend (without `.next`, `node_modules`, tsbuildinfo) and upgrading Next.js to ≥16.2.11.
+- **Recovery instructions**: Phase 2 tasks 1–6 are committed in ef19b70 (frontend in `frontend/`, pnpm 12, Next 16.3.8). Next: rewrite the AuthProvider and callback tests, refresh interview-flavoured sample data in the generic tests, and rewrite the e2e auth specs (they still visit `/dashboard` and `/interviews`); then the Phase 2 doc updates and the phase commit. Deleting files needs the user to run the command (the tool permission layer denies `rm`).
 
 ## Decisions Log
 | Decision | Rationale |

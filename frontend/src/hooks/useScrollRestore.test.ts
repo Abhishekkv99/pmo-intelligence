@@ -21,15 +21,15 @@ describe("useScrollRestore", () => {
   });
 
   it("restores scroll position from sessionStorage on mount", () => {
-    sessionStorage.setItem("scroll_interviews", "250");
+    sessionStorage.setItem("scroll_risk-board", "250");
 
-    renderHook(() => useScrollRestore("interviews"));
+    renderHook(() => useScrollRestore("risk-board"));
 
     expect(mainElement.scrollTop).toBe(250);
   });
 
   it("does not change scroll position when no saved value exists", () => {
-    renderHook(() => useScrollRestore("interviews"));
+    renderHook(() => useScrollRestore("risk-board"));
 
     expect(mainElement.scrollTop).toBe(0);
   });
@@ -37,7 +37,7 @@ describe("useScrollRestore", () => {
   it("saves scroll position to sessionStorage on scroll", async () => {
     vi.useFakeTimers();
 
-    renderHook(() => useScrollRestore("interviews"));
+    renderHook(() => useScrollRestore("risk-board"));
 
     // Simulate scroll
     Object.defineProperty(mainElement, "scrollTop", {
@@ -50,7 +50,7 @@ describe("useScrollRestore", () => {
     // Advance past the 150ms debounce
     vi.advanceTimersByTime(200);
 
-    expect(sessionStorage.getItem("scroll_interviews")).toBe("500");
+    expect(sessionStorage.getItem("scroll_risk-board")).toBe("500");
 
     vi.useRealTimers();
   });

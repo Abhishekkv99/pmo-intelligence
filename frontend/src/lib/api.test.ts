@@ -48,12 +48,12 @@ describe("ApiClient 401 handling", () => {
       .mockResolvedValueOnce(json(200, { access_token: "new-token" }))
       .mockResolvedValueOnce(json(200, { ok: true }));
 
-    await expect(api.get("/dashboard/stats")).resolves.toEqual({ ok: true });
+    await expect(api.get("/processing/status")).resolves.toEqual({ ok: true });
 
     expect(calls()).toEqual([
-      "/dashboard/stats",
+      "/processing/status",
       "/auth/refresh",
-      "/dashboard/stats",
+      "/processing/status",
     ]);
     const retryInit = fetchMock.mock.calls[2][1] as RequestInit;
     expect((retryInit.headers as Record<string, string>).Authorization).toBe(
@@ -68,9 +68,9 @@ describe("ApiClient 401 handling", () => {
       .mockResolvedValueOnce(json(200, { access_token: "new-token" }))
       .mockResolvedValueOnce(json(401, { detail: "Not authenticated" }));
 
-    await expect(api.get("/interviews")).rejects.toMatchObject({ status: 401 });
+    await expect(api.get("/auth/me")).rejects.toMatchObject({ status: 401 });
 
-    expect(calls()).toEqual(["/interviews", "/auth/refresh", "/interviews"]);
+    expect(calls()).toEqual(["/auth/me", "/auth/refresh", "/auth/me"]);
     expect(expired).toHaveBeenCalledTimes(1);
     expect(getToken()).toBeNull();
   });
@@ -78,9 +78,9 @@ describe("ApiClient 401 handling", () => {
   it("expires the session when the refresh is refused", async () => {
     fetchMock.mockResolvedValueOnce(json(401)).mockResolvedValueOnce(json(401));
 
-    await expect(api.get("/interviews")).rejects.toBeInstanceOf(ApiError);
+    await expect(api.get("/auth/me")).rejects.toBeInstanceOf(ApiError);
 
-    expect(calls()).toEqual(["/interviews", "/auth/refresh"]);
+    expect(calls()).toEqual(["/auth/me", "/auth/refresh"]);
     expect(expired).toHaveBeenCalledTimes(1);
     expect(getToken()).toBeNull();
   });

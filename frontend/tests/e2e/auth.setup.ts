@@ -12,11 +12,9 @@ const authFile = "playwright/.auth/user.json";
  * false, where these two endpoints return 403.
  *
  * Requires E2E_USER_EMAIL and E2E_USER_PASSWORD env vars (defaults provided
- * for local Docker Compose). The default email is on the ITC domain on
- * purpose: a user is classified into a branch from the email domain at
- * registration, and the suite reads the UK office (the frontend default).
- * Any other domain would register a US user and every list page would
- * answer 403.
+ * for local Docker Compose). The user registers with no role (unless it is
+ * listed in BOOTSTRAP_ADMIN_EMAILS), so the suite checks only what every
+ * signed-in user sees: the risk board, actions and settings.
  */
 setup("authenticate", async ({ page, context, request }) => {
   const email =
@@ -49,8 +47,10 @@ setup("authenticate", async ({ page, context, request }) => {
 
   // Confirm the cookie alone authenticates. The app restores the session on
   // mount via /auth/refresh, exactly as it does after a Microsoft sign-in.
-  await page.goto("/interviews");
-  await expect(page).toHaveURL(/\/interviews/, { timeout: 15_000 });
+  await page.goto("/");
+  await expect(page.getByRole("heading", { name: "Risk board" })).toBeVisible({
+    timeout: 15_000,
+  });
 
   // Seed the access token into localStorage so subsequent test contexts can use
   // it directly without needing to refresh (which rotates the httpOnly refresh

@@ -44,19 +44,37 @@ test.describe("Authentication", () => {
     expect(response?.status()).toBe(404);
   });
 
-  test("authenticated user can access dashboard", async ({ page }) => {
-    await page.goto("/dashboard");
+  test("authenticated user lands on the risk board", async ({ page }) => {
+    await page.goto("/");
 
-    await expect(page).toHaveURL(/\/dashboard/);
+    await expect(page).toHaveURL(/\/$/);
     await expect(
-      page.getByRole("heading", { name: "Dashboard" }),
+      page.getByRole("heading", { name: "Risk board" }),
+    ).toBeVisible();
+    await expect(page.getByRole("link", { name: "Actions" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Settings" })).toBeVisible();
+  });
+
+  test("authenticated user is sent from the login page to the risk board", async ({
+    page,
+  }) => {
+    await page.goto("/login");
+
+    await expect(page).toHaveURL(/\/$/, { timeout: 10_000 });
+    await expect(
+      page.getByRole("heading", { name: "Risk board" }),
     ).toBeVisible();
   });
 
-  test("authenticated user sees header with user info", async ({ page }) => {
-    await page.goto("/dashboard");
+  test("authenticated user can open the actions page", async ({ page }) => {
+    await page.goto("/actions");
 
-    // Header should have the app name
+    await expect(page.getByRole("heading", { name: "Actions" })).toBeVisible();
+  });
+
+  test("authenticated user sees header with the app name", async ({ page }) => {
+    await page.goto("/");
+
     await expect(
       page.getByRole("heading", { name: "PMO Intelligence" }),
     ).toBeVisible();

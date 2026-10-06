@@ -68,40 +68,45 @@ describe("MicrosoftCallbackPage", () => {
     expect(screen.getByText(/Missing PKCE verifier/)).toBeInTheDocument();
   });
 
-  it("exchanges code and redirects on success", async () => {
+  it("exchanges the code and sends the browser to the risk board", async () => {
     mockSearchParams = new URLSearchParams({ code: "auth_code_123" });
     mockPost.mockResolvedValueOnce({
       access_token: "jwt_token",
       token_type: "bearer",
     });
 
-    // Mock window.location.href assignment (used instead of router.replace for cookie propagation)
-    const locationHrefSpy = vi
-      .spyOn(window, "location", "get")
-      .mockReturnValue({
-        ...window.location,
-        origin: "http://localhost:3000",
-        href: "http://localhost:3000/auth/callback/microsoft",
-      } as Location);
-    const hrefSetter = vi.fn();
-    vi.spyOn(window, "location", "set").mockImplementation((val) =>
-      hrefSetter(val),
-    );
-    // Use defineProperty to capture href assignment
+    // The page assigns window.location.href (a full navigation, so the refresh
+    // cookie is in place before the next request); capture that assignment.
+    const originalLocation = window.location;
     Object.defineProperty(window, "location", {
-      value: { ...window.location, origin: "http://localhost:3000", href: "" },
+      value: { origin: "http://localhost:3000", href: "" },
       writable: true,
       configurable: true,
     });
 
-    render(<MicrosoftCallbackPage />);
-    expect(screen.getByText("Signing you in...")).toBeInTheDocument();
+    try {
+      render(<MicrosoftCallbackPage />);
+      expect(screen.getByText("Signing you in...")).toBeInTheDocument();
 
-    await waitFor(() => {
-      expect(mockPost).toHaveBeenCalledOnce();
+      await waitFor(() => {
+        expect(window.location.href).toBe("/");
+      });
+      expect(mockPost).toHaveBeenCalledExactlyOnceWith(
+        "/auth/sso/microsoft/callback",
+        {
+          code: "auth_code_123",
+          code_verifier: "test_code_verifier",
+          redirect_uri: "http://localhost:3000/auth/callback/microsoft",
+        },
+      );
       expect(mockSetToken).toHaveBeenCalledWith("jwt_token");
-      expect(window.location.href).toBe("/");
-    });
+    } finally {
+      Object.defineProperty(window, "location", {
+        value: originalLocation,
+        writable: true,
+        configurable: true,
+      });
+    }
   });
 
   it("shows error when code exchange fails", async () => {
