@@ -60,7 +60,7 @@
 - [x] `docs/tracking/TESTS.md`, `FEATURES.md`, `CHANGELOG.md`
 
 **Commit checkpoint**
-- [ ] `feat: add backend skeleton with auth, role scope and migration 001` (`make test-backend` and `make lint` green; tool-reference scan clean)
+- [x] `feat: add backend skeleton with auth, role scope and migration 001` (5969dda; 274 tests, ruff and mypy green; tool-reference scan clean)
 
 ### Phase 2: Frontend skeleton
 **Code work**
@@ -123,16 +123,16 @@
 **Commit checkpoint**
 - [ ] `docs: complete sprint 0 audit and handover`
 
->>> CURRENT PHASE: Phase 1 — Backend skeleton
+>>> CURRENT PHASE: Phase 2 — Frontend skeleton
 
 ## Session State (last updated: 2026-10-06 17:03)
 - **Sprint**: 0 — Bootstrap
-- **Current phase**: Phase 1 — Backend skeleton
-- **Phase progress**: 11 of 12 tasks complete (commit checkpoint pending user approval)
+- **Current phase**: Phase 2 — Frontend skeleton (Phase 1 done)
+- **Phase progress**: 12 of 12 tasks complete (Phase 1 committed)
 - **Last completed task**: Phase 1 doc updates (ARCHITECTURE, API, TESTS, FEATURES, CHANGELOG)
-- **Next task**: Phase 1 commit `feat: add backend skeleton with auth, role scope and migration 001` (awaiting user approval), then Phase 2 frontend skeleton
-- **Last commit**: 792d922 "docs: reword dependency pruning task in sprint plan"
-- **Uncommitted changes**: `backend/` (new), `.gitignore`, `docs/ARCHITECTURE.md`, `docs/API.md`, `docs/tracking/{TESTS,FEATURES,CHANGELOG}.md`, `docs/planning/CURRENT-SPRINT.md`
+- **Next task**: Phase 2: copy the frontend from Interview Intelligence and upgrade Next.js to ≥16.2.11
+- **Last commit**: 5969dda "feat: add backend skeleton with auth, role scope and migration 001"
+- **Uncommitted changes**: none (Phase 1 code and docs are in 5969dda)
 - **Blockers**: Teams connector app pending tenant admin approval (external; affects only the exit-gate ticket item)
 - **Tests passing**: 241 unit + 33 integration + 0 frontend = 274
 - **Files created this session**: `backend/` (copied from Interview Intelligence and adapted; new: `app/models/enums.py`, `app/models/register.py`, `app/models/access_log.py`, `app/db/repositories/access_log_repo.py`, `alembic/versions/001_create_initial_schema.py`, `tests/unit/test_entitlements.py`, `tests/unit/test_entitlement_coverage.py`, `tests/integration/test_placement_scope.py`, `tests/integration/test_migrations.py`)
