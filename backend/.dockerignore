@@ -1,0 +1,23 @@
+# Local environments and secrets
+.venv/
+.env
+.env.*
+
+# Caches
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# Tests and local data (not part of the image)
+tests/
+uploads/
+
+# Editor and OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

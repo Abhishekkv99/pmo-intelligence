@@ -81,7 +81,7 @@
 
 ### Phase 3: Local dev and CI
 **Code work**
-- [ ] `docker-compose.yml`, `Makefile` (format fixed, mypy in lint, seed removed), `.env.example`, `.dockerignore`
+- [x] `docker-compose.yml`, `Makefile` (format fixed, mypy in lint, seed removed), `.env.example`, `.dockerignore` (compose db `pmo_intelligence`, ports as II, `docker compose config` valid; Makefile adds `test-e2e`, lint = ruff + `mypy app` / eslint + typecheck + format:check, both pass; `.env.example` lists only what `config.py` reads, copy to `backend/.env`; `backend/` and `frontend/` `.dockerignore`)
 - [ ] Dockerfiles (backend without the WeasyPrint libraries)
 - [ ] `ci.yml`: default token checkout, mypy, e2e with local auth
 - [ ] Deploy workflow: ECR `pmo-intelligence-*`; deploys only after CI succeeds; `develop` deploys to staging
@@ -125,20 +125,20 @@
 
 >>> CURRENT PHASE: Phase 3 — Local dev and CI
 
-## Session State (last updated: 2026-10-06 17:03)
+## Session State (last updated: 2026-10-06 18:10)
 - **Sprint**: 0 — Bootstrap
 - **Current phase**: Phase 3 — Local dev and CI (Phases 1 and 2 done)
-- **Phase progress**: Phase 2 10 of 10 (committed); Phase 3 0 of 6
-- **Last completed task**: Phase 2 commit `feat: add frontend skeleton with SSO sign-in and empty dashboard` (1db2a10)
-- **Next task**: Phase 3 (only when the user asks): `docker-compose.yml`, `Makefile` (format fixed, mypy in lint, seed removed), `.env.example`, `.dockerignore`; pin pnpm 12 and Node 22 in the frontend Dockerfile and CI
-- **Last commit**: 1db2a10 "feat: add frontend skeleton with SSO sign-in and empty dashboard"
-- **Uncommitted changes**: none
-- **Blockers**: Teams connector app pending tenant admin approval (external; affects only the exit-gate ticket item)
-- **Tests passing**: 241 unit + 33 integration (backend) + 86 frontend unit = 360 (e2e: 9 listed, not run locally)
-- **Files created this session**: `backend/` (copied from Interview Intelligence and adapted; new: `app/models/enums.py`, `app/models/register.py`, `app/models/access_log.py`, `app/db/repositories/access_log_repo.py`, `alembic/versions/001_create_initial_schema.py`, `tests/unit/test_entitlements.py`, `tests/unit/test_entitlement_coverage.py`, `tests/integration/test_placement_scope.py`, `tests/integration/test_migrations.py`)
-- **Files modified this session**: `.gitignore` (adopted II's Python/Node/Terraform ignores, tool lines dropped), the docs listed above
-- **Key decisions this session**: queue tiers chat < session < backlog; runners and takeover steps are registered by the owning module (no imports from pipelines into the queue); a placement-id route must carry a placement-scope guard specifically (coverage test); processing_jobs is generic (`kind`, `subject_id`)
-- **Recovery instructions**: Phases 1 and 2 are committed (5969dda, ef19b70, 1db2a10). Start Phase 3 when the user asks: copy II's docker-compose, Makefile, `.env.example`, Dockerfiles and workflows; pnpm 12 / Node 22 per the Decisions Log; first run of the e2e suite against the compose stack. Deleting files needs the user to run the command (the tool permission layer denies `rm`).
+- **Phase progress**: Phase 3 1 of 6
+- **Last completed task**: Phase 3 task 1: `docker-compose.yml`, `Makefile`, `.env.example`, `backend/.dockerignore`, `frontend/.dockerignore`
+- **Next task**: Phase 3 task 2: Dockerfiles. Copy II's backend Dockerfile without the WeasyPrint libraries (keep curl); frontend Dockerfile pins pnpm 12.6.0 (it still says `pnpm@10`); then `docker compose up --build`, `make migrate`, first e2e run
+- **Last commit**: d8e47de "docs: mark phase 2 complete in sprint plan"
+- **Uncommitted changes**: `docker-compose.yml`, `Makefile`, `.env.example`, `backend/.dockerignore`, `frontend/.dockerignore`, `docs/planning/CURRENT-SPRINT.md`, `docs/planning/BACKLOG.md`
+- **Blockers**: Teams connector app pending tenant admin approval (external; affects only the exit-gate ticket item). Local: GNU make not installed yet (user runs `winget install ezwinports.make`); Docker Desktop engine not running
+- **Tests passing**: 241 unit + 33 integration (backend) + 86 frontend unit = 360 (e2e: 9 listed, not run locally); `lint-backend` and `lint-frontend` commands pass
+- **Files created this session**: `docker-compose.yml`, `Makefile`, `.env.example`, `backend/.dockerignore`, `frontend/.dockerignore`
+- **Files modified this session**: `docs/planning/CURRENT-SPRINT.md`, `docs/planning/BACKLOG.md` (mypy-on-tests tech debt)
+- **Key decisions this session**: make via winget; compose ports as II; lint gates as CI; one `.dockerignore` per build context; mypy over `app` only (see Decisions Log)
+- **Recovery instructions**: Phase 3 task 1 is written (commit pending or done, check `git log`). Next: Dockerfiles, then `ci.yml` and the deploy workflow, then README/ARCHITECTURE/CHANGELOG and the phase commit. The image does not run migrations; run `make migrate` from the host against port 5432. Deleting files needs the user to run the command (the tool permission layer denies `rm`).
 
 ## Decisions Log
 | Decision | Rationale |
@@ -165,3 +165,7 @@
 | Admin link hidden from non-global roles; `/admin` shows them a no-access message and never requests the queue | User decision 2026-10-06; the backend answers 403 to them |
 | Admin page keeps II's `ProcessingStatusPanel` (pmo_manager/admin only); generic helpers kept, `score-utils` deleted | User decision 2026-10-06; the backend already serves `/processing/status`; the risk board and actions need the helpers; score-utils' 0.7/0.4 cutoffs conflict with the configured RAG thresholds |
 | Next.js 16.3.8 (latest 16.x on 2026-10-06), React kept at 19.2.3 | Clears the 16.0.0–16.2.10 CVEs; React 19.2.3 is within Next's peer range, so no React upgrade in Sprint 0 |
+| GNU make installed locally with `winget install ezwinports.make`; the Makefile stays POSIX (Git Bash locally, Ubuntu in CI) | User decision 2026-10-06; make was not on the Windows dev machine; one Makefile, no PowerShell twin |
+| Compose host ports as II: 5432 (db), 8000 (api), 3000 (web) | User decision 2026-10-06; matches the config defaults, the SSO redirect URI and Playwright; the two stacks cannot run at once |
+| `make lint` frontend = eslint + typecheck + format:check; backend = ruff check + ruff format --check + `mypy app` | User decision 2026-10-06; the same gates CI runs. mypy covers `app` only: `app tests` has 57 errors in 8 test files (tech debt) |
+| One `.dockerignore` per build context (`backend/`, `frontend/`), tests excluded from images | User decision 2026-10-06; compose builds from `./backend` and `./frontend`, so a root file would not apply |

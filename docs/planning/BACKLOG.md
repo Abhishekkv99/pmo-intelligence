@@ -25,3 +25,4 @@ From the PRD, "Decisions needed before Sprint 1". Each one changes the data mode
 ## Low Priority
 
 ## Tech Debt
+- [ ] Make the backend tests pass mypy strict (`uv run mypy app tests`: 57 errors in 8 test files, e.g. `tests/unit/test_llm_factory.py`), then widen `make lint` and CI to `app tests`
