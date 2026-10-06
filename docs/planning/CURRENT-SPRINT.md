@@ -77,7 +77,7 @@
 - [x] `TESTS.md`, `FEATURES.md`, `CHANGELOG.md`
 
 **Commit checkpoint**
-- [ ] `feat: add frontend skeleton with SSO sign-in and empty dashboard` (tests, lint, typecheck and build green)
+- [x] `feat: add frontend skeleton with SSO sign-in and empty dashboard` (ef19b70 + 1db2a10; typecheck 0, 86 unit tests, lint clean, format:check clean, build green; e2e listed, not run until Phase 3)
 
 ### Phase 3: Local dev and CI
 **Code work**
@@ -123,22 +123,22 @@
 **Commit checkpoint**
 - [ ] `docs: complete sprint 0 audit and handover`
 
->>> CURRENT PHASE: Phase 2 — Frontend skeleton
+>>> CURRENT PHASE: Phase 3 — Local dev and CI
 
 ## Session State (last updated: 2026-10-06 17:03)
 - **Sprint**: 0 — Bootstrap
-- **Current phase**: Phase 2 — Frontend skeleton (Phase 1 done)
-- **Phase progress**: 9 of 10 tasks complete (phase commit pending user approval)
-- **Last completed task**: Phase 2 doc updates (ARCHITECTURE "Frontend (as built)" with the auth flow; TESTS with per-file counts from the run; FEATURES; CHANGELOG)
-- **Next task**: Phase 2 commit `feat: add frontend skeleton with SSO sign-in and empty dashboard` (awaiting user approval), then stop; Phase 3 (local dev and CI) only when the user asks
-- **Last commit**: ef19b70 "feat: prune frontend to the PMO shell with role-based navigation and formatting tooling" (Phase 2 tasks 1–6; the phase commit follows after tests and docs)
-- **Uncommitted changes**: frontend tests (AuthProvider, callback, EmptyState, ErrorFallback, useScrollRestore, api, e2e auth setup/spec), `docs/ARCHITECTURE.md`, `docs/tracking/{TESTS,FEATURES,CHANGELOG}.md`, `docs/planning/CURRENT-SPRINT.md`
+- **Current phase**: Phase 3 — Local dev and CI (Phases 1 and 2 done)
+- **Phase progress**: Phase 2 10 of 10 (committed); Phase 3 0 of 6
+- **Last completed task**: Phase 2 commit `feat: add frontend skeleton with SSO sign-in and empty dashboard` (1db2a10)
+- **Next task**: Phase 3 (only when the user asks): `docker-compose.yml`, `Makefile` (format fixed, mypy in lint, seed removed), `.env.example`, `.dockerignore`; pin pnpm 12 and Node 22 in the frontend Dockerfile and CI
+- **Last commit**: 1db2a10 "feat: add frontend skeleton with SSO sign-in and empty dashboard"
+- **Uncommitted changes**: none
 - **Blockers**: Teams connector app pending tenant admin approval (external; affects only the exit-gate ticket item)
 - **Tests passing**: 241 unit + 33 integration (backend) + 86 frontend unit = 360 (e2e: 9 listed, not run locally)
 - **Files created this session**: `backend/` (copied from Interview Intelligence and adapted; new: `app/models/enums.py`, `app/models/register.py`, `app/models/access_log.py`, `app/db/repositories/access_log_repo.py`, `alembic/versions/001_create_initial_schema.py`, `tests/unit/test_entitlements.py`, `tests/unit/test_entitlement_coverage.py`, `tests/integration/test_placement_scope.py`, `tests/integration/test_migrations.py`)
 - **Files modified this session**: `.gitignore` (adopted II's Python/Node/Terraform ignores, tool lines dropped), the docs listed above
 - **Key decisions this session**: queue tiers chat < session < backlog; runners and takeover steps are registered by the owning module (no imports from pipelines into the queue); a placement-id route must carry a placement-scope guard specifically (coverage test); processing_jobs is generic (`kind`, `subject_id`)
-- **Recovery instructions**: Phase 2 tasks 1–6 are committed in ef19b70 (frontend in `frontend/`, pnpm 12, Next 16.3.8). Next: rewrite the AuthProvider and callback tests, refresh interview-flavoured sample data in the generic tests, and rewrite the e2e auth specs (they still visit `/dashboard` and `/interviews`); then the Phase 2 doc updates and the phase commit. Deleting files needs the user to run the command (the tool permission layer denies `rm`).
+- **Recovery instructions**: Phases 1 and 2 are committed (5969dda, ef19b70, 1db2a10). Start Phase 3 when the user asks: copy II's docker-compose, Makefile, `.env.example`, Dockerfiles and workflows; pnpm 12 / Node 22 per the Decisions Log; first run of the e2e suite against the compose stack. Deleting files needs the user to run the command (the tool permission layer denies `rm`).
 
 ## Decisions Log
 | Decision | Rationale |
