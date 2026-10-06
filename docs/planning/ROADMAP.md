@@ -1,0 +1,44 @@
+# Product Roadmap
+
+Six phases, each one or two sprints, each ending with a staging sign-off by the PMO manager before the next starts.
+
+## Milestone 0: Bootstrap (Sprint 0)
+- [ ] Project skeleton and tooling (stack copied from Interview Intelligence: queue, ownership lock, LLM factory, auth, CI, Docker, Terraform)
+- [ ] SSO sign-in with roles
+- [ ] Empty dashboard deployed to staging
+- [ ] Graph app registration created and the Teams permission request submitted
+- **Exit gate**: staging URL signs in; CI green; the permission request has a ticket number
+
+## Milestone 1: Register and Sessions
+- [ ] Placement register (admin pages, CSV import)
+- [ ] Session ingestion: upload, URL and S3 folder; transcription
+- [ ] Session pipeline and session page
+- **Exit gate**: three real recorded PMO calls processed end to end; the PMO manager agrees the signals and summary are right
+
+## Milestone 2: Health v1
+- [ ] Signal store, scoring module, snapshots, triggers, flags
+- [ ] Risk board and consultant page
+- [ ] Daily recompute
+- **Exit gate**: ten placements scored from their sessions; the PMO manager agrees with the ranking, or the weights are tuned until they do
+
+## Milestone 3: Teams Chat
+- [ ] Graph connector (RSC or application permission), poller, message store
+- [ ] Chat pipeline and cadence tracking; messages on the timeline
+- [ ] Gone-quiet and missed-commitment triggers
+- **Exit gate**: one real group watched for a week; new posts appear within 5 minutes; no message read outside the watched groups
+
+## Milestone 4: Alerts and Actions
+- [ ] SES alerts (immediate, daily digest, weekly summary)
+- [ ] Actions page; flag closing with notes
+- [ ] Access log view
+- **Exit gate**: alerts received for a staged red placement; a PS closes a flag and it shows on the board
+
+## Milestone 5: Production and Tuning
+- [ ] Production deploy; consultant notice issued
+- [ ] Retention job
+- [ ] Monthly review of flags against outcomes
+- [ ] Teams meeting recordings and transcripts through Graph (if calls are held in Teams)
+- **Exit gate**: live for every active placement; first monthly review done
+
+## Later (not version 1)
+- [ ] Forecast of early-termination probability, learned from closed placements with recorded outcomes
