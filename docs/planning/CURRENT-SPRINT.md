@@ -83,7 +83,7 @@
 **Code work**
 - [x] `docker-compose.yml`, `Makefile` (format fixed, mypy in lint, seed removed), `.env.example`, `.dockerignore` (compose db `pmo_intelligence`, ports as II, `docker compose config` valid; Makefile adds `test-e2e`, lint = ruff + `mypy app` / eslint + typecheck + format:check, both pass; `.env.example` lists only what `config.py` reads, copy to `backend/.env`; `backend/` and `frontend/` `.dockerignore`)
 - [x] Dockerfiles (backend without the WeasyPrint libraries) (backend: II's minus WeasyPrint, uv 0.9.18; frontend: pnpm 12.6.0, copies `pnpm-workspace.yaml`, `HOSTNAME=0.0.0.0` so the in-container health check reaches the server; `docker compose up --build` all healthy, `make migrate` applied 001, first e2e run 9/9 after fixing an ambiguous heading locator in `auth.spec.ts`)
-- [ ] `ci.yml`: default token checkout, mypy, e2e with local auth
+- [x] `ci.yml`: default token checkout, mypy, e2e with local auth (`.github/workflows/ci.yml`: latest action majors, uv 0.9.18, pnpm from `packageManager`, Node 22; backend ruff + `mypy app` + unit + integration; frontend eslint + typecheck + format:check + vitest + build; e2e on the compose stack; path filters; actionlint clean; first GitHub run on the phase push)
 - [ ] Deploy workflow: ECR `pmo-intelligence-*`; deploys only after CI succeeds; `develop` deploys to staging
 
 **Doc updates (concurrent)**
@@ -128,14 +128,14 @@
 ## Session State (last updated: 2026-10-07 09:40)
 - **Sprint**: 0 — Bootstrap
 - **Current phase**: Phase 3 — Local dev and CI (Phases 1 and 2 done)
-- **Phase progress**: Phase 3 2 of 6
-- **Last completed task**: Phase 3 task 2: Dockerfiles; compose stack built and healthy, migration 001 applied, e2e 9/9
-- **Next task**: Phase 3 task 3: `.github/workflows/ci.yml` from II: default `GITHUB_TOKEN` checkout, uv 0.9.18, pnpm 12.6.0 / Node 22, `make lint` gates (ruff, `mypy app`, eslint, typecheck, format:check), backend unit + integration, frontend unit, e2e against compose with local auth
-- **Last commit**: ffecbab "fix: list targets with digits in make help"
-- **Uncommitted changes**: `backend/Dockerfile` (new), `frontend/Dockerfile`, `frontend/tests/e2e/auth.spec.ts`, `docs/planning/CURRENT-SPRINT.md`
-- **Blockers**: Teams connector app pending tenant admin approval (external; affects only the exit-gate ticket item)
+- **Phase progress**: Phase 3 3 of 6
+- **Last completed task**: Phase 3 task 3: `.github/workflows/ci.yml` (actionlint clean)
+- **Next task**: Phase 3 task 4: deploy workflow from II's `build-push.yml`: ECR `pmo-intelligence-*`, runs only after CI succeeds (`workflow_run`), `develop` deploys to staging
+- **Last commit**: 46ea4b7 "chore: add backend dockerfile and pin pnpm 12 in the frontend image"
+- **Uncommitted changes**: `.github/workflows/ci.yml` (new), `docs/planning/CURRENT-SPRINT.md`
+- **Blockers**: Teams connector app pending tenant admin approval (external; affects only the exit-gate ticket item). Push: the repo exists (private, `main` + `develop`, owner `Abhishekkv99`) but plain `git` credentials cannot see it (`git ls-remote` → not found; active `gh` account is `abhishekitc`); fix before the Phase 3 push
 - **Tests passing**: 241 unit + 33 integration (backend) + 86 frontend unit + 9 e2e (first local run against compose) = 369; `make lint` passes
-- **Files created this session**: `docker-compose.yml`, `Makefile`, `.env.example`, `backend/.dockerignore`, `frontend/.dockerignore`, `backend/Dockerfile`
+- **Files created this session**: `docker-compose.yml`, `Makefile`, `.env.example`, `backend/.dockerignore`, `frontend/.dockerignore`, `backend/Dockerfile`, `.github/workflows/ci.yml`
 - **Files modified this session**: `frontend/Dockerfile`, `frontend/tests/e2e/auth.spec.ts`, `docs/planning/CURRENT-SPRINT.md`, `docs/planning/BACKLOG.md`
 - **Key decisions this session**: make via winget; compose ports as II; lint gates as CI; one `.dockerignore` per build context; mypy over `app` only; uv 0.9.18 pinned (see Decisions Log)
 - **Recovery instructions**: Phase 3 tasks 1–2 written (54f9ee1, ffecbab, then the Dockerfile commit; check `git log`). Local stack: `make dev-build` (or `docker compose up -d --build`), `make migrate`, `make test-e2e`. make lives at `%LOCALAPPDATA%\Microsoft\WinGet\Packages\ezwinports.make_*\bin` (on the user PATH; a shell opened before the install needs it prepended). Next: `ci.yml`, deploy workflow, then README/ARCHITECTURE/CHANGELOG and the phase commit. Deleting files needs the user to run the command (the tool permission layer denies `rm`).
@@ -169,4 +169,7 @@
 | Compose host ports as II: 5432 (db), 8000 (api), 3000 (web) | User decision 2026-10-06; matches the config defaults, the SSO redirect URI and Playwright; the two stacks cannot run at once |
 | `make lint` frontend = eslint + typecheck + format:check; backend = ruff check + ruff format --check + `mypy app` | User decision 2026-10-06; the same gates CI runs. mypy covers `app` only: `app tests` has 57 errors in 8 test files (tech debt) |
 | uv pinned to exactly 0.9.18 in the backend Dockerfile (`ghcr.io/astral-sh/uv:0.9.18`) and in CI | User decision 2026-10-07; `uv.lock` is revision 3, written by local uv 0.9.18; II's `uv:0.6` predates that format. Bumped deliberately, like pnpm 12.6.0 |
+| CI uses the latest action majors: checkout v7, setup-node v7, upload-artifact v7, setup-uv v10, pnpm/action-setup v6, paths-filter v4 | User decision 2026-10-07; all on the node24 runtime (II's v4-era pins run on node20, being retired) |
+| CI e2e runs against the docker compose stack (images built in the job, migrations from the runner, then Playwright) | User decision 2026-10-07; same path as `make dev-build` + `make migrate` + `make test-e2e`, and it exercises the Dockerfiles (the HOSTNAME bug would have been caught) |
+| CI keeps II's path filters (backend, frontend; e2e on either, plus compose and the workflow) | User decision 2026-10-07; docs-only pushes run nothing and CI still succeeds, so the deploy gate passes |
 | One `.dockerignore` per build context (`backend/`, `frontend/`), tests excluded from images | User decision 2026-10-06; compose builds from `./backend` and `./frontend`, so a root file would not apply |

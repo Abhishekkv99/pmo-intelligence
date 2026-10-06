@@ -1,0 +1,186 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+concurrency:
+  group: ci-${{ github.head_ref || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  changes:
+    name: Detect Changes
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+      stack: ${{ steps.filter.outputs.stack }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dorny/paths-filter@v4
+        id: filter
+        with:
+          filters: |
+            backend:
+              - 'backend/**'
+              - '.github/workflows/ci.yml'
+            frontend:
+              - 'frontend/**'
+              - '.github/workflows/ci.yml'
+            stack:
+              - 'docker-compose.yml'
+
+  backend-ci:
+    name: Backend CI
+    needs: changes
+    if: ${{ needs.changes.outputs.backend == 'true' }}
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: astral-sh/setup-uv@v10
+        with:
+          version: "0.9.18"
+          python-version: "3.12"
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --frozen --dev
+
+      - name: Lint (ruff check)
+        run: uv run ruff check .
+
+      - name: Format check (ruff format)
+        run: uv run ruff format --check .
+
+      - name: Type check (mypy strict)
+        run: uv run mypy app
+
+      - name: Unit tests
+        run: uv run pytest tests/unit -v
+
+      # testcontainers starts a pgvector/pgvector:pg16 container via the
+      # runner's Docker daemon; nothing else to provision.
+      - name: Integration tests
+        run: uv run pytest tests/integration -v
+
+  frontend-ci:
+    name: Frontend CI
+    needs: changes
+    if: ${{ needs.changes.outputs.frontend == 'true' }}
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v7
+
+      # The pnpm version comes from the packageManager field in package.json
+      - uses: pnpm/action-setup@v6
+        with:
+          package_json_file: frontend/package.json
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint (eslint)
+        run: pnpm lint
+
+      - name: Type check (tsc)
+        run: pnpm typecheck
+
+      - name: Format check (prettier)
+        run: pnpm format:check
+
+      - name: Unit tests (vitest)
+        run: pnpm test
+
+      - name: Build
+        run: pnpm build
+
+  e2e-tests:
+    name: E2E Tests (Playwright)
+    needs: changes
+    if: ${{ needs.changes.outputs.backend == 'true' || needs.changes.outputs.frontend == 'true' || needs.changes.outputs.stack == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      # ── Stack: the same images and compose file as `make dev-build` ──
+      # docker-compose.yml keeps LOCAL_AUTH_ENABLED=true on the backend.
+      # Staging and production are Microsoft SSO only; the E2E suite cannot do
+      # an interactive Microsoft sign-in, so it signs in through the API.
+      - name: Build and start the stack
+        run: docker compose up -d --build --wait --wait-timeout 300
+
+      # ── Migrations, from the runner as `make migrate` does ──
+      - uses: astral-sh/setup-uv@v10
+        with:
+          version: "0.9.18"
+          python-version: "3.12"
+          enable-cache: true
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: uv sync --frozen --dev
+
+      - name: Run database migrations
+        working-directory: backend
+        run: uv run alembic upgrade head
+
+      # ── Playwright ──
+      - uses: pnpm/action-setup@v6
+        with:
+          package_json_file: frontend/package.json
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright browsers
+        working-directory: frontend
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Run Playwright E2E tests
+        working-directory: frontend
+        run: pnpm exec playwright test
+
+      - name: Stack logs
+        if: ${{ failure() }}
+        run: docker compose logs --no-color
+
+      - name: Upload Playwright report
+        uses: actions/upload-artifact@v7
+        if: ${{ !cancelled() }}
+        with:
+          name: playwright-report
+          path: frontend/playwright-report/
+          retention-days: 30
+
+      - name: Stop the stack
+        if: ${{ always() }}
+        run: docker compose down -v
