@@ -1,6 +1,6 @@
 # Architecture Overview
 
-> **Status**: planned design from `docs/PRD.md`. Nothing below is implemented yet; update each section to the current state as it is built.
+> **Status**: Sprint 0 in progress. **Built**: the backend skeleton (see "Backend (as built)"), with migration 001. Everything else is the planned design from `docs/PRD.md`; update each section as it is built.
 
 ## System Design
 PMO Intelligence has 3 inputs, 1 queue, 2 pipelines and 1 health model. Every input becomes a signal, and every placement gets one health reading.
@@ -18,6 +18,32 @@ Recordings and chat both pass through the one processing queue into their pipeli
 It uses the same stack as Interview Intelligence in a new repository, with three new pieces: a Microsoft Graph connector for Teams, the signal store with the health model, and a dashboard built around people rather than recordings.
 
 **What is deliberately not shared**: no shared database, no shared service code at runtime, no monorepo. Files worth copying (the processing queue, the ownership lock, the LLM factory, the entitlement helper shape, the test conftests) are copied in and allowed to diverge.
+
+## Backend (as built)
+FastAPI app in `backend/app/`, layered routes → services → repositories → models.
+
+| Area | Path | Notes |
+|------|------|-------|
+| App and lifespan | `app/main.py` | Startup: bootstrap-admin grant, then the processing takeover in a background task. Shutdown: queue stop, then lock release. |
+| Settings | `app/config.py` | `pydantic-settings`, env vars or `.env` |
+| Routes | `app/api/v1/{health,auth,processing}.py` | See `docs/API.md` |
+| Entitlement | `app/utils/entitlements.py`, `app/dependencies.py` | Role model below; guards `require_roles`, `require_placement_scope`, `require_logged_placement_scope` |
+| Enumerations | `app/models/enums.py` | `Role`, `GLOBAL_ROLES`, `ConsultantStatus`, `ExtensionStatus`, `PlacementStatus`, `JobStatus`; stored as strings with CHECK constraints |
+| Models | `app/models/` | `user`, `refresh_token`, `register` (consultants, clients, projects, placements), `access_log`, `processing_job`, `processing_cost` |
+| Processing queue | `app/services/processing_queue.py` | Priority queue, N workers; tiers `CHAT_PRIORITY` < `SESSION_PRIORITY` < `BACKLOG_PRIORITY`; dedup on `(kind, id)`; runners registered per kind (`register_runner`) |
+| Ownership lock | `app/services/processing_ownership.py` | Postgres advisory lock on an AUTOCOMMIT connection, 30 s heartbeat; takeover steps registered (`register_takeover_sweep` before start, `register_takeover_requeue` after) |
+| LLM factory | `app/ai/llm_factory.py` | Cached Azure OpenAI chat and embedding clients with a finite timeout (300 s) |
+| Cost tracker | `app/services/cost_tracker.py` | Pure cost functions for LLM, embedding and transcription calls |
+| Auth | `app/api/v1/auth.py`, `app/services/{auth,sso}_service.py` | Entra ID SSO (authorization code + PKCE, code exchanged by the backend); local password auth only when `LOCAL_AUTH_ENABLED` (dev and CI) |
+| Migrations | `alembic/versions/001_create_initial_schema.py` | Async Alembic; enables pgvector |
+
+**Role model**:
+- `users.role` is nullable, one of `pmo_manager | sme | tech_lead | ps | admin`.
+- `pmo_manager` and `admin` read every placement.
+- `sme`, `tech_lead` and `ps` read the placements that name them (`placements.ps_user_id`, `placements.sme_user_id`, `projects.tech_lead_user_id`).
+- `NULL` (a newly provisioned SSO account) reads nothing.
+- A denied by-id read answers 404, identical to a missing row, and logs a WARNING with user id and role.
+- `BOOTSTRAP_ADMIN_EMAILS` raises listed users to `pmo_manager` at startup and at first sign-in (elevate-only).
 
 ## Component Architecture
 | Component | Technology | Responsibility | Reuse or new |
@@ -64,3 +90,11 @@ The placement is the unit of health; the consultant, the client and the project 
 | access_log | user_id, placement_id, route, at | Who looked at whom |
 
 **Open before the first migration**: does a Teams group map to a placement or a project (a project group with two consultants needs the author's identity to attribute a message), and is the register owned here or imported from the PS team's system of record? These are BACKLOG questions 1 and 3.
+
+**Built in migration 001 (Sprint 0)**: `users`, `refresh_tokens`, `consultants`, `clients`, `projects`, `placements`, `processing_jobs`, `processing_costs`, `access_log`, plus the `vector` extension. Differences from the draft above:
+- `users`: no `branch`/`access_level` (UK only); `role` is nullable.
+- `processing_jobs` is generic: `kind`, `subject_id` (no foreign key; the subject's table depends on `kind`), `status`, `stage`, `started_at`, `completed_at`, `error_message`, `retry_count`.
+- `processing_costs.session_id` and `message_id` have no foreign keys yet; they are added when `sessions` and `messages` arrive.
+- `access_log` carries `created_at`/`updated_at` as well as `at`; its index is on (`placement_id`, `at`).
+- `consultants.status` defaults to `placed`; `placements.extension_status` defaults to `not_due` and `status` to `active`.
+- Every enumerated column has a CHECK constraint built from `app/models/enums.py`.

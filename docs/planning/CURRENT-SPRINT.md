@@ -45,19 +45,19 @@
 
 ### Phase 1: Backend skeleton
 **Code work**
-- [ ] Copy the generic backend files as-is (pyproject/uv.lock, alembic env, db session and base repository, user and refresh-token models, LLM factory, cost tracker, exceptions, memory, security middleware, rate limiter, auth routes and services, health and processing-status routes)
-- [ ] Rewrite `processing_queue.py` (generic core with an injected runner registry) and `processing_ownership.py` (injectable sweeps)
-- [ ] Rewrite `dependencies.py`, `main.py` (lifespan: bootstrap admins, then `hold_processing`), `config.py` (PMO names) and `api/router.py`
-- [ ] Role model: nullable `users.role` (`pmo_manager | sme | tech_lead | ps | admin`); bootstrap admins raised to `pmo_manager`; new SSO users get no role
-- [ ] Scope foundation: `Principal`, `require_placement_scope` (404 plus a WARNING), `access_log` writer, route-coverage test
-- [ ] Migration 001: vector extension plus users, refresh_tokens, consultants, clients, projects, placements, processing_jobs, processing_costs, access_log
-- [ ] Prune dependencies (drop the unused second LLM SDK and the report/teams-matching libraries: fpdf2, weasyprint, rapidfuzz, markdown, xlsxwriter) and run `uv lock`
-- [ ] Tests: adapt both conftests and the kept II tests; add entitlement, coverage, access-log and migration smoke tests; mypy strict passes
+- [x] Copy the generic backend files as-is (pyproject/uv.lock, alembic env, db session and base repository, user and refresh-token models, LLM factory, cost tracker, exceptions, memory, security middleware, rate limiter, auth routes and services, health and processing-status routes)
+- [x] Rewrite `processing_queue.py` (generic core with an injected runner registry) and `processing_ownership.py` (injectable sweeps)
+- [x] Rewrite `dependencies.py`, `main.py` (lifespan: bootstrap admins, then `hold_processing`), `config.py` (PMO names) and `api/router.py`
+- [x] Role model: nullable `users.role` (`pmo_manager | sme | tech_lead | ps | admin`); bootstrap admins raised to `pmo_manager`; new SSO users get no role
+- [x] Scope foundation: `Principal`, `require_placement_scope` (404 plus a WARNING), `access_log` writer, route-coverage test
+- [x] Migration 001: vector extension plus users, refresh_tokens, consultants, clients, projects, placements, processing_jobs, processing_costs, access_log
+- [x] Prune dependencies (drop the unused second LLM SDK and the report/teams-matching libraries: fpdf2, weasyprint, rapidfuzz, markdown, xlsxwriter) and run `uv lock`
+- [x] Tests: adapt both conftests and the kept II tests; add entitlement, coverage, access-log and migration smoke tests; mypy strict passes
 
 **Doc updates (concurrent)**
-- [ ] `docs/ARCHITECTURE.md`: backend layout, role model, migration 001 as built
-- [ ] `docs/API.md`: health, auth, processing-status endpoints
-- [ ] `docs/tracking/TESTS.md`, `FEATURES.md`, `CHANGELOG.md`
+- [x] `docs/ARCHITECTURE.md`: backend layout, role model, migration 001 as built
+- [x] `docs/API.md`: health, auth, processing-status endpoints
+- [x] `docs/tracking/TESTS.md`, `FEATURES.md`, `CHANGELOG.md`
 
 **Commit checkpoint**
 - [ ] `feat: add backend skeleton with auth, role scope and migration 001` (`make test-backend` and `make lint` green; tool-reference scan clean)
@@ -125,20 +125,20 @@
 
 >>> CURRENT PHASE: Phase 1 — Backend skeleton
 
-## Session State (last updated: 2026-10-06 16:30)
+## Session State (last updated: 2026-10-06 17:03)
 - **Sprint**: 0 — Bootstrap
 - **Current phase**: Phase 1 — Backend skeleton
-- **Phase progress**: 0 of 8 tasks complete
-- **Last completed task**: Sprint 0 plan approved and written here
-- **Next task**: Phase 1: copy the generic backend files from Interview Intelligence
-- **Last commit**: 87c71ff "chore: add Teams Graph access setup scripts and app package"
-- **Uncommitted changes**: this plan
+- **Phase progress**: 11 of 12 tasks complete (commit checkpoint pending user approval)
+- **Last completed task**: Phase 1 doc updates (ARCHITECTURE, API, TESTS, FEATURES, CHANGELOG)
+- **Next task**: Phase 1 commit `feat: add backend skeleton with auth, role scope and migration 001` (awaiting user approval), then Phase 2 frontend skeleton
+- **Last commit**: 792d922 "docs: reword dependency pruning task in sprint plan"
+- **Uncommitted changes**: `backend/` (new), `.gitignore`, `docs/ARCHITECTURE.md`, `docs/API.md`, `docs/tracking/{TESTS,FEATURES,CHANGELOG}.md`, `docs/planning/CURRENT-SPRINT.md`
 - **Blockers**: Teams connector app pending tenant admin approval (external; affects only the exit-gate ticket item)
-- **Tests passing**: 0 unit + 0 integration + 0 frontend = 0 (no code yet)
-- **Files created this session**: none yet in Sprint 0
-- **Files modified this session**: `docs/planning/CURRENT-SPRINT.md`, `docs/planning/BACKLOG.md`
-- **Key decisions this session**: see User Decisions Made
-- **Recovery instructions**: Work on `develop`. Source repo `E:\E Projects\Interview Intelligence Platform`. Never copy its `infra/terraform.tfstate*`, `terraform.tfvars` or `.terraform/`. Start Phase 1 with the "copy as-is" files, then the rewrites.
+- **Tests passing**: 241 unit + 33 integration + 0 frontend = 274
+- **Files created this session**: `backend/` (copied from Interview Intelligence and adapted; new: `app/models/enums.py`, `app/models/register.py`, `app/models/access_log.py`, `app/db/repositories/access_log_repo.py`, `alembic/versions/001_create_initial_schema.py`, `tests/unit/test_entitlements.py`, `tests/unit/test_entitlement_coverage.py`, `tests/integration/test_placement_scope.py`, `tests/integration/test_migrations.py`)
+- **Files modified this session**: `.gitignore` (adopted II's Python/Node/Terraform ignores, tool lines dropped), the docs listed above
+- **Key decisions this session**: queue tiers chat < session < backlog; runners and takeover steps are registered by the owning module (no imports from pipelines into the queue); a placement-id route must carry a placement-scope guard specifically (coverage test); processing_jobs is generic (`kind`, `subject_id`)
+- **Recovery instructions**: Phase 1 code and docs are complete and verified (ruff, mypy strict, 274 tests). Commit them, then start Phase 2 by copying the II frontend (without `.next`, `node_modules`, tsbuildinfo) and upgrading Next.js to ≥16.2.11.
 
 ## Decisions Log
 | Decision | Rationale |
