@@ -127,6 +127,7 @@ AWS account **ITC Sandbox PD Intelligence (`260172548683`)**, eu-west-2. Nothing
 - **Egress**: tasks run in public subnets with a public IPv4 each (no NAT) to reach Azure OpenAI, AssemblyAI, Entra, ECR and CloudWatch. S3 traffic goes through the gateway endpoint.
 - **Database isolation**: staging has its own instance. Production gets another at product Phase 5. The app will connect as `pmo_app`, not the master user (database bootstrap, Phase 4).
 - **Protection**: `prevent_destroy` on the RDS instance (which also has deletion protection and a final snapshot), the media bucket, the app secret, the hosted zone and the state bucket. Everything else can be recreated.
+- **Azure OpenAI** (`infra/azure/`): PMO's own resource group `rg-pmo-intelligence-swc` and resource `oai-pmo-intelligence-swc` in Sweden Central, with Data Zone Standard deployments per environment (`gpt-5.4-mini-<env>`, `text-embedding-3-small-<env>`). Prompt processing stays in the EU data zone, and cost is tracked per resource group. AssemblyAI uses a PMO-only API key.
 
 ## Component Architecture
 | Component | Technology | Responsibility | Reuse or new |

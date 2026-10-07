@@ -104,6 +104,7 @@
 - [x] Own RDS PostgreSQL 16 instance for staging: `db.t4g.micro`, single-AZ, 20 GB gp3, private subnets, security group open only to the backend tasks; production gets its own instance at product Phase 5 (done: `pmo-intelligence-staging`, created in 9 min)
 - [x] Per product: ECS cluster, 2 ALBs, security groups, target groups, 2 ACM certificates, 2 DNS records (alias in the delegated zones), ECR, task definitions with migration init, services, log groups, 2 secrets, S3 bucket, IAM roles (OIDC role for `Abhishekkv99/pmo-intelligence`) (staging done via `infra/modules/environment/`; prod at product Phase 5)
 - [x] `scripts/db_bootstrap.py` (one-off ECS task): PMO databases on PMO's own instance, a `pmo_app` login role, the vector extension (written 2026-10-07 as `backend/app/cli/db_bootstrap.py` + `scripts/db-bootstrap.sh` + `make db-bootstrap`; Terraform task definition and roles in `infra/modules/environment/db_bootstrap.tf` planned: 7 to add; 11 unit + 5 integration tests pass; applied and run on staging 2026-10-07: `pmo_app` created, owns `pmo_intelligence`, `DATABASE_URL` written; backend redeployed, migration 001 ran as `pmo_app`)
+- [ ] (Discovered 2026-10-08) Azure OpenAI for PMO as Terraform (`infra/azure/`): own resource group `rg-pmo-intelligence-swc` and resource `oai-pmo-intelligence-swc` (Sweden Central), Data Zone Standard deployments `gpt-5.4-mini-staging` and `text-embedding-3-small-staging` at 50K TPM (planned: 4 to add)
 - [ ] Expiry reminders: SNS email topic plus EventBridge Scheduler (`credential_expiries`)
 - [x] `terraform plan` reviewed with the user; on explicit approval, apply the shared and staging resources (prod behind a variable, applied at Phase 5 of the product) (bootstrap, shared and staging plans reviewed and applied with approval 2026-10-07)
 
@@ -130,12 +131,12 @@
 
 >>> CURRENT PHASE: Phase 4 — Infrastructure as code (staging live and healthy; expiry reminders and Phase 4 docs left)
 
-## Session State (last updated: 2026-10-07 17:55)
+## Session State (last updated: 2026-10-08 10:15)
 - **Sprint**: 0 — Bootstrap
 - **Current phase**: Phase 4 — Infrastructure as code (Phases 1–3 done)
 - **Phase progress**: Phase 4 8 of 9 code tasks (left: expiry reminders)
-- **Last completed task**: deploy role trusts the immutable OIDC subject (applied); failed deploy job of run 37652113409 re-run green (backend image built and deployed by CI); `make db-bootstrap ENV=staging` exit 0; backend redeployed; `https://pmo-intelligence-staging.itcapp.ai/api/v1/health` 200, `/login` 200
-- **Next task**: the user fills the app secret's Azure OpenAI and AssemblyAI values (Entra at Phase 5); expiry reminders (SNS + EventBridge Scheduler, design questions first); Phase 4 doc and CHANGELOG close-out and the phase commit
+- **Last completed task**: Azure OpenAI Terraform written and planned (4 to add); staging healthy since 2026-10-07
+- **Next task**: commit, then apply `infra/azure/` with approval; fill the app secret's Azure OpenAI values (key never in chat) and a PMO-only AssemblyAI key; redeploy the backend; expiry reminders; Phase 4 close-out
 - **Last commit**: 2b28a77 "feat: add the database bootstrap as a one-off ecs task" (pushed)
 - **Uncommitted changes**: none
 - **Blockers**: Teams connector app pending tenant admin approval (external; affects only the exit-gate ticket item). Push: the repo is private under `Abhishekkv99`; the default git login and the active `gh` account (`abhishekitc`) cannot see it. User decision 2026-10-07: do not change the default git login or the active `gh` account; push with `Abhishekkv99`'s token for that one command only (`git -c credential.helper= -c credential.helper='!f() { echo username=x-access-token; echo "password=$(gh auth token --user Abhishekkv99)"; }; f' push origin develop`). AWS: run `aws sso login --profile pmo-intelligence` when the session expires
@@ -180,6 +181,11 @@
 | The bootstrap generates `pmo_app`'s password and writes `DATABASE_URL` into the app secret itself; only the bootstrap task's roles may read the RDS master secret and write the app secret | User decision 2026-10-07; no person sees the password, and the running app cannot rewrite its own secret |
 | Bootstrap re-runs are idempotent and keep the password; `--rotate-password` rotates it and rewrites the secret (then the backend needs a redeploy) | User decision 2026-10-07 |
 | `pmo_app` owns the database and its `public` schema (the migration init container runs DDL with the same URL); no superuser; the master user creates the `vector` extension | User decision 2026-10-07; a separate migration role was offered and declined |
+| **Azure OpenAI for PMO in its own resource group and resource**, not II's (`rg-interview-intelligence` / `interview-intelligence`, East US); AssemblyAI gets a PMO-only API key | User decision 2026-10-08; cost tracked per resource group, keys rotated or revoked without touching II, own RBAC and lifecycle. A separate resource does not separate quota: TPM quota is per subscription, region, model and deployment type |
+| Azure region Sweden Central with **Data Zone Standard** deployments | User decision 2026-10-08; prompts carrying workers' transcripts are processed only inside the EU data zone (UK adequacy). UK South offers `gpt-5.4-mini` only as Global Standard (processed in any region) or provisioned; East US would put the data in the US |
+| One Azure resource group and one Azure OpenAI resource for PMO; environments are separate **deployments** (`<model>-staging`, later `<model>-prod`) | User decision 2026-10-08; simplest to manage. Staging and prod share the resource's keys; offered alternatives were one RG per environment and one resource per environment |
+| Azure resources as Terraform in this repo (`infra/azure/`, azurerm provider, Azure CLI auth, state in the S3 state bucket) | User decision 2026-10-08; the same plan-review-apply flow as AWS |
+| Staging deployments: `gpt-5.4-mini` (2026-03-17) and `text-embedding-3-small` (1536 dimensions, matching `signals.embedding`), each with a small TPM capacity | User decision 2026-10-08 |
 | GitHub OIDC provider created by PMO's Terraform in the sandbox account | Survey 2026-10-07: none exists in `260172548683` (the II account's provider was the reason for a data source) |
 | **Staging hostname by subdomain delegation**: public zone `pmo-intelligence-staging.itcapp.ai` in the sandbox account; one NS record for it in the `itcapp.ai` zone, added by whoever manages that zone | User decision 2026-10-07; `itcapp.ai` is not in the sandbox account and Entra needs HTTPS outside `localhost`. Keeps the agreed hostname (#10) and leaves the certificate, its validation and the ALB record entirely in PMO's account. Prod uses its own delegated zone at product Phase 5 |
 | Deploy only after CI succeeds | II deploys even when CI fails |

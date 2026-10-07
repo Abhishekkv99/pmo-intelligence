@@ -161,5 +161,32 @@ make db-bootstrap ENV=staging ARGS=--rotate-password      # new password; redepl
 - **No password is ever printed.** If `pmo_app` exists but the secret has no `DATABASE_URL` (its password is unknown), the task exits 1 and asks for `--rotate-password`.
 - **After it succeeds**, redeploy the backend (`aws ecs update-service --cluster pmo-intelligence --service pmo-intelligence-staging-backend --force-new-deployment`), so its migration init container runs with the new URL.
 
+### 5. Azure OpenAI (`infra/azure/`, state key `azure/`)
+PMO's models run in its own Azure resource group and Azure OpenAI resource, in subscription `3a72be92-287b-4f1e-840a-5e3e71100139`. Nothing is shared with Interview Intelligence's `rg-interview-intelligence`.
+
+| Resource | Notes |
+|----------|-------|
+| Resource group `rg-pmo-intelligence-swc` (Sweden Central) | The cost-tracking scope; tagged `project=pmo-intelligence` |
+| Azure OpenAI `oai-pmo-intelligence-swc` (S0) | Endpoint `https://oai-pmo-intelligence-swc.openai.azure.com/`; API-key auth (the ECS tasks call it over the internet) |
+| Deployment `gpt-5.4-mini-staging` | `gpt-5.4-mini` 2026-03-17, **Data Zone Standard**, 50K TPM, no automatic version upgrades |
+| Deployment `text-embedding-3-small-staging` | `text-embedding-3-small` v1 (1536 dimensions), Data Zone Standard, 50K TPM |
+
+- **Data Zone Standard** keeps prompt processing inside the EU data zone. The prompts carry workers' transcripts (UK GDPR). In UK South `gpt-5.4-mini` is only available as Global Standard, which processes anywhere.
+- **Environments** are separate deployments on the one resource, `<model>-<env>`, with capacity per environment in `var.environments`. They share the resource's keys. Prod adds a `prod` entry at product Phase 5.
+- **Quota** is per subscription, region, model and deployment type (200K TPM for `gpt-5.4-mini` Data Zone in Sweden Central on 2026-10-08), so other Data Zone deployments of the same model in this subscription and region share it.
+
+```bash
+az login                                   # provider auth
+export AWS_PROFILE=pmo-intelligence        # the state lives in the S3 state bucket
+cd infra/azure
+terraform init
+terraform plan -out=tfplan
+terraform apply tfplan
+terraform output                           # endpoint and deployment names for the app secret
+az cognitiveservices account keys list -g rg-pmo-intelligence-swc -n oai-pmo-intelligence-swc   # API key (never in git or chat)
+```
+
+The app secret takes `AZURE_OPENAI_ENDPOINT`, `AZURE_OPENAI_API_KEY`, `AZURE_OPENAI_DEPLOYMENT` (`gpt-5.4-mini-staging`) and `AZURE_EMBEDDING_DEPLOYMENT` (`text-embedding-3-small-staging`). AssemblyAI is not on Azure; PMO uses its own AssemblyAI API key, so transcription cost is separate as well.
+
 ## Rollback
 - **State**: every state write is a new object version. To restore one, copy an earlier version of `<stack>/terraform.tfstate` over the current one (`aws s3api list-object-versions`, then `aws s3api copy-object` with `--copy-source <bucket>/<key>?versionId=<id>`). Versions older than 90 days are gone.
