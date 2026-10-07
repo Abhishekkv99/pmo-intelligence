@@ -62,3 +62,24 @@ output "ses_identity" {
   description = "SES sending domain"
   value       = aws_sesv2_email_identity.this.email_identity
 }
+
+# What `make db-bootstrap` passes to aws ecs run-task
+output "db_bootstrap_task_definition" {
+  description = "Task definition ARN of the database bootstrap"
+  value       = aws_ecs_task_definition.db_bootstrap.arn
+}
+
+output "db_bootstrap_subnets" {
+  description = "Subnets for the bootstrap task, comma-separated"
+  value       = join(",", var.public_subnet_ids)
+}
+
+output "db_bootstrap_security_group" {
+  description = "Security group for the bootstrap task (the backend's, which RDS admits)"
+  value       = aws_security_group.backend.id
+}
+
+output "db_bootstrap_log_group" {
+  description = "Log group of the bootstrap task"
+  value       = aws_cloudwatch_log_group.this["db-bootstrap"].name
+}

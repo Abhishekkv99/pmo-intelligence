@@ -10,7 +10,7 @@ PMO_API_PORT ?= 8000
 PMO_WEB_PORT ?= 3000
 export PMO_API_PORT PMO_WEB_PORT
 
-.PHONY: dev dev-build down down-clean test test-backend test-frontend test-e2e lint lint-backend lint-frontend format migrate migrate-new clean help
+.PHONY: dev dev-build down down-clean test test-backend test-frontend test-e2e lint lint-backend lint-frontend format migrate migrate-new db-bootstrap clean help
 
 # ========================
 # Development
@@ -68,6 +68,10 @@ migrate: ## Run database migrations
 
 migrate-new: ## Create a new migration (usage: make migrate-new msg="description")
 	cd backend && uv run alembic revision --autogenerate -m "$(msg)"
+
+db-bootstrap: ## Bootstrap a deployed database as a one-off ECS task (usage: make db-bootstrap ENV=staging [ARGS=--rotate-password])
+	@test -n "$(ENV)" || { echo "usage: make db-bootstrap ENV=staging [ARGS=--rotate-password]"; exit 2; }
+	scripts/db-bootstrap.sh $(ENV) $(ARGS)
 
 # ========================
 # Utilities

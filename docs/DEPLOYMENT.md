@@ -136,10 +136,30 @@ terraform output github_variables
 
 **After the first apply**:
 1. **GitHub variables.** Set the six repository variables from `github_variables` (Settings > Secrets and variables > Actions > Variables). From then on, a push to `develop` that passes CI deploys to staging.
-2. **App secret.** Replace the `CHANGE_ME` values in `pmo-intelligence/staging/app` (Azure OpenAI, AssemblyAI, Entra) with `aws secretsmanager put-secret-value`. Values never go in chat or in git; Terraform ignores later changes to the secret's value. `DATABASE_URL` is written by the database bootstrap (`scripts/db_bootstrap.py`, still to be written in Phase 4).
+2. **App secret.** Replace the `CHANGE_ME` values in `pmo-intelligence/staging/app` (Azure OpenAI, AssemblyAI, Entra) with `aws secretsmanager put-secret-value`. Values never go in chat or in git; Terraform ignores later changes to the secret's value. `DATABASE_URL` is written by the database bootstrap (section 4).
 3. **Images.** The services run the `staging-latest` tag. Until CI has pushed one, ECS keeps retrying the task.
 
 **Protection**: the RDS instance (deletion protection, final snapshot), the media bucket, the app secret and the hosted zone carry `prevent_destroy`. Recreating the zone would change its name servers and break the delegation. Everything else can be destroyed and recreated.
+
+### 4. Database bootstrap (`make db-bootstrap ENV=staging`)
+RDS is private, with no bastion or ECS Exec, so the bootstrap runs as a one-off ECS task inside the VPC. The task definition is `pmo-intelligence-<env>-db-bootstrap`: the backend image running `python -m app.cli.db_bootstrap`, with the backend security group, which RDS admits. It connects as the RDS master user and:
+1. creates the `vector` extension;
+2. creates the `pmo_app` login with a random password (an existing login keeps its password);
+3. makes `pmo_app` the owner of the database and its `public` schema, so the migration init container can run DDL with the same URL;
+4. checks the new login connects, then writes `DATABASE_URL` into `pmo-intelligence/<env>/app`, keeping every other key.
+
+```bash
+export AWS_PROFILE=pmo-intelligence
+make db-bootstrap ENV=staging                             # first run, or any time to re-check
+make db-bootstrap ENV=staging ARGS=--rotate-password      # new password; redeploy the backend afterwards
+```
+
+`scripts/db-bootstrap.sh` reads the cluster, task definition, subnets and security group from the environment's Terraform outputs. It starts the task, waits for it to stop, prints its log and exits with the task's exit code.
+
+- **Needs the backend image** (`staging-latest`) in ECR, because the task runs that image.
+- **Permissions**: only the bootstrap's own roles can read the RDS master secret (execution role) and write the app secret (task role). The app's roles can do neither.
+- **No password is ever printed.** If `pmo_app` exists but the secret has no `DATABASE_URL` (its password is unknown), the task exits 1 and asks for `--rotate-password`.
+- **After it succeeds**, redeploy the backend (`aws ecs update-service --cluster pmo-intelligence --service pmo-intelligence-staging-backend --force-new-deployment`), so its migration init container runs with the new URL.
 
 ## Rollback
 - **State**: every state write is a new object version. To restore one, copy an earlier version of `<stack>/terraform.tfstate` over the current one (`aws s3api list-object-versions`, then `aws s3api copy-object` with `--copy-source <bucket>/<key>?versionId=<id>`). Versions older than 90 days are gone.

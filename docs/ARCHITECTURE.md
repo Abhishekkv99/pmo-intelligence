@@ -36,6 +36,7 @@ FastAPI app in `backend/app/`, layered routes → services → repositories → 
 | Cost tracker | `app/services/cost_tracker.py` | Pure cost functions for LLM, embedding and transcription calls |
 | Auth | `app/api/v1/auth.py`, `app/services/{auth,sso}_service.py` | Entra ID SSO (authorization code + PKCE, code exchanged by the backend); local password auth only when `LOCAL_AUTH_ENABLED` (dev and CI) |
 | Migrations | `alembic/versions/001_create_initial_schema.py` | Async Alembic; enables pgvector |
+| Database bootstrap | `app/cli/db_bootstrap.py` | One-off ECS task per deployed environment: creates the `pmo_app` login (random password), makes it owner of the database and `public` schema, creates `vector`, and writes `DATABASE_URL` into the app secret. Idempotent; `--rotate-password` rotates. Run with `make db-bootstrap ENV=<env>` |
 
 **Role model**:
 - `users.role` is nullable, one of `pmo_manager | sme | tech_lead | ps | admin`.

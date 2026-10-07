@@ -50,3 +50,29 @@ output "github_variables" {
     ECS_STAGING_FRONTEND_SERVICE = module.environment.frontend_service_name
   }
 }
+
+# Read by scripts/db-bootstrap.sh
+output "ecs_cluster_name" {
+  description = "ECS cluster"
+  value       = local.shared.ecs_cluster_name
+}
+
+output "db_bootstrap_task_definition" {
+  description = "Task definition ARN of the database bootstrap"
+  value       = module.environment.db_bootstrap_task_definition
+}
+
+output "db_bootstrap_subnets" {
+  description = "Subnets for the bootstrap task, comma-separated"
+  value       = module.environment.db_bootstrap_subnets
+}
+
+output "db_bootstrap_security_group" {
+  description = "Security group for the bootstrap task"
+  value       = module.environment.db_bootstrap_security_group
+}
+
+output "db_bootstrap_log_group" {
+  description = "Log group of the bootstrap task"
+  value       = module.environment.db_bootstrap_log_group
+}

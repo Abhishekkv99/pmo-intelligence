@@ -103,7 +103,7 @@
 - [x] Network: own VPC in two AZs; public subnets for the ALBs and the ECS tasks (public IPv4 per task, inbound only from the ALB security group), private subnets with no internet route for RDS; internet gateway; S3 gateway endpoint; no NAT, no interface endpoints (done in `infra/shared/`)
 - [x] Own RDS PostgreSQL 16 instance for staging: `db.t4g.micro`, single-AZ, 20 GB gp3, private subnets, security group open only to the backend tasks; production gets its own instance at product Phase 5 (done: `pmo-intelligence-staging`, created in 9 min)
 - [x] Per product: ECS cluster, 2 ALBs, security groups, target groups, 2 ACM certificates, 2 DNS records (alias in the delegated zones), ECR, task definitions with migration init, services, log groups, 2 secrets, S3 bucket, IAM roles (OIDC role for `Abhishekkv99/pmo-intelligence`) (staging done via `infra/modules/environment/`; prod at product Phase 5)
-- [ ] `scripts/db_bootstrap.py` (one-off ECS task): PMO databases on PMO's own instance, a `pmo_app` login role, the vector extension
+- [ ] `scripts/db_bootstrap.py` (one-off ECS task): PMO databases on PMO's own instance, a `pmo_app` login role, the vector extension (written 2026-10-07 as `backend/app/cli/db_bootstrap.py` + `scripts/db-bootstrap.sh` + `make db-bootstrap`; Terraform task definition and roles in `infra/modules/environment/db_bootstrap.tf` planned: 7 to add; 11 unit + 5 integration tests pass; not yet applied or run: needs the backend image in ECR)
 - [ ] Expiry reminders: SNS email topic plus EventBridge Scheduler (`credential_expiries`)
 - [x] `terraform plan` reviewed with the user; on explicit approval, apply the shared and staging resources (prod behind a variable, applied at Phase 5 of the product) (bootstrap, shared and staging plans reviewed and applied with approval 2026-10-07)
 
@@ -130,16 +130,16 @@
 
 >>> CURRENT PHASE: Phase 4 — Infrastructure as code (bootstrap, shared and staging applied; db bootstrap, expiry reminders and docs left)
 
-## Session State (last updated: 2026-10-07 16:15)
+## Session State (last updated: 2026-10-07 17:20)
 - **Sprint**: 0 — Bootstrap
 - **Current phase**: Phase 4 — Infrastructure as code (Phases 1–3 done)
 - **Phase progress**: Phase 4 7 of 9 code tasks (left: `scripts/db_bootstrap.py`, expiry reminders)
-- **Last completed task**: NS delegation added and verified; staging applied (51 resources); `https://pmo-intelligence-staging.itcapp.ai` answers with a valid certificate (503 until an image is deployed)
-- **Next task**: set the six GitHub repository variables (needs the user's go-ahead); `scripts/db_bootstrap.py` (design questions first); expiry reminders; then the Phase 4 doc updates and commit
+- **Last completed task**: GitHub repository variables set (6); database bootstrap written and tested; its Terraform planned (7 to add)
+- **Next task**: commit and push the bootstrap (the backend change triggers CI, then the first backend deploy to ECR); apply the 7 bootstrap resources; first frontend image (frontend unchanged since the previous commit, so not deployed by that push); `make db-bootstrap ENV=staging`; redeploy the backend; the user fills the app secret
 - **Last commit**: 71778f2 "feat: add terraform for the shared stack and staging environment" (pushed)
 - **Uncommitted changes**: none
 - **Blockers**: Teams connector app pending tenant admin approval (external; affects only the exit-gate ticket item). Push: the repo is private under `Abhishekkv99`; the default git login and the active `gh` account (`abhishekitc`) cannot see it. User decision 2026-10-07: do not change the default git login or the active `gh` account; push with `Abhishekkv99`'s token for that one command only (`git -c credential.helper= -c credential.helper='!f() { echo username=x-access-token; echo "password=$(gh auth token --user Abhishekkv99)"; }; f' push origin develop`). AWS: run `aws sso login --profile pmo-intelligence` when the session expires
-- **Tests passing**: 241 unit + 33 integration (backend) + 86 frontend unit + 9 e2e = 369, locally and in CI run 37578107788 (2026-10-07); `make lint` passes
+- **Tests passing**: 252 unit + 38 integration (backend) + 86 frontend unit + 9 e2e = 385 (2026-10-07); `make lint-backend` passes
 - **Files created this session**: `docker-compose.yml`, `Makefile`, `.env.example`, `backend/.dockerignore`, `frontend/.dockerignore`, `backend/Dockerfile`, `.github/workflows/ci.yml`, `README.md`, `infra/bootstrap/{versions,variables,main,outputs}.tf`, `infra/bootstrap/.terraform.lock.hcl`, `infra/bootstrap/backend.tf`, `docs/DEPLOYMENT.md`
 - **Files modified this session**: `frontend/Dockerfile`, `frontend/tests/e2e/auth.spec.ts`, `docs/planning/CURRENT-SPRINT.md`, `docs/planning/BACKLOG.md`, `.gitignore` (recursive Terraform rules, lock file tracked)
 - **Key decisions this session**: make via winget; compose ports as II; lint gates as CI; one `.dockerignore` per build context; mypy over `app` only; uv 0.9.18 pinned (see Decisions Log)
@@ -176,6 +176,10 @@
 | VPC `10.40.0.0/16`, /20 subnets: 2 public + 2 private across two AZs | User decision 2026-10-07; avoids the default `172.31.0.0/16` and II's `10.0.0.0/16`, so peering or a VPN to either stays possible |
 | Staging tasks as II staging: backend 0.25 vCPU / 1024 MiB, frontend 0.25 vCPU / 512 MiB, one task each, `PROCESSING_CONCURRENCY` 1 | User decision 2026-10-07; II raised the backend to 1024 MiB after OOM kills |
 | SES sending domain `pmo-intelligence-staging.itcapp.ai` (DKIM records in the delegated zone); the account starts in the SES sandbox until production access is requested | User decision 2026-10-07 |
+| Database bootstrap: `backend/app/cli/db_bootstrap.py` in the backend image, run as a one-off ECS task (`<env>-db-bootstrap` task definition with its own roles) by `make db-bootstrap ENV=staging` | User decision 2026-10-07; RDS is private with no bastion or ECS Exec, and the backend cannot start without `DATABASE_URL`. Supersedes the plan's repo-root `scripts/db_bootstrap.py`, which the backend build context (`backend/`) cannot include |
+| The bootstrap generates `pmo_app`'s password and writes `DATABASE_URL` into the app secret itself; only the bootstrap task's roles may read the RDS master secret and write the app secret | User decision 2026-10-07; no person sees the password, and the running app cannot rewrite its own secret |
+| Bootstrap re-runs are idempotent and keep the password; `--rotate-password` rotates it and rewrites the secret (then the backend needs a redeploy) | User decision 2026-10-07 |
+| `pmo_app` owns the database and its `public` schema (the migration init container runs DDL with the same URL); no superuser; the master user creates the `vector` extension | User decision 2026-10-07; a separate migration role was offered and declined |
 | GitHub OIDC provider created by PMO's Terraform in the sandbox account | Survey 2026-10-07: none exists in `260172548683` (the II account's provider was the reason for a data source) |
 | **Staging hostname by subdomain delegation**: public zone `pmo-intelligence-staging.itcapp.ai` in the sandbox account; one NS record for it in the `itcapp.ai` zone, added by whoever manages that zone | User decision 2026-10-07; `itcapp.ai` is not in the sandbox account and Entra needs HTTPS outside `localhost`. Keeps the agreed hostname (#10) and leaves the certificate, its validation and the ALB record entirely in PMO's account. Prod uses its own delegated zone at product Phase 5 |
 | Deploy only after CI succeeds | II deploys even when CI fails |

@@ -1,15 +1,15 @@
 # Test Tracking
 
 ## Summary
-Counts are taken from the test run output, never estimated (last run 2026-10-07: backend and frontend unit plus integration in one run; e2e re-run the same day against the compose stack on host ports 8100/3100, beside another project's dev servers on 8000/3000).
+Counts are taken from the test run output, never estimated (last run 2026-10-07: backend unit and integration after the database bootstrap tests were added; frontend unit and e2e from the earlier run the same day).
 
 | Layer | Count |
 |-------|-------|
-| Unit (backend) | 241 |
-| Integration (backend, testcontainers pgvector) | 33 |
+| Unit (backend) | 252 |
+| Integration (backend, testcontainers pgvector) | 38 |
 | Frontend unit (Vitest) | 86 |
 | Frontend e2e (Playwright, against the compose stack) | 9 (1 setup + 8) |
-| **Total run** | **369** |
+| **Total run** | **385** |
 
 ## How to run
 - Backend unit: `cd backend && uv run pytest tests/unit`
@@ -27,6 +27,7 @@ Counts are taken from the test run output, never estimated (last run 2026-10-07:
 | `test_auth_service.py` | 17 | Password hashing, tokens, register (no role on creation, bootstrap elevation) |
 | `test_bootstrap_admins.py` | 6 | Startup bootstrap sweep |
 | `test_cost_tracker.py` | 7 | LLM, embedding and transcription cost calculation |
+| `test_db_bootstrap.py` | 11 | Bootstrap config from the environment (defaults, overrides, every missing name listed); URL encoding of credentials; random passwords; secret merge keeps other keys; placeholder detection; exit code 2 without settings |
 | `test_db_session.py` | 1 | Engine command timeout |
 | `test_entitlement_coverage.py` | 20 | Every `/api/v1` route carries a guard or is listed public or self-scoped; placement-id routes carry a placement-scope guard |
 | `test_entitlements.py` | 35 | Global vs scoped roles, fail-closed for no role or unknown roles, 404-on-denial, role gate, bootstrap elevation rules |
@@ -47,6 +48,7 @@ Counts are taken from the test run output, never estimated (last run 2026-10-07:
 |------|-------|--------|
 | `test_auth_api.py` | 10 | Auth flow against Postgres |
 | `test_bootstrap_admins.py` | 3 | Elevation of listed users; a global role is left alone |
+| `test_db_bootstrap.py` | 5 | First run creates a non-superuser login that owns the database and `public` schema, can run DDL and use `vector`; a second run keeps the password; rotation invalidates the old password; `run` writes a `DATABASE_URL` that connects and leaves it alone on re-run; an existing login with no URL exits 1 until `--rotate-password` |
 | `test_db_command_timeout.py` | 1 | asyncpg command timeout |
 | `test_health.py` | 1 | Health endpoint |
 | `test_migrations.py` | 2 | `alembic upgrade head` on an empty DB, `alembic check` (no drift), downgrade and re-upgrade |

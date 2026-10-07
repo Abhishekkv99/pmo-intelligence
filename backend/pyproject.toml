@@ -66,3 +66,8 @@ python_version = "3.12"
 strict = true
 warn_return_any = true
 warn_unused_configs = true
+
+# Neither ships type information (no py.typed); used by the db bootstrap CLI
+[[tool.mypy.overrides]]
+module = ["aioboto3", "aioboto3.*", "asyncpg", "asyncpg.*"]
+ignore_missing_imports = true
