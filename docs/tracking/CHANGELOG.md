@@ -32,3 +32,4 @@ All notable changes to this project will be documented in this file.
 - README with prerequisites, quick start and common commands.
 - Terraform state bucket in the PMO sandbox account (`infra/bootstrap/`): versioned, encrypted, public access blocked, TLS-only; state locking with native S3 lock files.
 - Deployment guide (`docs/DEPLOYMENT.md`): account access through SSO, tooling, bootstrap order, state rollback.
+- Terraform for the shared stack (VPC, ECR, ECS cluster, GitHub OIDC deploy role, deny-deletion policy) and a reusable environment module, applied for staging at `pmo-intelligence-staging.itcapp.ai`: HTTPS load balancer, PostgreSQL 16, app secret, media bucket, SES identity and ECS services.

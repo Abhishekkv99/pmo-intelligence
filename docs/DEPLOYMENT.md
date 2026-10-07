@@ -2,7 +2,7 @@
 
 PMO Intelligence runs in its own AWS account, **ITC Sandbox PD Intelligence (`260172548683`)**, in **eu-west-2**. Nothing on AWS is shared with Interview Intelligence. The only link outside the account is one NS record in the `itcapp.ai` zone that delegates `pmo-intelligence-staging.itcapp.ai` to PMO's hosted zone.
 
-> Status: Sprint 0, Phase 4 in progress. Applied: the Terraform state bucket (`infra/bootstrap/`). Written, not yet applied: the shared stack (`infra/shared/`) and staging (`infra/environments/staging/` with `infra/modules/environment/`). The database bootstrap and the first staging deploy follow.
+> Status: Sprint 0, Phase 4 in progress. Applied on 2026-10-07: the state bucket (`infra/bootstrap/`), the shared stack (`infra/shared/`, 23 resources) and staging (`infra/environments/staging/`, 52 resources including the hosted zone). The NS delegation is in place, and `https://pmo-intelligence-staging.itcapp.ai` serves a valid certificate. It answers 503 until the database bootstrap and the first image deploy. Still to do: the database bootstrap, the GitHub variables, the app secret values and the first staging deploy.
 
 ## Access
 Sign in with AWS IAM Identity Center (SSO) through the `pmo-intelligence` profile:

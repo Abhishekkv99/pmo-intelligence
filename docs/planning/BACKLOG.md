@@ -19,7 +19,7 @@ From the PRD, "Decisions needed before Sprint 1". Each one changes the data mode
 ## High Priority
 - [ ] Send `docs/integrations/TEAMS-GRAPH-SETUP.md` to the tenant admin and get the items in its section 5 back (longest external lead time)
 - [ ] Decide on GitHub Pro for branch protection on `main`/`develop` (not available on free private repos)
-- [ ] Find who manages the `itcapp.ai` DNS zone (not in the sandbox account `260172548683`) and have them add the NS record delegating `pmo-intelligence-staging.itcapp.ai` to the sandbox zone, once Phase 4 outputs its name servers (blocks the staging certificate and SSO)
+- [x] (2026-10-07: NS record added by Abhishek in the `itcapp.ai` zone, account Information Tech Consultants Ltd `430006376054`, change `C0084749LVM3KJ0NJ7XG` INSYNC; verified at the parent's name servers, 8.8.8.8 and 1.1.1.1) Find who manages the `itcapp.ai` DNS zone (not in the sandbox account `260172548683`) and have them add the NS record delegating `pmo-intelligence-staging.itcapp.ai` to the sandbox zone (blocks the staging certificate and SSO). Name servers (zone created 2026-10-07): `ns-1004.awsdns-61.net`, `ns-1450.awsdns-53.org`, `ns-1905.awsdns-46.co.uk`, `ns-4.awsdns-00.com`
 
 ## Medium Priority
 

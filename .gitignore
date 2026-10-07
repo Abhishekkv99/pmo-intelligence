@@ -70,7 +70,7 @@ infra/**/*.tfstate
 infra/**/*.tfstate.*
 infra/**/*.tfvars
 !infra/**/*.tfvars.example
-infra/**/tfplan
+infra/**/tfplan*
 infra/**/*.tfplan
 infra/**/crash.log
 infra/**/crash.*.log

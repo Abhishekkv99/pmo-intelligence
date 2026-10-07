@@ -1,6 +1,6 @@
 # Architecture Overview
 
-> **Status**: Sprint 0 in progress. **Built**: the backend skeleton (see "Backend (as built)"), with migration 001, the frontend skeleton (see "Frontend (as built)"), and local development with CI/CD (see "Local development and CI/CD (as built)"). Everything else is the planned design from `docs/PRD.md`; update each section as it is built.
+> **Status**: Sprint 0 in progress. **Built**: the backend skeleton (see "Backend (as built)"), with migration 001, the frontend skeleton (see "Frontend (as built)"), local development with CI/CD (see "Local development and CI/CD (as built)"), and the staging infrastructure (see "Infrastructure (as built)"). Everything else is the planned design from `docs/PRD.md`; update each section as it is built.
 
 ## System Design
 PMO Intelligence has 3 inputs, 1 queue, 2 pipelines and 1 health model. Every input becomes a signal, and every placement gets one health reading.
@@ -112,6 +112,20 @@ Next.js 16.3.8 App Router app in `frontend/`, TypeScript strict, React 19.2, sha
 - Images go to ECR `pmo-intelligence-backend` and `pmo-intelligence-frontend` with the tags `sha-<commit>` and `staging-latest`. Then `aws ecs update-service --force-new-deployment` runs.
 - The identifiers are repository variables, because none are secret with OIDC: `AWS_ROLE_ARN`, `AWS_REGION`, `ECR_REGISTRY`, `ECS_CLUSTER_NAME`, `ECS_STAGING_BACKEND_SERVICE`, `ECS_STAGING_FRONTEND_SERVICE`. Their values come from the Terraform outputs (Sprint 0 Phase 4). Until `AWS_ROLE_ARN` is set, the job is skipped.
 - `main` does not deploy yet. The production path is added when the production infrastructure is applied.
+
+## Infrastructure (as built)
+AWS account **ITC Sandbox PD Intelligence (`260172548683`)**, eu-west-2. Nothing on AWS is shared with Interview Intelligence. Terraform state lives in `pmo-intelligence-tfstate-260172548683`, with one key per stack and native S3 locking. Steps and commands are in `docs/DEPLOYMENT.md`.
+
+| Stack | Path | Owns |
+|-------|------|------|
+| Bootstrap | `infra/bootstrap/` | The state bucket: versioned, SSE-S3, public access blocked, TLS-only |
+| Shared | `infra/shared/` | VPC `10.40.0.0/16`: 2 public subnets (ALB, tasks) and 2 private (RDS, no internet route); S3 gateway endpoint; ECR `pmo-intelligence-backend`/`-frontend`; ECS cluster `pmo-intelligence`; GitHub OIDC provider and the `pmo-intelligence-github-deploy` role (`develop` runs only); the deny-deletion policy |
+| Staging | `infra/environments/staging/` → `infra/modules/environment/` | Hosted zone `pmo-intelligence-staging.itcapp.ai` (delegated by one NS record in `itcapp.ai`, account `430006376054`); ACM certificate; ALB (HTTPS, `/api/*` to the backend, HTTP redirected); RDS `pmo-intelligence-staging` (PostgreSQL 16, `db.t4g.micro`, private, master password managed by RDS); secret `pmo-intelligence/staging/app`; media bucket; SES identity; log groups; per-environment IAM roles; ECS services `pmo-intelligence-staging-backend`/`-frontend` |
+
+- **Traffic**: internet → ALB security group (80, 443) → backend (8000) and frontend (3000) security groups. Only the backend reaches RDS (5432).
+- **Egress**: tasks run in public subnets with a public IPv4 each (no NAT) to reach Azure OpenAI, AssemblyAI, Entra, ECR and CloudWatch. S3 traffic goes through the gateway endpoint.
+- **Database isolation**: staging has its own instance. Production gets another at product Phase 5. The app will connect as `pmo_app`, not the master user (database bootstrap, Phase 4).
+- **Protection**: `prevent_destroy` on the RDS instance (which also has deletion protection and a final snapshot), the media bucket, the app secret, the hosted zone and the state bucket. Everything else can be recreated.
 
 ## Component Architecture
 | Component | Technology | Responsibility | Reuse or new |
