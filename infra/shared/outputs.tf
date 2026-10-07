@@ -47,3 +47,13 @@ output "aws_region" {
   description = "Region; GitHub variable AWS_REGION"
   value       = var.aws_region
 }
+
+output "credential_expiry_topic_arn" {
+  description = "SNS topic for credential expiry reminders"
+  value       = aws_sns_topic.credential_expiry.arn
+}
+
+output "credential_expiry_reminders" {
+  description = "Scheduled reminders (name => time in Europe/London)"
+  value       = { for k, s in aws_scheduler_schedule.credential_expiry : k => s.schedule_expression }
+}

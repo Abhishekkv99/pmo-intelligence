@@ -2,7 +2,7 @@
 
 PMO Intelligence runs in its own AWS account, **ITC Sandbox PD Intelligence (`260172548683`)**, in **eu-west-2**. Nothing on AWS is shared with Interview Intelligence. The only link outside the account is one NS record in the `itcapp.ai` zone that delegates `pmo-intelligence-staging.itcapp.ai` to PMO's hosted zone.
 
-> Status: Sprint 0, Phase 4 in progress. Applied on 2026-10-07: the state bucket (`infra/bootstrap/`), the shared stack (`infra/shared/`, 23 resources) and staging (`infra/environments/staging/`, 52 resources including the hosted zone). The NS delegation is in place, and `https://pmo-intelligence-staging.itcapp.ai` serves a valid certificate. The GitHub variables are set; the database bootstrap has run (`pmo_app`); the backend (deployed by CI) and the frontend (first image pushed by hand, later ones by CI) are healthy: `/api/v1/health` answers 200. Still to do: the app secret's Azure OpenAI, AssemblyAI and Entra values, and the credential-expiry reminders.
+> Status: Sprint 0, Phase 4 in progress. Applied on 2026-10-07: the state bucket (`infra/bootstrap/`), the shared stack (`infra/shared/`, 23 resources) and staging (`infra/environments/staging/`, 52 resources including the hosted zone). The NS delegation is in place, and `https://pmo-intelligence-staging.itcapp.ai` serves a valid certificate. The GitHub variables are set; the database bootstrap has run (`pmo_app`); the backend (deployed by CI) and the frontend (first image pushed by hand, later ones by CI) are healthy: `/api/v1/health` answers 200. PMO's Azure OpenAI (`infra/azure/`) is applied, and its endpoint, deployment names and key are in the staging secret. Still to do: a PMO-only AssemblyAI key, the Entra values (product Phase 5) and the credential-expiry reminders.
 
 ## Access
 Sign in with AWS IAM Identity Center (SSO) through the `pmo-intelligence` profile:
@@ -202,6 +202,18 @@ az policy exemption delete --name pmo-intelligence-rg-create-once --scope /subsc
 Azure writes need an MFA-backed `az login`. If a write answers `RequestDisallowedByAzure ... without authenticating through MFA`, sign in again with the claims challenge from the 401 (`az login --use-device-code --claims-challenge <value> ...`).
 
 The app secret takes `AZURE_OPENAI_ENDPOINT`, `AZURE_OPENAI_API_KEY`, `AZURE_OPENAI_DEPLOYMENT` (`gpt-5.4-mini-staging`) and `AZURE_EMBEDDING_DEPLOYMENT` (`text-embedding-3-small-staging`). AssemblyAI is not on Azure; PMO uses its own AssemblyAI API key, so transcription cost is separate as well.
+
+### 6. Credential expiry reminders (`infra/shared/expiry_reminders.tf`)
+Credentials that expire are listed in `credential_expiries` in `infra/shared/variables.tf`, as name → expiry date. For each one, EventBridge Scheduler sends an email through the SNS topic `pmo-intelligence-credential-expiry` **30, 14 and 3 days before**, at 09:00 Europe/London. Reminders whose time has already passed are skipped.
+
+| Credential | Expires | Source |
+|------------|---------|--------|
+| `teams-graph-certificate` | 2027-10-06 | Teams Graph app certificate, thumbprint `F46877044D95A517407208FF2D2FE9F382684BD3` (`docs/integrations/TEAMS-GRAPH-SETUP.md`) |
+| Entra SSO client secret | set in product Phase 5 | Added when the secret is created |
+
+- **Recipient**: `alert_email` (`Abhishek.Verma@InformationTechConsultants.com`). AWS sends a confirmation email after the first apply, and reminders arrive only once the link in it is clicked.
+- **Add or renew a credential**: put its name and new date in `credential_expiries`, then `terraform plan` and `apply` in `infra/shared/`. The old schedules are replaced.
+- Credentials with no expiry need no entry: the Azure OpenAI and AssemblyAI keys, the RDS master password (rotated by RDS), the ACM certificate (renewed by ACM), and deploys (OIDC, no stored key).
 
 ## Rollback
 - **State**: every state write is a new object version. To restore one, copy an earlier version of `<stack>/terraform.tfstate` over the current one (`aws s3api list-object-versions`, then `aws s3api copy-object` with `--copy-source <bucket>/<key>?versionId=<id>`). Versions older than 90 days are gone.

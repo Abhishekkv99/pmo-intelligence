@@ -69,3 +69,33 @@ variable "ecr_tagged_images_kept" {
   type        = number
   default     = 10
 }
+
+# -----------------------------------------------------------------------------
+# Credential expiry reminders
+# -----------------------------------------------------------------------------
+
+variable "alert_email" {
+  description = "Address that receives credential expiry reminders (confirms the SNS subscription once)"
+  type        = string
+  default     = "Abhishek.Verma@InformationTechConsultants.com"
+}
+
+variable "credential_expiries" {
+  description = "Credentials with an expiry date (YYYY-MM-DD); each gets reminders before it"
+  type        = map(string)
+  default = {
+    # Teams Graph app certificate, thumbprint F46877044D95A517407208FF2D2FE9F382684BD3
+    teams-graph-certificate = "2027-10-06"
+  }
+
+  validation {
+    condition     = alltrue([for d in values(var.credential_expiries) : can(regex("^[0-9]{4}-[0-9]{2}-[0-9]{2}$", d))])
+    error_message = "Expiry dates must be YYYY-MM-DD."
+  }
+}
+
+variable "reminder_days_before" {
+  description = "Days before each expiry date that a reminder is sent"
+  type        = list(number)
+  default     = [30, 14, 3]
+}

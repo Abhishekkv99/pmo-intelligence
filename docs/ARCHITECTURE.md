@@ -128,6 +128,7 @@ AWS account **ITC Sandbox PD Intelligence (`260172548683`)**, eu-west-2. Nothing
 - **Database isolation**: staging has its own instance. Production gets another at product Phase 5. The app will connect as `pmo_app`, not the master user (database bootstrap, Phase 4).
 - **Protection**: `prevent_destroy` on the RDS instance (which also has deletion protection and a final snapshot), the media bucket, the app secret, the hosted zone and the state bucket. Everything else can be recreated.
 - **Azure OpenAI** (`infra/azure/`): PMO's own resource group `rg-pmo-intelligence-swc` and resource `oai-pmo-intelligence-swc` in Sweden Central, with Data Zone Standard deployments per environment (`gpt-5.4-mini-<env>`, `text-embedding-3-small-<env>`). Prompt processing stays in the EU data zone, and cost is tracked per resource group. AssemblyAI uses a PMO-only API key.
+- **Credential expiry reminders** (`infra/shared/`): EventBridge Scheduler emails the SNS topic `pmo-intelligence-credential-expiry` 30, 14 and 3 days before each date in `credential_expiries`. It tracks the Teams Graph certificate now and the Entra client secret from Phase 5.
 
 ## Component Architecture
 | Component | Technology | Responsibility | Reuse or new |

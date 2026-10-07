@@ -35,3 +35,4 @@ All notable changes to this project will be documented in this file.
 - Terraform for the shared stack (VPC, ECR, ECS cluster, GitHub OIDC deploy role, deny-deletion policy) and a reusable environment module, applied for staging at `pmo-intelligence-staging.itcapp.ai`: HTTPS load balancer, PostgreSQL 16, app secret, media bucket, SES identity and ECS services.
 - Database bootstrap (`app/cli/db_bootstrap.py`, `make db-bootstrap ENV=staging`): a one-off ECS task that creates the `pmo_app` login, gives it the database, enables pgvector and writes `DATABASE_URL` into the app secret; idempotent, with optional password rotation.
 - Terraform for PMO's own Azure OpenAI (`infra/azure/`): resource group and resource in Sweden Central with Data Zone Standard deployments of `gpt-5.4-mini` and `text-embedding-3-small` for staging.
+- Credential expiry reminders: scheduled emails 30, 14 and 3 days before each recorded credential expiry (the Teams Graph certificate first).
