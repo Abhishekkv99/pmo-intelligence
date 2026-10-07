@@ -64,12 +64,16 @@ backend/uploads/
 # ========================
 # Terraform
 # ========================
-infra/.terraform/
-infra/*.tfstate
-infra/*.tfstate.*
-infra/.terraform.lock.hcl
-infra/*.tfvars
-!infra/terraform.tfvars.example
+# State and saved plans hold resource details; the lock file IS committed
+infra/**/.terraform/
+infra/**/*.tfstate
+infra/**/*.tfstate.*
+infra/**/*.tfvars
+!infra/**/*.tfvars.example
+infra/**/tfplan
+infra/**/*.tfplan
+infra/**/crash.log
+infra/**/crash.*.log
 
 # ========================
 # Misc
