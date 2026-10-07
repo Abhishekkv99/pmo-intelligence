@@ -67,3 +67,9 @@ variable "environments" {
     }
   }
 }
+
+variable "rg_creation_policy_assignment_id" {
+  description = "Subscription policy that denies creating or updating resource groups outside managed-service name patterns"
+  type        = string
+  default     = "/subscriptions/3a72be92-287b-4f1e-840a-5e3e71100139/providers/Microsoft.Authorization/policyAssignments/110d1e5c334d45929d8e2412"
+}

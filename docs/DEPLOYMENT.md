@@ -186,6 +186,21 @@ terraform output                           # endpoint and deployment names for t
 az cognitiveservices account keys list -g rg-pmo-intelligence-swc -n oai-pmo-intelligence-swc   # API key (never in git or chat)
 ```
 
+**Resource group policy.** The subscription policy "Restrict RG Creation to Managed Service Patterns" denies creating *or updating* any resource group whose name is not a managed-service pattern (`databricks-rg-*`, `MC_*`, and so on). The policy applies to Owners too.
+- Terraform gives `rg-pmo-intelligence-swc` its own permanent exemption, scoped to that one group, so later applies can update it.
+- The first creation needs a short subscription-wide exemption, used **only with the policy owner's agreement**, removed straight after:
+
+```bash
+# Waiver for this one creation, expiring in two hours
+az policy exemption create --name pmo-intelligence-rg-create-once   --scope /subscriptions/3a72be92-287b-4f1e-840a-5e3e71100139   --policy-assignment /subscriptions/3a72be92-287b-4f1e-840a-5e3e71100139/providers/Microsoft.Authorization/policyAssignments/110d1e5c334d45929d8e2412   --exemption-category Waiver   --expires-on "$(date -u -d '+2 hours' +%Y-%m-%dT%H:%M:%SZ)"   --display-name "PMO Intelligence: create the project resource group (one-off)"
+
+terraform apply tfplan   # creates the group, its own exemption, the Azure OpenAI resource and deployments
+
+az policy exemption delete --name pmo-intelligence-rg-create-once --scope /subscriptions/3a72be92-287b-4f1e-840a-5e3e71100139
+```
+
+Azure writes need an MFA-backed `az login`. If a write answers `RequestDisallowedByAzure ... without authenticating through MFA`, sign in again with the claims challenge from the 401 (`az login --use-device-code --claims-challenge <value> ...`).
+
 The app secret takes `AZURE_OPENAI_ENDPOINT`, `AZURE_OPENAI_API_KEY`, `AZURE_OPENAI_DEPLOYMENT` (`gpt-5.4-mini-staging`) and `AZURE_EMBEDDING_DEPLOYMENT` (`text-embedding-3-small-staging`). AssemblyAI is not on Azure; PMO uses its own AssemblyAI API key, so transcription cost is separate as well.
 
 ## Rollback

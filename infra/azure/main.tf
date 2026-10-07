@@ -40,6 +40,20 @@ resource "azurerm_resource_group" "this" {
   tags     = local.tags
 }
 
+# The subscription's "Restrict RG Creation to Managed Service Patterns" policy
+# denies creating or updating any resource group outside managed-service name
+# patterns. The first creation needs a time-boxed subscription exemption, agreed
+# with the policy's owner (docs/DEPLOYMENT.md). This exemption, scoped to this
+# one resource group, lets later applies update it without that.
+resource "azurerm_resource_group_policy_exemption" "rg_policy" {
+  name                 = "${var.project_name}-rg-policy"
+  display_name         = "PMO Intelligence project resource group"
+  description          = "Project resource group for PMO Intelligence's Azure OpenAI, created with the policy owner's agreement"
+  resource_group_id    = azurerm_resource_group.this.id
+  policy_assignment_id = var.rg_creation_policy_assignment_id
+  exemption_category   = "Waiver"
+}
+
 resource "azurerm_cognitive_account" "openai" {
   name                = "oai-${local.name}"
   resource_group_name = azurerm_resource_group.this.name
