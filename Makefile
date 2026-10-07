@@ -71,7 +71,7 @@ migrate-new: ## Create a new migration (usage: make migrate-new msg="description
 
 db-bootstrap: ## Bootstrap a deployed database as a one-off ECS task (usage: make db-bootstrap ENV=staging [ARGS=--rotate-password])
 	@test -n "$(ENV)" || { echo "usage: make db-bootstrap ENV=staging [ARGS=--rotate-password]"; exit 2; }
-	scripts/db-bootstrap.sh $(ENV) $(ARGS)
+	bash scripts/db-bootstrap.sh $(ENV) $(ARGS)
 
 # ========================
 # Utilities

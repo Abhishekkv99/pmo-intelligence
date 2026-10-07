@@ -22,6 +22,16 @@ variable "github_repo" {
   default     = "Abhishekkv99/pmo-intelligence"
 }
 
+# The repository issues GitHub's immutable OIDC subject, which names the owner
+# and repository by id as well as by name, so a deleted and recreated repo or
+# account with the same name cannot assume the role. Read it with:
+#   gh api repos/<owner>/<repo>/actions/oidc/customization/sub  (sub_claim_prefix)
+variable "github_oidc_subject_prefix" {
+  description = "Prefix of the OIDC sub claim GitHub issues for the repository (immutable form)"
+  type        = string
+  default     = "repo:Abhishekkv99@28754691/pmo-intelligence@1407046286"
+}
+
 variable "github_deploy_branches" {
   description = "Branches whose workflow runs may assume the deploy role (develop deploys staging; main is added with production)"
   type        = list(string)
