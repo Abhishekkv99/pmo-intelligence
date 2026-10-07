@@ -86,7 +86,7 @@ Next.js 16.3.8 App Router app in `frontend/`, TypeScript strict, React 19.2, sha
 | Alerts | Amazon SES email now; a Teams message to a PMO channel once the connector can write | Immediate, daily digest, weekly summary | Reuse the SES sender from the daily report |
 | Frontend | Next.js 16 App Router, TypeScript strict, shadcn/ui, SWR, TanStack Table, Recharts, dark mode | Risk board, consultant page, session page, actions, admin | Reuse the component library, the auth client, the admin page patterns |
 | Auth | Microsoft Entra ID SSO only, roles on the user row, bootstrap admin list from configuration | Role plus placement scope; 404 outside scope; access log | Reuse; replace the UK/US entitlement with role plus consultant scope |
-| Infra | AWS eu-west-2: ECS Fargate, RDS, S3, ALB, Secrets Manager, CloudWatch, Terraform | Staging and production environments | Reuse the modules; a separate RDS database on the existing instance, its own bucket, its own ALB rules or hostname |
+| Infra | AWS eu-west-2: ECS Fargate, RDS, S3, ALB, Secrets Manager, CloudWatch, Terraform | Staging and production environments | Reuse the modules; fully separate from Interview Intelligence (decided 2026-10-07): its own VPC, VPC endpoints, RDS instance, ALBs, bucket and Terraform state; shares only the `itcapp.ai` zone and the account's GitHub OIDC provider. Replaces the starter's "a separate RDS database on the existing instance, its own bucket, its own ALB rules or hostname" |
 | CI | GitHub Actions: unit, integration (testcontainers), Playwright; build-and-push with path filters | Gate every merge | Reuse |
 
 ## Teams Connector
