@@ -91,7 +91,7 @@
 - [x] `README.md` (quick start), `ARCHITECTURE.md` (CI/CD), `CHANGELOG.md` (new `README.md`: prerequisites, quick start, commands, CI; `ARCHITECTURE.md` "Local development and CI/CD (as built)"; `CHANGELOG.md`; also `TESTS.md`: 369 from the 2026-10-07 run, e2e 9 against compose)
 
 **Commit checkpoint**
-- [ ] `chore: add docker compose, makefile and ci pipeline`; push; **CI green on `develop`** (deviation: the code went in as smaller commits 54f9ee1, ffecbab, 46ea4b7, 7329643, 5e2a851, f4ff059; the phase commit is `chore: make local stack ports configurable and document local dev and ci`; push and CI green pending)
+- [x] `chore: add docker compose, makefile and ci pipeline`; push; **CI green on `develop`** (deviation: the code went in as smaller commits 54f9ee1, ffecbab, 46ea4b7, 7329643, 5e2a851, f4ff059; phase commit cde4aec; first run 37577785017 failed at job setup on `setup-uv@v10`, fixed in 164e95a; run 37578107788 green: 241 unit + 33 integration + 86 frontend unit + 9 e2e, deploy skipped)
 
 ### Phase 4: Infrastructure as code (plan first, apply only with approval)
 **Code work**
@@ -125,22 +125,22 @@
 **Commit checkpoint**
 - [ ] `docs: complete sprint 0 audit and handover`
 
->>> CURRENT PHASE: Phase 3 — Local dev and CI
+>>> CURRENT PHASE: Phase 4 — Infrastructure as code (not started; plan first, apply only with approval)
 
-## Session State (last updated: 2026-10-07 11:30)
+## Session State (last updated: 2026-10-07 11:50)
 - **Sprint**: 0 — Bootstrap
-- **Current phase**: Phase 3 — Local dev and CI (Phases 1 and 2 done)
-- **Phase progress**: Phase 3 5 of 6 (phase commit, push and CI green left)
-- **Last completed task**: Pushed `develop` (5969dda..cde4aec). First CI run 37577785017: Detect Changes and Frontend CI passed, deploy skipped; Backend CI and E2E failed at "Set up job" because `astral-sh/setup-uv@v10` does not exist (no floating major tag)
-- **Next task**: commit `ci: pin setup-uv to its v10.2.0 release` (fix written, actionlint clean), push with the per-command token, watch CI to green; then Phase 3 is done
-- **Last commit**: cde4aec "chore: make local stack ports configurable and document local dev and ci" (pushed)
-- **Uncommitted changes**: `.github/workflows/ci.yml` (setup-uv pinned to v10.2.0), `docs/planning/CURRENT-SPRINT.md`
+- **Current phase**: Phase 4 — Infrastructure as code, not started (Phases 1–3 done)
+- **Phase progress**: Phase 3 6 of 6 (CI green on `develop`); Phase 4 0 of 9
+- **Last completed task**: Phase 3 checkpoint: `develop` pushed (164e95a), CI run 37578107788 green (backend, frontend, e2e passed; deploy skipped)
+- **Next task**: Phase 4 (only when the user asks), starting with the open Phase 4 questions: public subnets with task public IPs vs private subnets with NAT; which VPC endpoints; one RDS instance for staging and prod vs one per environment, and its size. Then `infra/bootstrap/` (state bucket)
+- **Last commit**: 164e95a "ci: pin setup-uv to its v10.2.0 release" (pushed; `develop` on GitHub = local)
+- **Uncommitted changes**: none
 - **Blockers**: Teams connector app pending tenant admin approval (external; affects only the exit-gate ticket item). Push: the repo is private under `Abhishekkv99`; the default git login and the active `gh` account (`abhishekitc`) cannot see it. User decision 2026-10-07: do not change the default git login or the active `gh` account; push with `Abhishekkv99`'s token for that one command only (`git -c credential.helper= -c credential.helper='!f() { echo username=x-access-token; echo "password=$(gh auth token --user Abhishekkv99)"; }; f' push origin develop`)
-- **Tests passing**: 241 unit + 33 integration (backend) + 86 frontend unit + 9 e2e = 369 (2026-10-07; e2e on host ports 8100/3100 beside another project's dev servers on 8000/3000); `make lint` passes
+- **Tests passing**: 241 unit + 33 integration (backend) + 86 frontend unit + 9 e2e = 369, locally and in CI run 37578107788 (2026-10-07); `make lint` passes
 - **Files created this session**: `docker-compose.yml`, `Makefile`, `.env.example`, `backend/.dockerignore`, `frontend/.dockerignore`, `backend/Dockerfile`, `.github/workflows/ci.yml`, `README.md`
 - **Files modified this session**: `frontend/Dockerfile`, `frontend/tests/e2e/auth.spec.ts`, `docs/planning/CURRENT-SPRINT.md`, `docs/planning/BACKLOG.md`
 - **Key decisions this session**: make via winget; compose ports as II; lint gates as CI; one `.dockerignore` per build context; mypy over `app` only; uv 0.9.18 pinned (see Decisions Log)
-- **Recovery instructions**: Phase 3 tasks 1–2 written (54f9ee1, ffecbab, then the Dockerfile commit; check `git log`). Local stack: `make dev-build` (or `docker compose up -d --build`), `make migrate`, `make test-e2e`. make lives at `%LOCALAPPDATA%\Microsoft\WinGet\Packages\ezwinports.make_*\bin` (on the user PATH; a shell opened before the install needs it prepended). Next: `ci.yml`, deploy workflow, then README/ARCHITECTURE/CHANGELOG and the phase commit. Deleting files needs the user to run the command (the tool permission layer denies `rm`).
+- **Recovery instructions**: Phases 1–3 are committed and pushed; CI is green on `develop`. Local stack: `make dev-build`, `make migrate`, `make test-e2e` (add `PMO_API_PORT=8100 PMO_WEB_PORT=3100` to each when another project holds 8000/3000). make lives at `%LOCALAPPDATA%\Microsoft\WinGet\Packages\ezwinports.make_*\bin`. Push and `gh` calls use Abhishekkv99's token per command (see Blockers), never a default login change. Phase 4 starts with the open questions above; infra is fully separate from II (Decisions Log). Deleting files needs the user to run the command (the tool permission layer denies `rm`).
 
 ## Decisions Log
 | Decision | Rationale |
