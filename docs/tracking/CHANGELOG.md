@@ -30,3 +30,5 @@ All notable changes to this project will be documented in this file.
 - `.env.example` listing every backend setting with local defaults.
 - CI on GitHub Actions: path-filtered backend and frontend checks, end-to-end tests against the compose stack, and a staging deploy from `develop` that runs only after the checks pass (skipped until the deploy variables are set).
 - README with prerequisites, quick start and common commands.
+- Terraform state bucket in the PMO sandbox account (`infra/bootstrap/`): versioned, encrypted, public access blocked, TLS-only; state locking with native S3 lock files.
+- Deployment guide (`docs/DEPLOYMENT.md`): account access through SSO, tooling, bootstrap order, state rollback.

@@ -97,7 +97,7 @@
 
 ### Phase 4: Infrastructure as code (plan first, apply only with approval)
 **Code work**
-- [ ] `infra/bootstrap/`: state bucket (versioned, encrypted, public access blocked)
+- [x] `infra/bootstrap/`: state bucket (versioned, encrypted, public access blocked) (applied 2026-10-07: `pmo-intelligence-tfstate-260172548683`, 7 resources, plus SSE-S3, TLS-only policy, 90-day noncurrent expiry, `prevent_destroy`; own state migrated to `bootstrap/terraform.tfstate`; plan clean)
 - [ ] `infra/`: copied `*.tf` renamed for PMO; S3 backend with `use_lockfile`; all resources in account `260172548683` (profile `pmo-intelligence`), including the GitHub OIDC provider (none exists there)
 - [ ] DNS: public hosted zone `pmo-intelligence-staging.itcapp.ai` in the sandbox, its name servers as an output; ACM certificate validated in that zone; ALB alias record. External step: whoever manages `itcapp.ai` adds one NS record delegating that name (BACKLOG). Prod gets its own delegated zone at product Phase 5
 - [ ] Network: own VPC in two AZs; public subnets for the ALBs and the ECS tasks (public IPv4 per task, inbound only from the ALB security group), private subnets with no internet route for RDS; internet gateway; S3 gateway endpoint; no NAT, no interface endpoints
@@ -109,7 +109,7 @@
 
 **Doc updates (concurrent)**
 - [ ] `ARCHITECTURE.md`: what PMO owns versus what it looks up, state backend, database isolation
-- [ ] New `docs/DEPLOYMENT.md`: bootstrap order, secret keys, DB bootstrap, rollback
+- [ ] New `docs/DEPLOYMENT.md`: bootstrap order, secret keys, DB bootstrap, rollback (started: access via SSO, tooling, state bucket bootstrap, state rollback)
 - [ ] `CHANGELOG.md`
 
 **Commit checkpoint**
@@ -130,17 +130,17 @@
 
 >>> CURRENT PHASE: Phase 4 — Infrastructure as code (not started; plan first, apply only with approval)
 
-## Session State (last updated: 2026-10-07 13:30)
+## Session State (last updated: 2026-10-07 13:50)
 - **Sprint**: 0 — Bootstrap
 - **Current phase**: Phase 4 — Infrastructure as code, not started (Phases 1–3 done)
-- **Phase progress**: Phase 3 6 of 6 (CI green on `develop`); Phase 4 0 of 9
-- **Last completed task**: `infra/bootstrap/` written and planned (7 to add: state bucket with ownership controls, public access block, versioning, SSE-S3, lifecycle, TLS-only policy; provider pinned to account 260172548683); user approved the apply
-- **Next task**: apply the bootstrap plan, add `infra/bootstrap/backend.tf` and `terraform init -migrate-state`, commit; then Phase 4 task 2 (`infra/` main stack)
-- **Last commit**: adfe3aa "docs: move pmo infrastructure to its own sandbox account" (pushed)
+- **Phase progress**: Phase 4 1 of 9 code tasks
+- **Last completed task**: `infra/bootstrap/` applied (state bucket `pmo-intelligence-tfstate-260172548683`) and its state migrated into the bucket; `docs/DEPLOYMENT.md` started
+- **Next task**: Phase 4 task 2: `infra/` main stack (copy II's `*.tf`, provider ~> 6.0, S3 backend key `main/terraform.tfstate` or per environment, network, RDS, DNS delegation zone, OIDC provider); plan only, apply with approval
+- **Last commit**: 36323b1 "feat: add terraform bootstrap for the state bucket" (pushed)
 - **Uncommitted changes**: none
 - **Blockers**: Teams connector app pending tenant admin approval (external; affects only the exit-gate ticket item). Push: the repo is private under `Abhishekkv99`; the default git login and the active `gh` account (`abhishekitc`) cannot see it. User decision 2026-10-07: do not change the default git login or the active `gh` account; push with `Abhishekkv99`'s token for that one command only (`git -c credential.helper= -c credential.helper='!f() { echo username=x-access-token; echo "password=$(gh auth token --user Abhishekkv99)"; }; f' push origin develop`). DNS: the NS record delegating `pmo-intelligence-staging.itcapp.ai` must be added in the `itcapp.ai` zone by whoever manages it (outside the sandbox account). AWS: run `aws sso login --profile pmo-intelligence` when the session expires
 - **Tests passing**: 241 unit + 33 integration (backend) + 86 frontend unit + 9 e2e = 369, locally and in CI run 37578107788 (2026-10-07); `make lint` passes
-- **Files created this session**: `docker-compose.yml`, `Makefile`, `.env.example`, `backend/.dockerignore`, `frontend/.dockerignore`, `backend/Dockerfile`, `.github/workflows/ci.yml`, `README.md`, `infra/bootstrap/{versions,variables,main,outputs}.tf`, `infra/bootstrap/.terraform.lock.hcl`
+- **Files created this session**: `docker-compose.yml`, `Makefile`, `.env.example`, `backend/.dockerignore`, `frontend/.dockerignore`, `backend/Dockerfile`, `.github/workflows/ci.yml`, `README.md`, `infra/bootstrap/{versions,variables,main,outputs}.tf`, `infra/bootstrap/.terraform.lock.hcl`, `infra/bootstrap/backend.tf`, `docs/DEPLOYMENT.md`
 - **Files modified this session**: `frontend/Dockerfile`, `frontend/tests/e2e/auth.spec.ts`, `docs/planning/CURRENT-SPRINT.md`, `docs/planning/BACKLOG.md`, `.gitignore` (recursive Terraform rules, lock file tracked)
 - **Key decisions this session**: make via winget; compose ports as II; lint gates as CI; one `.dockerignore` per build context; mypy over `app` only; uv 0.9.18 pinned (see Decisions Log)
 - **Audit notes (Rule C, for the sprint audit)**: (1) CI used `astral-sh/setup-uv@v10`, a tag that does not exist; the first run failed at job setup. Cause: assumed every action publishes a floating major tag. Rule to add: verify every `uses:` ref with `gh api repos/<owner>/<repo>/git/ref/tags/<tag>` before pushing a workflow. (2) The docs said docs-only pushes skip CI on `develop`; paths-filter compares a non-default-branch push with `main`. Cause: the II comment about `base` was read for the deploy filter only. Rule to add: state the comparison base whenever a doc describes path-filtered behaviour. (3) The e2e re-run failed when another project's dev servers held 8000/3000; fixed with configurable ports
