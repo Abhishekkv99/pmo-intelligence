@@ -98,7 +98,7 @@
 ### Phase 4: Infrastructure as code (plan first, apply only with approval)
 **Code work**
 - [x] `infra/bootstrap/`: state bucket (versioned, encrypted, public access blocked) (applied 2026-10-07: `pmo-intelligence-tfstate-260172548683`, 7 resources, plus SSE-S3, TLS-only policy, 90-day noncurrent expiry, `prevent_destroy`; own state migrated to `bootstrap/terraform.tfstate`; plan clean)
-- [ ] `infra/`: copied `*.tf` renamed for PMO; S3 backend with `use_lockfile`; all resources in account `260172548683` (profile `pmo-intelligence`), including the GitHub OIDC provider (none exists there)
+- [ ] Main Terraform, adapted from II's `infra/*.tf`, (written 2026-10-07; fmt and validate clean; shared plan 23 to add; staging plans after the shared apply) all in account `260172548683` with S3 backends (`use_lockfile`): `infra/shared/` (state `shared/`: VPC, subnets, S3 endpoint, ECR with lifecycle, ECS cluster, GitHub OIDC provider and deploy role, deny-deletion policy), `infra/modules/environment/` (ALB with HTTP→HTTPS redirect, target groups, security groups, RDS, app secret, log groups, task definitions, services, hosted zone, certificate, SES identity, media bucket, IAM roles) and `infra/environments/staging/` (state `staging/`)
 - [ ] DNS: public hosted zone `pmo-intelligence-staging.itcapp.ai` in the sandbox, its name servers as an output; ACM certificate validated in that zone; ALB alias record. External step: whoever manages `itcapp.ai` adds one NS record delegating that name (BACKLOG). Prod gets its own delegated zone at product Phase 5
 - [ ] Network: own VPC in two AZs; public subnets for the ALBs and the ECS tasks (public IPv4 per task, inbound only from the ALB security group), private subnets with no internet route for RDS; internet gateway; S3 gateway endpoint; no NAT, no interface endpoints
 - [ ] Own RDS PostgreSQL 16 instance for staging: `db.t4g.micro`, single-AZ, 20 GB gp3, private subnets, security group open only to the backend tasks; production gets its own instance at product Phase 5
@@ -130,12 +130,12 @@
 
 >>> CURRENT PHASE: Phase 4 — Infrastructure as code (not started; plan first, apply only with approval)
 
-## Session State (last updated: 2026-10-07 13:50)
+## Session State (last updated: 2026-10-07 15:10)
 - **Sprint**: 0 — Bootstrap
 - **Current phase**: Phase 4 — Infrastructure as code, not started (Phases 1–3 done)
 - **Phase progress**: Phase 4 1 of 9 code tasks
-- **Last completed task**: `infra/bootstrap/` applied (state bucket `pmo-intelligence-tfstate-260172548683`) and its state migrated into the bucket; `docs/DEPLOYMENT.md` started
-- **Next task**: Phase 4 task 2: `infra/` main stack (copy II's `*.tf`, provider ~> 6.0, S3 backend key `main/terraform.tfstate` or per environment, network, RDS, DNS delegation zone, OIDC provider); plan only, apply with approval
+- **Last completed task**: main Terraform written: `infra/shared/` (planned: 23 to add), `infra/modules/environment/`, `infra/environments/staging/` (validated); `docs/DEPLOYMENT.md` apply order
+- **Next task**: user review of the shared plan; commit before apply; on approval apply shared, then staging step 1 (hosted zone only) and hand the name servers to whoever manages itcapp.ai
 - **Last commit**: 36323b1 "feat: add terraform bootstrap for the state bucket" (pushed)
 - **Uncommitted changes**: none
 - **Blockers**: Teams connector app pending tenant admin approval (external; affects only the exit-gate ticket item). Push: the repo is private under `Abhishekkv99`; the default git login and the active `gh` account (`abhishekitc`) cannot see it. User decision 2026-10-07: do not change the default git login or the active `gh` account; push with `Abhishekkv99`'s token for that one command only (`git -c credential.helper= -c credential.helper='!f() { echo username=x-access-token; echo "password=$(gh auth token --user Abhishekkv99)"; }; f' push origin develop`). DNS: the NS record delegating `pmo-intelligence-staging.itcapp.ai` must be added in the `itcapp.ai` zone by whoever manages it (outside the sandbox account). AWS: run `aws sso login --profile pmo-intelligence` when the session expires
@@ -168,6 +168,14 @@
 | Terraform AWS provider `~> 6.0` (v6.67.0 current on 2026-10-07); `.terraform.lock.hcl` committed with linux and windows hashes | User decision 2026-10-07; new code, so no v5→v6 migration later; II's copied `*.tf` adjusted where v6 changed arguments. The lock file pins provider builds for everyone and CI, like `uv.lock` (II ignores it) |
 | State bucket `pmo-intelligence-tfstate-260172548683`: SSE-S3, versioning, public access blocked, TLS-only bucket policy, noncurrent versions expire after 90 days; native S3 locking (`use_lockfile`) | User decision 2026-10-07; the account id keeps the global name unique; SSE-S3 is free |
 | `infra/bootstrap/` applies with local state once, then migrates its own state into the bucket (key `bootstrap/terraform.tfstate`) | User decision 2026-10-07; no state left on one machine |
+| Terraform layout: `infra/shared/` + `infra/modules/environment/` + `infra/environments/staging/`, each root with its own state key | User decision 2026-10-07; no copy-paste between environments (II duplicates prod as `staging.tf`), and a staging apply cannot touch prod. Prod is one more small folder at product Phase 5. Supersedes "one `infra/` with prod behind a variable" |
+| RDS master password managed by RDS (`manage_master_user_password`), never in Terraform state; the app connects as `pmo_app`, whose URL the db bootstrap writes into the app secret | User decision 2026-10-07; II generates the password in Terraform and stores it in state and the app secret |
+| Deletion protection on data only: RDS (deletion protection, final snapshot, `prevent_destroy`), media bucket, app secret; ALB, services, security groups and logs stay freely replaceable | User decision 2026-10-07; II protects everything, which makes tearing down a sandbox staging slow |
+| Carried over from II: HTTP→HTTPS redirect (II forwards plain HTTP to the frontend), ECR lifecycle (untagged 7 days, last 10 tagged), deny-deletion IAM policy (output for attaching to IAM users or groups), SES domain identity now | User decision 2026-10-07 (all four extras) |
+| Names `pmo-intelligence-<env>-*`; where AWS caps names at 32 characters (target groups) `pmo-<env>-*`; ECR stays `pmo-intelligence-backend` / `-frontend` | User decision 2026-10-07; `pmo-intelligence-staging-frontend` would be 33 characters |
+| VPC `10.40.0.0/16`, /20 subnets: 2 public + 2 private across two AZs | User decision 2026-10-07; avoids the default `172.31.0.0/16` and II's `10.0.0.0/16`, so peering or a VPN to either stays possible |
+| Staging tasks as II staging: backend 0.25 vCPU / 1024 MiB, frontend 0.25 vCPU / 512 MiB, one task each, `PROCESSING_CONCURRENCY` 1 | User decision 2026-10-07; II raised the backend to 1024 MiB after OOM kills |
+| SES sending domain `pmo-intelligence-staging.itcapp.ai` (DKIM records in the delegated zone); the account starts in the SES sandbox until production access is requested | User decision 2026-10-07 |
 | GitHub OIDC provider created by PMO's Terraform in the sandbox account | Survey 2026-10-07: none exists in `260172548683` (the II account's provider was the reason for a data source) |
 | **Staging hostname by subdomain delegation**: public zone `pmo-intelligence-staging.itcapp.ai` in the sandbox account; one NS record for it in the `itcapp.ai` zone, added by whoever manages that zone | User decision 2026-10-07; `itcapp.ai` is not in the sandbox account and Entra needs HTTPS outside `localhost`. Keeps the agreed hostname (#10) and leaves the certificate, its validation and the ALB record entirely in PMO's account. Prod uses its own delegated zone at product Phase 5 |
 | Deploy only after CI succeeds | II deploys even when CI fails |

@@ -1,0 +1,4 @@
+# Copy to terraform.tfvars (git-ignored) and fill in.
+
+# Emails raised to pmo_manager at startup and at first sign-in (elevate-only)
+bootstrap_admin_emails = "first.manager@example.com"
