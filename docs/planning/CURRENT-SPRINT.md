@@ -127,14 +127,14 @@
 
 >>> CURRENT PHASE: Phase 3 — Local dev and CI
 
-## Session State (last updated: 2026-10-07 11:10)
+## Session State (last updated: 2026-10-07 11:30)
 - **Sprint**: 0 — Bootstrap
 - **Current phase**: Phase 3 — Local dev and CI (Phases 1 and 2 done)
 - **Phase progress**: Phase 3 5 of 6 (phase commit, push and CI green left)
-- **Last completed task**: Configurable host ports (discovered subtask) and the Phase 3 doc updates
-- **Next task**: push `develop` with the per-command token (see Blockers; needs the user's go-ahead) and watch CI to green; then Phase 3 is done
-- **Last commit**: "chore: make local stack ports configurable and document local dev and ci" (phase commit; see `git log`)
-- **Uncommitted changes**: none
+- **Last completed task**: Pushed `develop` (5969dda..cde4aec). First CI run 37577785017: Detect Changes and Frontend CI passed, deploy skipped; Backend CI and E2E failed at "Set up job" because `astral-sh/setup-uv@v10` does not exist (no floating major tag)
+- **Next task**: commit `ci: pin setup-uv to its v10.2.0 release` (fix written, actionlint clean), push with the per-command token, watch CI to green; then Phase 3 is done
+- **Last commit**: cde4aec "chore: make local stack ports configurable and document local dev and ci" (pushed)
+- **Uncommitted changes**: `.github/workflows/ci.yml` (setup-uv pinned to v10.2.0), `docs/planning/CURRENT-SPRINT.md`
 - **Blockers**: Teams connector app pending tenant admin approval (external; affects only the exit-gate ticket item). Push: the repo is private under `Abhishekkv99`; the default git login and the active `gh` account (`abhishekitc`) cannot see it. User decision 2026-10-07: do not change the default git login or the active `gh` account; push with `Abhishekkv99`'s token for that one command only (`git -c credential.helper= -c credential.helper='!f() { echo username=x-access-token; echo "password=$(gh auth token --user Abhishekkv99)"; }; f' push origin develop`)
 - **Tests passing**: 241 unit + 33 integration (backend) + 86 frontend unit + 9 e2e = 369 (2026-10-07; e2e on host ports 8100/3100 beside another project's dev servers on 8000/3000); `make lint` passes
 - **Files created this session**: `docker-compose.yml`, `Makefile`, `.env.example`, `backend/.dockerignore`, `frontend/.dockerignore`, `backend/Dockerfile`, `.github/workflows/ci.yml`, `README.md`
@@ -173,7 +173,7 @@
 | API and web host ports configurable: `PMO_API_PORT` (default 8000) and `PMO_WEB_PORT` (default 3000), set in the Makefile and passed to compose and Playwright | User decision 2026-10-07, refines the row above; another project's dev servers held 8000/3000 and blocked the e2e run. Defaults are unchanged, so CI and the config defaults need nothing. In-container ports stay 8000/3000. The frontend image bakes the API URL, so a new API port needs `make dev-build` |
 | `make lint` frontend = eslint + typecheck + format:check; backend = ruff check + ruff format --check + `mypy app` | User decision 2026-10-06; the same gates CI runs. mypy covers `app` only: `app tests` has 57 errors in 8 test files (tech debt) |
 | uv pinned to exactly 0.9.18 in the backend Dockerfile (`ghcr.io/astral-sh/uv:0.9.18`) and in CI | User decision 2026-10-07; `uv.lock` is revision 3, written by local uv 0.9.18; II's `uv:0.6` predates that format. Bumped deliberately, like pnpm 12.6.0 |
-| CI uses the latest action majors: checkout v7, setup-node v7, upload-artifact v7, setup-uv v10, pnpm/action-setup v6, paths-filter v4 | User decision 2026-10-07; all on the node24 runtime (II's v4-era pins run on node20, being retired) |
+| CI uses the latest action majors: checkout v7, setup-node v7, upload-artifact v7, setup-uv v10, pnpm/action-setup v6, paths-filter v4 | User decision 2026-10-07; all on the node24 runtime (II's v4-era pins run on node20, being retired). setup-uv publishes no floating major tag, so it is pinned to the release `v10.2.0` (the first CI run failed at "Set up job" on `@v10`) |
 | CI e2e runs against the docker compose stack (images built in the job, migrations from the runner, then Playwright) | User decision 2026-10-07; same path as `make dev-build` + `make migrate` + `make test-e2e`, and it exercises the Dockerfiles (the HOSTNAME bug would have been caught) |
 | CI keeps II's path filters (backend, frontend; e2e on either, plus compose and the workflow) | User decision 2026-10-07; docs-only pushes run nothing and CI still succeeds, so the deploy gate passes |
 | Deploy is a `deploy-staging` job inside `ci.yml` that needs every CI job (passed or skipped) and runs on push only | User decision 2026-10-07; same run and commit sha as the checks; only that job gets `id-token: write`. A separate `workflow_run` file would run from the default branch's copy and need the sha checked out by hand |
