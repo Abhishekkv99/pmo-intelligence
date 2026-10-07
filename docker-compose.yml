@@ -1,3 +1,6 @@
+# Host ports for the API and the web app come from PMO_API_PORT and PMO_WEB_PORT
+# (defaults 8000 and 3000; the Makefile sets and exports both). Inside the
+# containers the servers always listen on 8000 and 3000.
 services:
   postgres:
     image: pgvector/pgvector:pg16
@@ -20,12 +23,13 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     ports:
-      - "8000:8000"
+      - "${PMO_API_PORT:-8000}:8000"
     environment:
       DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/pmo_intelligence
       APP_ENV: development
       APP_DEBUG: "true"
-      FRONTEND_URL: http://localhost:3000
+      FRONTEND_URL: http://localhost:${PMO_WEB_PORT:-3000}
+      AZURE_REDIRECT_URI: http://localhost:${PMO_WEB_PORT:-3000}/auth/callback/microsoft
       STORAGE_BACKEND: local
       LOCAL_UPLOAD_DIR: /app/uploads
       LOCAL_AUTH_ENABLED: "true"
@@ -46,9 +50,9 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        NEXT_PUBLIC_API_URL: http://localhost:8000/api/v1
+        NEXT_PUBLIC_API_URL: http://localhost:${PMO_API_PORT:-8000}/api/v1
     ports:
-      - "3000:3000"
+      - "${PMO_WEB_PORT:-3000}:3000"
     depends_on:
       backend:
         condition: service_healthy

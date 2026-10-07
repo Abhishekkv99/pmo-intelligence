@@ -1,6 +1,6 @@
 # Architecture Overview
 
-> **Status**: Sprint 0 in progress. **Built**: the backend skeleton (see "Backend (as built)"), with migration 001, and the frontend skeleton (see "Frontend (as built)"). Everything else is the planned design from `docs/PRD.md`; update each section as it is built.
+> **Status**: Sprint 0 in progress. **Built**: the backend skeleton (see "Backend (as built)"), with migration 001, the frontend skeleton (see "Frontend (as built)"), and local development with CI/CD (see "Local development and CI/CD (as built)"). Everything else is the planned design from `docs/PRD.md`; update each section as it is built.
 
 ## System Design
 PMO Intelligence has 3 inputs, 1 queue, 2 pipelines and 1 health model. Every input becomes a signal, and every placement gets one health reading.
@@ -72,6 +72,46 @@ Next.js 16.3.8 App Router app in `frontend/`, TypeScript strict, React 19.2, sha
 **Role in the UI**: the frontend only decides what to show; the backend enforces every permission. The Admin link appears for `pmo_manager` and `admin` only. A user with no role signs in and sees the empty Risk board, Actions and Settings pages.
 
 **Tooling**: `pnpm lint` (ESLint with Next's rules and `eslint-config-prettier`), `pnpm typecheck` (`tsc --noEmit`), `pnpm format` / `format:check` (Prettier 3 defaults over every file), `pnpm test` (Vitest), `pnpm test:e2e` (Playwright; signs in with local auth, so it needs a backend with `LOCAL_AUTH_ENABLED=true`).
+
+## Local development and CI/CD (as built)
+**Local stack** (`docker-compose.yml`):
+
+| Service | Image | Host port | Notes |
+|---------|-------|-----------|-------|
+| postgres | `pgvector/pgvector:pg16` | 5432 | Database `pmo_intelligence`, user and password `postgres`; data in the `postgres_data` volume |
+| backend | `backend/Dockerfile` | `PMO_API_PORT`, default 8000 | `LOCAL_AUTH_ENABLED=true`, local file storage in the `upload_data` volume; healthy when `/api/v1/health` answers |
+| frontend | `frontend/Dockerfile` | `PMO_WEB_PORT`, default 3000 | Built with `NEXT_PUBLIC_API_URL=http://localhost:<PMO_API_PORT>/api/v1`; healthy when `/api/health` answers |
+
+- The API and web host ports are configurable so the stack can run beside another project. The Makefile sets `PMO_API_PORT` and `PMO_WEB_PORT` (defaults 8000 and 3000) and exports them to compose. The backend's `FRONTEND_URL` and `AZURE_REDIRECT_URI`, the frontend's API URL, and Playwright's `E2E_BASE_URL`/`E2E_API_URL` (via `make test-e2e`) follow them. Inside the containers the servers always listen on 8000 and 3000, and CI uses the defaults.
+- The images do not run migrations. `make migrate` runs `alembic upgrade head` from the host against port 5432.
+- Commands run outside Docker (`uv run ...`, `make migrate`, `make test-backend`) read `backend/.env`. `.env.example` at the repository root lists every setting `app/config.py` reads.
+- The Makefile is POSIX and runs from Git Bash on Windows (GNU make from `winget install ezwinports.make`) and on the Ubuntu CI runners. `make help` lists the targets.
+
+**Images**:
+- **Backend**: two stages on `python:3.12-slim`. uv `0.9.18` (pinned to read the revision-3 `uv.lock`) installs the locked dependencies without dev extras. The runtime stage runs as a non-root user with `MALLOC_ARENA_MAX=2`, and curl for the health check.
+- **Frontend**: three stages on `node:22-alpine`. pnpm `12.6.0` comes through corepack, and `pnpm-workspace.yaml` is copied for the build-script approvals. The Next.js `standalone` output runs as a non-root user with `HOSTNAME=0.0.0.0`, because the server binds to `$HOSTNAME` and Docker sets that to the container id.
+- Each build context has a `.dockerignore`. Virtual environments, `node_modules`, build output, caches, `.env` files and tests stay out of the images.
+
+**CI** (`.github/workflows/ci.yml`, on push and pull request to `main` and `develop`):
+
+| Job | Runs when | Steps |
+|-----|-----------|-------|
+| Detect Changes | always | Path filters: backend, frontend, compose file; a change to `ci.yml` runs everything |
+| Backend CI | `backend/**` changed | `uv sync --frozen`; ruff check; ruff format check; `mypy app` (strict); unit tests; integration tests (testcontainers starts pgvector) |
+| Frontend CI | `frontend/**` changed | `pnpm install --frozen-lockfile`; eslint; `tsc --noEmit`; Prettier check; Vitest; `next build` |
+| E2E Tests | backend, frontend or compose file changed | `docker compose up --build --wait`; `alembic upgrade head` from the runner; Playwright (Chromium) with local auth; stack logs on failure; report uploaded |
+| Deploy to staging | push to `develop`, every job above passed or skipped, `vars.AWS_ROLE_ARN` set | See below |
+
+- Checkout uses the default `GITHUB_TOKEN`, so there is no personal token to renew.
+- The tools are pinned: uv `0.9.18`, pnpm from the `packageManager` field, Node 22. The actions are on their node24 majors.
+- `make lint` runs the same lint gates as CI.
+
+**Deploy** (the `deploy-staging` job in `ci.yml`):
+- Only the side that changed since the previous commit on `develop` is rebuilt and redeployed. Redeploying the backend restarts processing, so a frontend-only push leaves it alone.
+- AWS access is through OIDC, assuming `vars.AWS_ROLE_ARN`. Only this job has `id-token: write`.
+- Images go to ECR `pmo-intelligence-backend` and `pmo-intelligence-frontend` with the tags `sha-<commit>` and `staging-latest`. Then `aws ecs update-service --force-new-deployment` runs.
+- The identifiers are repository variables, because none are secret with OIDC: `AWS_ROLE_ARN`, `AWS_REGION`, `ECR_REGISTRY`, `ECS_CLUSTER_NAME`, `ECS_STAGING_BACKEND_SERVICE`, `ECS_STAGING_FRONTEND_SERVICE`. Their values come from the Terraform outputs (Sprint 0 Phase 4). Until `AWS_ROLE_ARN` is set, the job is skipped.
+- `main` does not deploy yet. The production path is added when the production infrastructure is applied.
 
 ## Component Architecture
 | Component | Technology | Responsibility | Reuse or new |

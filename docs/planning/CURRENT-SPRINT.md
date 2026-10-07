@@ -85,12 +85,13 @@
 - [x] Dockerfiles (backend without the WeasyPrint libraries) (backend: II's minus WeasyPrint, uv 0.9.18; frontend: pnpm 12.6.0, copies `pnpm-workspace.yaml`, `HOSTNAME=0.0.0.0` so the in-container health check reaches the server; `docker compose up --build` all healthy, `make migrate` applied 001, first e2e run 9/9 after fixing an ambiguous heading locator in `auth.spec.ts`)
 - [x] `ci.yml`: default token checkout, mypy, e2e with local auth (`.github/workflows/ci.yml`: latest action majors, uv 0.9.18, pnpm from `packageManager`, Node 22; backend ruff + `mypy app` + unit + integration; frontend eslint + typecheck + format:check + vitest + build; e2e on the compose stack; path filters; actionlint clean; first GitHub run on the phase push)
 - [x] Deploy workflow: ECR `pmo-intelligence-*`; deploys only after CI succeeds; `develop` deploys to staging (`deploy-staging` job in `ci.yml`: needs every CI job passed or skipped, push to `develop` only, redeploys the side that changed since the branch's previous commit, OIDC role and identifiers from repository variables, skipped while `vars.AWS_ROLE_ARN` is unset; `main` → prod added at product Phase 5; actionlint clean)
+- [x] (Discovered) Configurable host ports `PMO_API_PORT`/`PMO_WEB_PORT` (defaults 8000/3000) in compose, the Makefile and `make test-e2e`, so the stack runs beside another project's dev servers (e2e 9/9 on 8100/3100 with the other servers on 8000/3000)
 
 **Doc updates (concurrent)**
-- [ ] `README.md` (quick start), `ARCHITECTURE.md` (CI/CD), `CHANGELOG.md`
+- [x] `README.md` (quick start), `ARCHITECTURE.md` (CI/CD), `CHANGELOG.md` (new `README.md`: prerequisites, quick start, commands, CI; `ARCHITECTURE.md` "Local development and CI/CD (as built)"; `CHANGELOG.md`; also `TESTS.md`: 369 from the 2026-10-07 run, e2e 9 against compose)
 
 **Commit checkpoint**
-- [ ] `chore: add docker compose, makefile and ci pipeline`; push; **CI green on `develop`**
+- [ ] `chore: add docker compose, makefile and ci pipeline`; push; **CI green on `develop`** (deviation: the code went in as smaller commits 54f9ee1, ffecbab, 46ea4b7, 7329643, 5e2a851, f4ff059; the phase commit is `chore: make local stack ports configurable and document local dev and ci`; push and CI green pending)
 
 ### Phase 4: Infrastructure as code (plan first, apply only with approval)
 **Code work**
@@ -126,17 +127,17 @@
 
 >>> CURRENT PHASE: Phase 3 — Local dev and CI
 
-## Session State (last updated: 2026-10-07 09:40)
+## Session State (last updated: 2026-10-07 11:10)
 - **Sprint**: 0 — Bootstrap
 - **Current phase**: Phase 3 — Local dev and CI (Phases 1 and 2 done)
-- **Phase progress**: Phase 3 4 of 6
-- **Last completed task**: Phase 3 task 4: `deploy-staging` job in `.github/workflows/ci.yml`
-- **Next task**: Phase 3 doc updates: `README.md` (quick start: make via winget, `.env.example` → `backend/.env`, `make dev-build`, `make migrate`, `make test-e2e`), `ARCHITECTURE.md` (local dev and CI/CD as built), `CHANGELOG.md`; then the phase commit and the push to `develop` (fix the git credential first, see Blockers) and CI green
-- **Last commit**: 7329643 "ci: add workflow for lint, tests and e2e on the compose stack"
+- **Phase progress**: Phase 3 5 of 6 (phase commit, push and CI green left)
+- **Last completed task**: Configurable host ports (discovered subtask) and the Phase 3 doc updates
+- **Next task**: push `develop` with the per-command token (see Blockers; needs the user's go-ahead) and watch CI to green; then Phase 3 is done
+- **Last commit**: "chore: make local stack ports configurable and document local dev and ci" (phase commit; see `git log`)
 - **Uncommitted changes**: none
 - **Blockers**: Teams connector app pending tenant admin approval (external; affects only the exit-gate ticket item). Push: the repo is private under `Abhishekkv99`; the default git login and the active `gh` account (`abhishekitc`) cannot see it. User decision 2026-10-07: do not change the default git login or the active `gh` account; push with `Abhishekkv99`'s token for that one command only (`git -c credential.helper= -c credential.helper='!f() { echo username=x-access-token; echo "password=$(gh auth token --user Abhishekkv99)"; }; f' push origin develop`)
-- **Tests passing**: 241 unit + 33 integration (backend) + 86 frontend unit + 9 e2e (first local run against compose) = 369; `make lint` passes
-- **Files created this session**: `docker-compose.yml`, `Makefile`, `.env.example`, `backend/.dockerignore`, `frontend/.dockerignore`, `backend/Dockerfile`, `.github/workflows/ci.yml`
+- **Tests passing**: 241 unit + 33 integration (backend) + 86 frontend unit + 9 e2e = 369 (2026-10-07; e2e on host ports 8100/3100 beside another project's dev servers on 8000/3000); `make lint` passes
+- **Files created this session**: `docker-compose.yml`, `Makefile`, `.env.example`, `backend/.dockerignore`, `frontend/.dockerignore`, `backend/Dockerfile`, `.github/workflows/ci.yml`, `README.md`
 - **Files modified this session**: `frontend/Dockerfile`, `frontend/tests/e2e/auth.spec.ts`, `docs/planning/CURRENT-SPRINT.md`, `docs/planning/BACKLOG.md`
 - **Key decisions this session**: make via winget; compose ports as II; lint gates as CI; one `.dockerignore` per build context; mypy over `app` only; uv 0.9.18 pinned (see Decisions Log)
 - **Recovery instructions**: Phase 3 tasks 1–2 written (54f9ee1, ffecbab, then the Dockerfile commit; check `git log`). Local stack: `make dev-build` (or `docker compose up -d --build`), `make migrate`, `make test-e2e`. make lives at `%LOCALAPPDATA%\Microsoft\WinGet\Packages\ezwinports.make_*\bin` (on the user PATH; a shell opened before the install needs it prepended). Next: `ci.yml`, deploy workflow, then README/ARCHITECTURE/CHANGELOG and the phase commit. Deleting files needs the user to run the command (the tool permission layer denies `rm`).
@@ -169,6 +170,7 @@
 | Next.js 16.3.8 (latest 16.x on 2026-10-06), React kept at 19.2.3 | Clears the 16.0.0–16.2.10 CVEs; React 19.2.3 is within Next's peer range, so no React upgrade in Sprint 0 |
 | GNU make installed locally with `winget install ezwinports.make`; the Makefile stays POSIX (Git Bash locally, Ubuntu in CI) | User decision 2026-10-06; make was not on the Windows dev machine; one Makefile, no PowerShell twin |
 | Compose host ports as II: 5432 (db), 8000 (api), 3000 (web) | User decision 2026-10-06; matches the config defaults, the SSO redirect URI and Playwright; the two stacks cannot run at once |
+| API and web host ports configurable: `PMO_API_PORT` (default 8000) and `PMO_WEB_PORT` (default 3000), set in the Makefile and passed to compose and Playwright | User decision 2026-10-07, refines the row above; another project's dev servers held 8000/3000 and blocked the e2e run. Defaults are unchanged, so CI and the config defaults need nothing. In-container ports stay 8000/3000. The frontend image bakes the API URL, so a new API port needs `make dev-build` |
 | `make lint` frontend = eslint + typecheck + format:check; backend = ruff check + ruff format --check + `mypy app` | User decision 2026-10-06; the same gates CI runs. mypy covers `app` only: `app tests` has 57 errors in 8 test files (tech debt) |
 | uv pinned to exactly 0.9.18 in the backend Dockerfile (`ghcr.io/astral-sh/uv:0.9.18`) and in CI | User decision 2026-10-07; `uv.lock` is revision 3, written by local uv 0.9.18; II's `uv:0.6` predates that format. Bumped deliberately, like pnpm 12.6.0 |
 | CI uses the latest action majors: checkout v7, setup-node v7, upload-artifact v7, setup-uv v10, pnpm/action-setup v6, paths-filter v4 | User decision 2026-10-07; all on the node24 runtime (II's v4-era pins run on node20, being retired) |

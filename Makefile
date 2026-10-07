@@ -2,6 +2,14 @@
 # PMO Intelligence - Top Level Makefile
 # ========================
 
+# Host ports for the local stack. Override them to run beside another project
+# that holds 8000 or 3000, on every make command or in the environment:
+#   make dev-build PMO_API_PORT=8100 PMO_WEB_PORT=3100
+# The frontend image bakes in the API URL, so a new API port needs dev-build.
+PMO_API_PORT ?= 8000
+PMO_WEB_PORT ?= 3000
+export PMO_API_PORT PMO_WEB_PORT
+
 .PHONY: dev dev-build down down-clean test test-backend test-frontend test-e2e lint lint-backend lint-frontend format migrate migrate-new clean help
 
 # ========================
@@ -32,8 +40,8 @@ test-backend: ## Run backend tests (integration tests need Docker for testcontai
 test-frontend: ## Run frontend unit tests
 	cd frontend && pnpm test
 
-test-e2e: ## Run Playwright end-to-end tests (needs the stack up with LOCAL_AUTH_ENABLED=true)
-	cd frontend && pnpm test:e2e
+test-e2e: ## Run Playwright end-to-end tests against the stack on PMO_WEB_PORT/PMO_API_PORT
+	cd frontend && E2E_BASE_URL=http://localhost:$(PMO_WEB_PORT) E2E_API_URL=http://localhost:$(PMO_API_PORT)/api/v1 pnpm test:e2e
 
 # ========================
 # Linting & Formatting

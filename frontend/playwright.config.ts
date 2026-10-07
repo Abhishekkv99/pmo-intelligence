@@ -3,7 +3,9 @@ import { defineConfig, devices } from "@playwright/test";
 /**
  * Playwright E2E test configuration.
  *
- * Runs against the local Docker Compose stack (frontend on :3000, backend on :8000).
+ * Runs against the local Docker Compose stack (frontend on :3000, backend on :8000 by
+ * default; `make test-e2e` sets E2E_BASE_URL and E2E_API_URL from PMO_WEB_PORT and
+ * PMO_API_PORT).
  * Auth setup project logs in once and saves storageState for all test projects.
  */
 export default defineConfig({

@@ -23,3 +23,10 @@ All notable changes to this project will be documented in this file.
 - Frontend tooling: Prettier, `typecheck`, `format` and `format:check` scripts; pnpm 12 pinned with `packageManager`; Node 22 or later.
 - Frontend unit tests (Vitest) and Playwright end-to-end tests for sign-in.
 - Project documentation: PRD, architecture, API, roadmap, backlog, sprint templates.
+- Local stack with Docker Compose: PostgreSQL 16 with pgvector, backend and frontend, each with a health check.
+- Backend Dockerfile (non-root, uv 0.9.18) and frontend Dockerfile (non-root, pnpm 12.6.0, Next.js standalone server bound to all interfaces); one `.dockerignore` per image.
+- Makefile targets for the stack, migrations, tests (`test`, `test-e2e`), lint (ruff, mypy strict, eslint, typecheck, Prettier check) and formatting.
+- Configurable host ports for the local stack (`PMO_API_PORT`, `PMO_WEB_PORT`; defaults 8000 and 3000) so it can run beside other projects.
+- `.env.example` listing every backend setting with local defaults.
+- CI on GitHub Actions: path-filtered backend and frontend checks, end-to-end tests against the compose stack, and a staging deploy from `develop` that runs only after the checks pass (skipped until the deploy variables are set).
+- README with prerequisites, quick start and common commands.

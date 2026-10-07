@@ -1,21 +1,23 @@
 # Test Tracking
 
 ## Summary
-Counts are taken from the test run output, never estimated (last run 2026-10-06).
+Counts are taken from the test run output, never estimated (last run 2026-10-07: backend and frontend unit plus integration in one run; e2e re-run the same day against the compose stack on host ports 8100/3100, beside another project's dev servers on 8000/3000).
 
 | Layer | Count |
 |-------|-------|
 | Unit (backend) | 241 |
 | Integration (backend, testcontainers pgvector) | 33 |
 | Frontend unit (Vitest) | 86 |
-| **Total run** | **360** |
-| Frontend e2e (Playwright) | 9 listed (1 setup + 8); not yet run, needs the local stack from Phase 3 |
+| Frontend e2e (Playwright, against the compose stack) | 9 (1 setup + 8) |
+| **Total run** | **369** |
 
 ## How to run
 - Backend unit: `cd backend && uv run pytest tests/unit`
 - Backend integration (needs Docker running): `cd backend && uv run pytest tests/integration`
 - Frontend unit: `cd frontend && pnpm test`
 - Frontend e2e (needs the backend with `LOCAL_AUTH_ENABLED=true` on :8000 and the frontend on :3000): `cd frontend && pnpm test:e2e`
+- With make: `make test` (backend unit + integration, frontend unit); `make dev-build`, `make migrate`, then `make test-e2e`. If another dev server holds 8000 or 3000, its answers make the suite fail at `auth.setup.ts`. Move the PMO stack with `make dev-build PMO_API_PORT=8100 PMO_WEB_PORT=3100` and `make test-e2e PMO_API_PORT=8100 PMO_WEB_PORT=3100`
+- CI runs the same suites; e2e runs against the compose stack (`.github/workflows/ci.yml`)
 
 ## Backend unit tests (`backend/tests/unit/`)
 | File | Tests | Covers |
