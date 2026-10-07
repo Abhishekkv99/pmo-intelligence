@@ -18,6 +18,8 @@
 - **GitHub**: branch protection and rulesets on private repos need GitHub Pro.
 - **Next.js**: 16.0.0–16.2.10 are affected by a middleware/proxy auth bypass (CVE-2026-64642) and eight other CVEs, fixed in 16.2.11 (2026-07-21). Interview Intelligence is on 16.1.6, so PMO upgrades to the latest 16.x at copy time.
 - **Terraform**: the S3 backend supports native state locking (`use_lockfile = true`). DynamoDB locking is deprecated. Bucket versioning is recommended.
+- **Sandbox account survey (2026-10-07, `pmo-intelligence` profile, read-only)**: account `260172548683` holds only the default VPC (`172.31.0.0/16`). No Route 53 zones (so no `itcapp.ai`), no IAM OIDC provider, and no RDS, ECS, ECR, ALB, ACM, S3, NAT, Elastic IP or CloudFormation stacks. Nothing to clash with; PMO creates everything.
+- **Entra redirect URIs** must be HTTPS except for `localhost`, so staging SSO needs a domain with a certificate.
 - **Interview Intelligence hazards** (from exploring the repo):
   - **Local state**: `infra/` holds a live local `terraform.tfstate`, `terraform.tfvars` and `.terraform/`. Copy only `*.tf` and `terraform.tfvars.example`.
   - **OIDC provider**: the GitHub OIDC provider already exists in the account, so use a data source.
@@ -96,10 +98,11 @@
 ### Phase 4: Infrastructure as code (plan first, apply only with approval)
 **Code work**
 - [ ] `infra/bootstrap/`: state bucket (versioned, encrypted, public access blocked)
-- [ ] `infra/`: copied `*.tf` renamed for PMO; S3 backend with `use_lockfile`; data sources only for the two account-wide pieces that cannot be duplicated: the `itcapp.ai` Route 53 zone and the GitHub OIDC provider
+- [ ] `infra/`: copied `*.tf` renamed for PMO; S3 backend with `use_lockfile`; all resources in account `260172548683` (profile `pmo-intelligence`), including the GitHub OIDC provider (none exists there)
+- [ ] DNS: public hosted zone `pmo-intelligence-staging.itcapp.ai` in the sandbox, its name servers as an output; ACM certificate validated in that zone; ALB alias record. External step: whoever manages `itcapp.ai` adds one NS record delegating that name (BACKLOG). Prod gets its own delegated zone at product Phase 5
 - [ ] Network: own VPC, subnets in two AZs, routing, and the VPC endpoints the tasks need (open for Phase 4 planning: public subnets with task public IPs vs private subnets with NAT; which endpoints)
 - [ ] Own RDS PostgreSQL 16 instance with its security group (open for Phase 4 planning: one instance for staging and prod databases vs one per environment; instance size)
-- [ ] Per product: ECS cluster, 2 ALBs, security groups, target groups, 2 ACM certificates, 2 CNAMEs, ECR, task definitions with migration init, services, log groups, 2 secrets, S3 bucket, IAM roles (OIDC role for `Abhishekkv99/pmo-intelligence`)
+- [ ] Per product: ECS cluster, 2 ALBs, security groups, target groups, 2 ACM certificates, 2 DNS records (alias in the delegated zones), ECR, task definitions with migration init, services, log groups, 2 secrets, S3 bucket, IAM roles (OIDC role for `Abhishekkv99/pmo-intelligence`)
 - [ ] `scripts/db_bootstrap.py` (one-off ECS task): PMO databases on PMO's own instance, a `pmo_app` login role, the vector extension
 - [ ] Expiry reminders: SNS email topic plus EventBridge Scheduler (`credential_expiries`)
 - [ ] `terraform plan` reviewed with the user; on explicit approval, apply the shared and staging resources (prod behind a variable, applied at Phase 5 of the product)
@@ -127,15 +130,15 @@
 
 >>> CURRENT PHASE: Phase 4 — Infrastructure as code (not started; plan first, apply only with approval)
 
-## Session State (last updated: 2026-10-07 11:50)
+## Session State (last updated: 2026-10-07 12:40)
 - **Sprint**: 0 — Bootstrap
 - **Current phase**: Phase 4 — Infrastructure as code, not started (Phases 1–3 done)
 - **Phase progress**: Phase 3 6 of 6 (CI green on `develop`); Phase 4 0 of 9
-- **Last completed task**: Phase 3 checkpoint: `develop` pushed (164e95a), CI run 37578107788 green (backend, frontend, e2e passed; deploy skipped)
-- **Next task**: Phase 4 (only when the user asks), starting with the open Phase 4 questions: public subnets with task public IPs vs private subnets with NAT; which VPC endpoints; one RDS instance for staging and prod vs one per environment, and its size. Then `infra/bootstrap/` (state bucket)
+- **Last completed task**: Phase 4 prep: SSO sign-in to the sandbox account `260172548683` via the new `pmo-intelligence` profile (`~/.aws/config`, backup `config.bak-pmo-20261007`); read-only survey (empty apart from the default VPC); DNS by subdomain delegation decided
+- **Next task**: Phase 4 planning questions still open: public subnets with task public IPs vs private subnets with NAT; which VPC endpoints; one RDS instance for staging and prod vs one per environment, and its size. Then `infra/bootstrap/` (state bucket)
 - **Last commit**: 164e95a "ci: pin setup-uv to its v10.2.0 release" (pushed; `develop` on GitHub = local)
 - **Uncommitted changes**: none
-- **Blockers**: Teams connector app pending tenant admin approval (external; affects only the exit-gate ticket item). Push: the repo is private under `Abhishekkv99`; the default git login and the active `gh` account (`abhishekitc`) cannot see it. User decision 2026-10-07: do not change the default git login or the active `gh` account; push with `Abhishekkv99`'s token for that one command only (`git -c credential.helper= -c credential.helper='!f() { echo username=x-access-token; echo "password=$(gh auth token --user Abhishekkv99)"; }; f' push origin develop`)
+- **Blockers**: Teams connector app pending tenant admin approval (external; affects only the exit-gate ticket item). Push: the repo is private under `Abhishekkv99`; the default git login and the active `gh` account (`abhishekitc`) cannot see it. User decision 2026-10-07: do not change the default git login or the active `gh` account; push with `Abhishekkv99`'s token for that one command only (`git -c credential.helper= -c credential.helper='!f() { echo username=x-access-token; echo "password=$(gh auth token --user Abhishekkv99)"; }; f' push origin develop`). DNS: the NS record delegating `pmo-intelligence-staging.itcapp.ai` must be added in the `itcapp.ai` zone by whoever manages it (outside the sandbox account). AWS: run `aws sso login --profile pmo-intelligence` when the session expires
 - **Tests passing**: 241 unit + 33 integration (backend) + 86 frontend unit + 9 e2e = 369, locally and in CI run 37578107788 (2026-10-07); `make lint` passes
 - **Files created this session**: `docker-compose.yml`, `Makefile`, `.env.example`, `backend/.dockerignore`, `frontend/.dockerignore`, `backend/Dockerfile`, `.github/workflows/ci.yml`, `README.md`
 - **Files modified this session**: `frontend/Dockerfile`, `frontend/tests/e2e/auth.spec.ts`, `docs/planning/CURRENT-SPRINT.md`, `docs/planning/BACKLOG.md`
@@ -157,7 +160,10 @@
 | UK only; all UK/US branch logic removed | User decision (#9) |
 | Roles replace branch entitlement; new SSO users have no role until assigned; bootstrap admins become `pmo_manager` | PRD roles and server-side scope; no access by default |
 | Dedicated `pmo_app` database role (application login, not the master user) | Least privilege for the app. Originally for the shared RDS instance (blast radius, #8); kept on PMO's own instance after the 2026-10-07 revision |
-| **Fully separate AWS infrastructure from Interview Intelligence** (supersedes the shared RDS instance and shared default VPC of #8) | User decision 2026-10-07. PMO owns its VPC, subnets, VPC endpoints, RDS instance, ECS cluster, ALBs, certificates, ECR, bucket, secrets, IAM roles and Terraform state. Shared only where AWS allows one per account or the domain is one: the `itcapp.ai` Route 53 zone (PMO adds its own records) and the GitHub OIDC provider (PMO gets its own role, scoped to its repo). No PMO resource or rule is attached to any II resource |
+| **Fully separate AWS infrastructure from Interview Intelligence** (supersedes the shared RDS instance and shared default VPC of #8) | User decision 2026-10-07. PMO owns its VPC, subnets, VPC endpoints, RDS instance, ECS cluster, ALBs, certificates, ECR, bucket, secrets, IAM roles and Terraform state. Shared only where AWS allows one per account or the domain is one: the `itcapp.ai` Route 53 zone (PMO adds its own records) and the GitHub OIDC provider (PMO gets its own role, scoped to its repo). No PMO resource or rule is attached to any II resource. Superseded the same day by the separate sandbox account (rows below): nothing on AWS is shared, the OIDC provider is PMO's own, and the only outside link is the NS record delegating the staging hostname |
+| **AWS account: ITC Sandbox PD Intelligence (`260172548683`), eu-west-2**, signed in with SSO through the local profile `pmo-intelligence` (`AdministratorAccess`, its own `sso-session` on the ITC Identity Center portal) | User decision 2026-10-07: infra is created and deployed in this sandbox account. Terraform and scripts run with `AWS_PROFILE=pmo-intelligence`; `aws sso login --profile pmo-intelligence` refreshes the session. The `itcapp.ai` zone and the GitHub OIDC provider assumed earlier must be re-checked in this account before Phase 4 is planned |
+| GitHub OIDC provider created by PMO's Terraform in the sandbox account | Survey 2026-10-07: none exists in `260172548683` (the II account's provider was the reason for a data source) |
+| **Staging hostname by subdomain delegation**: public zone `pmo-intelligence-staging.itcapp.ai` in the sandbox account; one NS record for it in the `itcapp.ai` zone, added by whoever manages that zone | User decision 2026-10-07; `itcapp.ai` is not in the sandbox account and Entra needs HTTPS outside `localhost`. Keeps the agreed hostname (#10) and leaves the certificate, its validation and the ALB record entirely in PMO's account. Prod uses its own delegated zone at product Phase 5 |
 | Deploy only after CI succeeds | II deploys even when CI fails |
 | CI checks out with the default `GITHUB_TOKEN` | A same-repo checkout needs no PAT, so there is no token expiry to track |
 | Prod infra defined but applied at the product's Phase 5 | Avoids idle prod ALB cost before the first release |
