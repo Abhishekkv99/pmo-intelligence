@@ -32,7 +32,7 @@
 ## User Decisions Made
 | Question | User Choice | Alternatives Offered |
 |----------|------------|---------------------|
-| Environments and database (#8) | Staging + prod, each with its own database on the shared RDS instance | Staging only; own RDS instance |
+| Environments and database (#8) | Staging + prod. **Revised 2026-10-07: fully separate infrastructure from Interview Intelligence**: own VPC, VPC endpoints and RDS instance (was: own databases on II's shared RDS instance) | Staging only; own databases on the shared RDS instance; own RDS instance in the shared default VPC |
 | UK only or UK + US (#9) | UK only, no branch column | Model branch from day one |
 | Hostnames (#10) | `pmo-intelligence.itcapp.ai` (prod), `pmo-intelligence-staging.itcapp.ai` (staging) | `pmo.itcapp.ai` is taken; `placements.itcapp.ai`; `pmo-intel.itcapp.ai` |
 | Load balancer | Two new ALBs (staging and prod), as in Interview Intelligence | One new ALB for both; share II's ALB |
@@ -84,7 +84,7 @@
 - [x] `docker-compose.yml`, `Makefile` (format fixed, mypy in lint, seed removed), `.env.example`, `.dockerignore` (compose db `pmo_intelligence`, ports as II, `docker compose config` valid; Makefile adds `test-e2e`, lint = ruff + `mypy app` / eslint + typecheck + format:check, both pass; `.env.example` lists only what `config.py` reads, copy to `backend/.env`; `backend/` and `frontend/` `.dockerignore`)
 - [x] Dockerfiles (backend without the WeasyPrint libraries) (backend: II's minus WeasyPrint, uv 0.9.18; frontend: pnpm 12.6.0, copies `pnpm-workspace.yaml`, `HOSTNAME=0.0.0.0` so the in-container health check reaches the server; `docker compose up --build` all healthy, `make migrate` applied 001, first e2e run 9/9 after fixing an ambiguous heading locator in `auth.spec.ts`)
 - [x] `ci.yml`: default token checkout, mypy, e2e with local auth (`.github/workflows/ci.yml`: latest action majors, uv 0.9.18, pnpm from `packageManager`, Node 22; backend ruff + `mypy app` + unit + integration; frontend eslint + typecheck + format:check + vitest + build; e2e on the compose stack; path filters; actionlint clean; first GitHub run on the phase push)
-- [ ] Deploy workflow: ECR `pmo-intelligence-*`; deploys only after CI succeeds; `develop` deploys to staging
+- [x] Deploy workflow: ECR `pmo-intelligence-*`; deploys only after CI succeeds; `develop` deploys to staging (`deploy-staging` job in `ci.yml`: needs every CI job passed or skipped, push to `develop` only, redeploys the side that changed since the branch's previous commit, OIDC role and identifiers from repository variables, skipped while `vars.AWS_ROLE_ARN` is unset; `main` → prod added at product Phase 5; actionlint clean)
 
 **Doc updates (concurrent)**
 - [ ] `README.md` (quick start), `ARCHITECTURE.md` (CI/CD), `CHANGELOG.md`
@@ -95,10 +95,11 @@
 ### Phase 4: Infrastructure as code (plan first, apply only with approval)
 **Code work**
 - [ ] `infra/bootstrap/`: state bucket (versioned, encrypted, public access blocked)
-- [ ] `infra/`: copied `*.tf` renamed for PMO; S3 backend with `use_lockfile`; data sources for the default VPC, Route 53 zone, OIDC provider, II RDS and its security group, and the VPC-endpoint security group
+- [ ] `infra/`: copied `*.tf` renamed for PMO; S3 backend with `use_lockfile`; data sources only for the two account-wide pieces that cannot be duplicated: the `itcapp.ai` Route 53 zone and the GitHub OIDC provider
+- [ ] Network: own VPC, subnets in two AZs, routing, and the VPC endpoints the tasks need (open for Phase 4 planning: public subnets with task public IPs vs private subnets with NAT; which endpoints)
+- [ ] Own RDS PostgreSQL 16 instance with its security group (open for Phase 4 planning: one instance for staging and prod databases vs one per environment; instance size)
 - [ ] Per product: ECS cluster, 2 ALBs, security groups, target groups, 2 ACM certificates, 2 CNAMEs, ECR, task definitions with migration init, services, log groups, 2 secrets, S3 bucket, IAM roles (OIDC role for `Abhishekkv99/pmo-intelligence`)
-- [ ] Additive security-group rules on the II RDS and VPC-endpoint security groups
-- [ ] `scripts/db_bootstrap.py` (one-off ECS task): PMO databases, a `pmo_app` login role, the vector extension
+- [ ] `scripts/db_bootstrap.py` (one-off ECS task): PMO databases on PMO's own instance, a `pmo_app` login role, the vector extension
 - [ ] Expiry reminders: SNS email topic plus EventBridge Scheduler (`credential_expiries`)
 - [ ] `terraform plan` reviewed with the user; on explicit approval, apply the shared and staging resources (prod behind a variable, applied at Phase 5 of the product)
 
@@ -128,12 +129,12 @@
 ## Session State (last updated: 2026-10-07 09:40)
 - **Sprint**: 0 — Bootstrap
 - **Current phase**: Phase 3 — Local dev and CI (Phases 1 and 2 done)
-- **Phase progress**: Phase 3 3 of 6
-- **Last completed task**: Phase 3 task 3: `.github/workflows/ci.yml` (actionlint clean)
-- **Next task**: Phase 3 task 4: deploy workflow from II's `build-push.yml`: ECR `pmo-intelligence-*`, runs only after CI succeeds (`workflow_run`), `develop` deploys to staging
-- **Last commit**: 46ea4b7 "chore: add backend dockerfile and pin pnpm 12 in the frontend image"
-- **Uncommitted changes**: `.github/workflows/ci.yml` (new), `docs/planning/CURRENT-SPRINT.md`
-- **Blockers**: Teams connector app pending tenant admin approval (external; affects only the exit-gate ticket item). Push: the repo exists (private, `main` + `develop`, owner `Abhishekkv99`) but plain `git` credentials cannot see it (`git ls-remote` → not found; active `gh` account is `abhishekitc`); fix before the Phase 3 push
+- **Phase progress**: Phase 3 4 of 6
+- **Last completed task**: Phase 3 task 4: `deploy-staging` job in `.github/workflows/ci.yml`
+- **Next task**: Phase 3 doc updates: `README.md` (quick start: make via winget, `.env.example` → `backend/.env`, `make dev-build`, `make migrate`, `make test-e2e`), `ARCHITECTURE.md` (local dev and CI/CD as built), `CHANGELOG.md`; then the phase commit and the push to `develop` (fix the git credential first, see Blockers) and CI green
+- **Last commit**: 7329643 "ci: add workflow for lint, tests and e2e on the compose stack"
+- **Uncommitted changes**: none
+- **Blockers**: Teams connector app pending tenant admin approval (external; affects only the exit-gate ticket item). Push: the repo is private under `Abhishekkv99`; the default git login and the active `gh` account (`abhishekitc`) cannot see it. User decision 2026-10-07: do not change the default git login or the active `gh` account; push with `Abhishekkv99`'s token for that one command only (`git -c credential.helper= -c credential.helper='!f() { echo username=x-access-token; echo "password=$(gh auth token --user Abhishekkv99)"; }; f' push origin develop`)
 - **Tests passing**: 241 unit + 33 integration (backend) + 86 frontend unit + 9 e2e (first local run against compose) = 369; `make lint` passes
 - **Files created this session**: `docker-compose.yml`, `Makefile`, `.env.example`, `backend/.dockerignore`, `frontend/.dockerignore`, `backend/Dockerfile`, `.github/workflows/ci.yml`
 - **Files modified this session**: `frontend/Dockerfile`, `frontend/tests/e2e/auth.spec.ts`, `docs/planning/CURRENT-SPRINT.md`, `docs/planning/BACKLOG.md`
@@ -153,7 +154,8 @@
 | GitHub repo `Abhishekkv99/pmo-intelligence`, private | User decision; same owner as Interview Intelligence |
 | UK only; all UK/US branch logic removed | User decision (#9) |
 | Roles replace branch entitlement; new SSO users have no role until assigned; bootstrap admins become `pmo_manager` | PRD roles and server-side scope; no access by default |
-| Dedicated `pmo_app` database role on the shared RDS instance | PMO cannot read or alter Interview Intelligence data (blast radius, #8) |
+| Dedicated `pmo_app` database role (application login, not the master user) | Least privilege for the app. Originally for the shared RDS instance (blast radius, #8); kept on PMO's own instance after the 2026-10-07 revision |
+| **Fully separate AWS infrastructure from Interview Intelligence** (supersedes the shared RDS instance and shared default VPC of #8) | User decision 2026-10-07. PMO owns its VPC, subnets, VPC endpoints, RDS instance, ECS cluster, ALBs, certificates, ECR, bucket, secrets, IAM roles and Terraform state. Shared only where AWS allows one per account or the domain is one: the `itcapp.ai` Route 53 zone (PMO adds its own records) and the GitHub OIDC provider (PMO gets its own role, scoped to its repo). No PMO resource or rule is attached to any II resource |
 | Deploy only after CI succeeds | II deploys even when CI fails |
 | CI checks out with the default `GITHUB_TOKEN` | A same-repo checkout needs no PAT, so there is no token expiry to track |
 | Prod infra defined but applied at the product's Phase 5 | Avoids idle prod ALB cost before the first release |
@@ -172,4 +174,7 @@
 | CI uses the latest action majors: checkout v7, setup-node v7, upload-artifact v7, setup-uv v10, pnpm/action-setup v6, paths-filter v4 | User decision 2026-10-07; all on the node24 runtime (II's v4-era pins run on node20, being retired) |
 | CI e2e runs against the docker compose stack (images built in the job, migrations from the runner, then Playwright) | User decision 2026-10-07; same path as `make dev-build` + `make migrate` + `make test-e2e`, and it exercises the Dockerfiles (the HOSTNAME bug would have been caught) |
 | CI keeps II's path filters (backend, frontend; e2e on either, plus compose and the workflow) | User decision 2026-10-07; docs-only pushes run nothing and CI still succeeds, so the deploy gate passes |
+| Deploy is a `deploy-staging` job inside `ci.yml` that needs every CI job (passed or skipped) and runs on push only | User decision 2026-10-07; same run and commit sha as the checks; only that job gets `id-token: write`. A separate `workflow_run` file would run from the default branch's copy and need the sha checked out by hand |
+| Only `develop` → staging is wired in Sprint 0; `main` → production is added when prod infra is applied (product Phase 5) | User decision 2026-10-07; a push to `main` cannot fail on ECS services that do not exist yet |
+| Deploy identifiers are repository variables (`vars.AWS_ROLE_ARN`, `AWS_REGION`, `ECR_REGISTRY`, `ECS_CLUSTER_NAME`, `ECS_STAGING_BACKEND_SERVICE`, `ECS_STAGING_FRONTEND_SERVICE`); no repository secrets | User decision 2026-10-07; none are secret with OIDC, and readable values make failures easy to diagnose. GitHub Environments would need GitHub Pro on a private repo. Values come from the Phase 4 Terraform outputs |
 | One `.dockerignore` per build context (`backend/`, `frontend/`), tests excluded from images | User decision 2026-10-06; compose builds from `./backend` and `./frontend`, so a root file would not apply |

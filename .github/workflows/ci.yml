@@ -24,6 +24,8 @@ jobs:
       backend: ${{ steps.filter.outputs.backend }}
       frontend: ${{ steps.filter.outputs.frontend }}
       stack: ${{ steps.filter.outputs.stack }}
+      deploy_backend: ${{ steps.deploy-filter.outputs.backend }}
+      deploy_frontend: ${{ steps.deploy-filter.outputs.frontend }}
     steps:
       - uses: actions/checkout@v7
       - uses: dorny/paths-filter@v4
@@ -38,6 +40,22 @@ jobs:
               - '.github/workflows/ci.yml'
             stack:
               - 'docker-compose.yml'
+
+      # What to redeploy: compare with the branch's own previous commit. Without
+      # a base, a push to develop is compared with main and redeploys whatever
+      # is unreleased. Redeploying the backend restarts processing (an ownership
+      # handover that fails the jobs in flight), so a frontend-only push must
+      # not touch it.
+      - uses: dorny/paths-filter@v4
+        id: deploy-filter
+        if: ${{ github.event_name == 'push' }}
+        with:
+          base: ${{ github.ref_name }}
+          filters: |
+            backend:
+              - 'backend/**'
+            frontend:
+              - 'frontend/**'
 
   backend-ci:
     name: Backend CI
@@ -184,3 +202,88 @@ jobs:
       - name: Stop the stack
         if: ${{ always() }}
         run: docker compose down -v
+
+  # Builds and redeploys only after every check above passed or was skipped.
+  # Only develop -> staging for now; main -> production is added when the
+  # production infrastructure is applied. Identifiers are repository variables
+  # (none are secret with OIDC); their values are the Terraform outputs. The
+  # job is skipped until AWS_ROLE_ARN is set, so CI stays green before the
+  # staging infrastructure exists.
+  deploy-staging:
+    name: Deploy to staging
+    needs: [changes, backend-ci, frontend-ci, e2e-tests]
+    if: >-
+      ${{ !cancelled()
+      && github.event_name == 'push'
+      && github.ref_name == 'develop'
+      && vars.AWS_ROLE_ARN != ''
+      && !contains(needs.*.result, 'failure')
+      && !contains(needs.*.result, 'cancelled')
+      && (needs.changes.outputs.deploy_backend == 'true' || needs.changes.outputs.deploy_frontend == 'true') }}
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    concurrency:
+      group: deploy-staging
+      cancel-in-progress: false
+    env:
+      IMAGE_TAG: staging-latest
+      BACKEND_IMAGE: ${{ vars.ECR_REGISTRY }}/pmo-intelligence-backend
+      FRONTEND_IMAGE: ${{ vars.ECR_REGISTRY }}/pmo-intelligence-frontend
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Build and push backend
+        if: ${{ needs.changes.outputs.deploy_backend == 'true' }}
+        uses: docker/build-push-action@v7
+        with:
+          context: ./backend
+          push: true
+          tags: |
+            ${{ env.BACKEND_IMAGE }}:sha-${{ github.sha }}
+            ${{ env.BACKEND_IMAGE }}:${{ env.IMAGE_TAG }}
+          cache-from: type=registry,ref=${{ env.BACKEND_IMAGE }}:${{ env.IMAGE_TAG }}
+          cache-to: type=inline
+
+      - name: Build and push frontend
+        if: ${{ needs.changes.outputs.deploy_frontend == 'true' }}
+        uses: docker/build-push-action@v7
+        with:
+          context: ./frontend
+          push: true
+          tags: |
+            ${{ env.FRONTEND_IMAGE }}:sha-${{ github.sha }}
+            ${{ env.FRONTEND_IMAGE }}:${{ env.IMAGE_TAG }}
+          build-args: |
+            NEXT_PUBLIC_API_URL=/api/v1
+          cache-from: type=registry,ref=${{ env.FRONTEND_IMAGE }}:${{ env.IMAGE_TAG }}
+          cache-to: type=inline
+
+      - name: Deploy backend to ECS
+        if: ${{ needs.changes.outputs.deploy_backend == 'true' }}
+        run: |
+          aws ecs update-service \
+            --cluster "${{ vars.ECS_CLUSTER_NAME }}" \
+            --service "${{ vars.ECS_STAGING_BACKEND_SERVICE }}" \
+            --force-new-deployment
+
+      - name: Deploy frontend to ECS
+        if: ${{ needs.changes.outputs.deploy_frontend == 'true' }}
+        run: |
+          aws ecs update-service \
+            --cluster "${{ vars.ECS_CLUSTER_NAME }}" \
+            --service "${{ vars.ECS_STAGING_FRONTEND_SERVICE }}" \
+            --force-new-deployment
