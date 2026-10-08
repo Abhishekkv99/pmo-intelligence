@@ -11,7 +11,9 @@ to one of the explicit sets below.
 
 A route addressed by a placement id must carry a *placement-scope* guard
 specifically: a role check alone would let a PS read a placement that does
-not name them.
+not name them. A route addressed by a recording, recordings folder or user id
+must carry a *role* guard: those rows belong to no placement, so only the
+global roles may reach them.
 """
 
 import pytest
@@ -23,10 +25,15 @@ from app.dependencies import (
     get_current_user,
     require_logged_placement_scope,
     require_placement_scope,
+    require_roles,
 )
 from app.main import app
+from app.models.enums import Role
 
 PLACEMENT_GUARDS = {require_placement_scope, require_logged_placement_scope}
+
+# Path parameters of rows outside any placement: global roles only.
+ROLE_ONLY_IDS = ("{recording_id}", "{folder_id}", "{user_id}")
 
 # Reachable without a user at all. Each entry is a decision, not an oversight.
 PUBLIC = {
@@ -56,6 +63,12 @@ def _calls(dependant: Dependant) -> set[object]:
 
 def _is_guard(call: object) -> bool:
     return bool(getattr(call, GUARD_ATTR, False))
+
+
+def _is_role_guard(call: object) -> bool:
+    return _is_guard(call) and getattr(call, "__qualname__", "").startswith(
+        "require_roles."
+    )
 
 
 def _api_routes() -> list[tuple[str, str, APIRoute]]:
@@ -126,3 +139,17 @@ class TestEveryRouteIsGuarded:
                 f"{method} {path} is addressed by a placement id and must carry "
                 "a placement-scope guard, not only a role check"
             )
+
+        if any(param in path for param in ROLE_ONLY_IDS):
+            assert any(_is_role_guard(call) for call in calls), (
+                f"{method} {path} is addressed by an id outside any placement and "
+                "must carry require_roles(...)"
+            )
+
+
+class TestRoleGuardDetection:
+    def test_require_roles_is_recognised_as_a_role_guard(self) -> None:
+        assert _is_role_guard(require_roles(Role.ADMIN))
+
+    def test_placement_guards_are_not_role_guards(self) -> None:
+        assert not any(_is_role_guard(guard) for guard in PLACEMENT_GUARDS)

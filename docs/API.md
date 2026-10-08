@@ -16,6 +16,8 @@ Applied on the server for every route; the route-coverage test (`backend/tests/u
 | `require_placement_scope` | Routes addressed by a placement id | `404`, identical to a missing placement |
 | `require_logged_placement_scope` | Routes that show a consultant's data; also writes an `access_log` row | `404`, identical to a missing placement |
 
+A route addressed by a recording, recordings folder or user id (`{recording_id}`, `{folder_id}`, `{user_id}`) must carry `require_roles(...)`: those rows belong to no placement, so only the global roles reach them. The coverage test checks this too.
+
 **Roles** are `pmo_manager`, `sme`, `tech_lead`, `ps` and `admin`, defined in `backend/app/models/enums.py`.
 - **Global roles** (`pmo_manager`, `admin`) read every placement.
 - **Other roles** read only the placements that name them, as PS, SME, or the project's tech lead.
@@ -99,6 +101,34 @@ PMO managers and admins edit the register; any other role gets `403 {"detail": "
 - **`UserListItem`**: `{id, email, full_name, role, is_active, signed_in_with_microsoft}`.
 - **`RoleChangeResult`**: `{user: UserListItem, message}`; `message` says what changed in words (sessions ended, or that a bootstrap admin will be raised again at their next sign-in).
 - **The last active PMO manager keeps the role**: removing or changing it answers **409** `{"detail": "<email> is the last active PMO manager; make someone else a PMO manager first"}`. `make user-role` refuses the same change.
+
+### Recordings
+The PMO recordings folder (Admin > Recordings). PMO managers and admins only; any other role gets `403 {"detail": "Not authorised for this operation"}`. The scan catalogs the folder and never processes anything; a session is made only when a person presses Process.
+
+| Method | Path | Auth | Request | Response |
+|--------|------|------|---------|----------|
+| GET | `/recording-folders` | `pmo_manager`, `admin` | — | `RecordingFolderList` (below): folders that are `matched`, `chosen` or `needs_choice` (unmatched ones are not listed), newest folder date first, each with its recordings |
+| PUT | `/recording-folders/{folder_id}/consultant` | `pmo_manager`, `admin` | `{consultant_id}` | `204`; the folder becomes `chosen` and later scans keep it. Any consultant in the register may be chosen, to settle a folder or correct a wrong match; sessions already made keep their placement. 404 for an unknown folder, 422 for an unknown consultant |
+| POST | `/recordings/scan` | `pmo_manager`, `admin`; 10/min | — | `202 {queued}`; `queued` is false when a scan is already queued or running |
+| POST | `/recordings/{recording_id}/process` | `pmo_manager`, `admin`; 30/min | `{placement_id?}` | `202` `SessionCreated`; the session's job is queued. 409 `PlacementChoice` (below) when no single placement covers the call; 409 `{detail}` when the folder has no decided consultant, or the recording is already a session; 422 for a placement that is not the folder consultant's; 404 for an unknown recording |
+
+- **`RecordingFolderList`**: `{folders: [RecordingFolderItem], latest_scan: ScanSummary | null, scan_enabled, scan_interval_seconds}`.
+- **`RecordingFolderItem`**: `{id, display_name, folder_date, match_status, consultant: {id, full_name} | null, candidates: [{id, full_name}], last_seen_at, recordings: [RecordingItem]}`. `display_name` is the folder name without its routing suffix; `folder_date` comes from a leading `DD-MM-YY`.
+- **`RecordingItem`**: `{id, filename, size_bytes, recorded_at, time_from_name, session: {id, status} | null}`. `recorded_at` comes from the file name; when `time_from_name` is false it is the file's S3 time instead.
+- **`ScanSummary`**: `{id, started_at, finished_at, status, folders_seen, folders_added, folders_matched, recordings_seen, recordings_added, error_message}`; `status` is `running | completed | failed`.
+- **Which placement**: the folder consultant's placement whose dates cover the call's UK date (`start_date` ≤ day ≤ `expected_end_date`, open-ended without one), whatever its status.
+- **`PlacementChoice`** (409): `{detail, placements: [{id, client_name, project_name, start_date, expected_end_date, status}]}`: the covering placements when several cover the call, else every placement of the consultant. Send one back as `placement_id`.
+- **`SessionCreated`**: `{id, placement_id, source, status, held_at}`; `source` is `s3 | upload | url | graph`, `status` starts at `uploaded`.
+
+### Sessions
+| Method | Path | Auth | Request | Response |
+|--------|------|------|---------|----------|
+| POST | `/sessions/upload` | `pmo_manager`, `admin`; 10/min | multipart: `file`, `placement_id`, `held_at` (ISO 8601 with an offset) | `202` `SessionCreated`; the recording is stored and the session's job queued |
+| POST | `/sessions/url` | `pmo_manager`, `admin`; 10/min | `{url, placement_id, held_at}` (`held_at` with an offset) | `202` `SessionCreated`; the URL is checked now and downloaded by the job |
+
+- **Upload checks**: an allowed extension (`ALLOWED_EXTENSIONS`), first bytes that match it (422 "The file's content is not WEBM…" otherwise), and at most `MAX_UPLOAD_SIZE_MB` (500). A body over the limit plus 1 MiB is refused with **413** as it arrives, before it is spooled; a file over the limit is refused with 422.
+- **URL checks**: `https` only; every address the host resolves to must be public, on every redirect (422 "The URL points to a private or internal address"); a URL needing sign-in answers 502. The recording type and size are checked again as the job downloads it.
+- **`held_at`** without an offset is a 422; it is stored in UTC. An unknown placement is a 404.
 
 ## Common Response Formats
 ### Error Response

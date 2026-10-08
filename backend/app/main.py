@@ -13,7 +13,9 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 
 from app.api.router import api_router
+from app.api.v1.sessions import UPLOAD_PATH
 from app.config import settings
+from app.middleware.body_limit import BodyLimitMiddleware
 from app.middleware.security import SecurityHeadersMiddleware
 from app.rate_limiter import limiter
 from app.utils.exceptions import AppError
@@ -130,6 +132,16 @@ def create_app() -> FastAPI:
         _rate_limit_exceeded_handler,  # type: ignore[arg-type]
     )
 
+    # Innermost, so its 413 still passes CORS and the security headers. The
+    # limit leaves 1 MiB for the form's other fields and boundaries.
+    app.add_middleware(
+        BodyLimitMiddleware,
+        limits={
+            ("POST", f"/api/v1{UPLOAD_PATH}"): (settings.max_upload_size_mb + 1)
+            * 1024
+            * 1024
+        },
+    )
     app.add_middleware(SlowAPIMiddleware)
     app.add_middleware(SecurityHeadersMiddleware)
     app.add_middleware(

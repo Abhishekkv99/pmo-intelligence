@@ -1,15 +1,15 @@
 # Test Tracking
 
 ## Summary
-Counts are taken from the test run output, never estimated. Last run 2026-10-09 (Sprint 1 Phase 3, session service): backend unit and integration; frontend unit and e2e from the Phase 2 run (no frontend change since); e2e against the compose stack on ports 8100/3100.
+Counts are taken from the test run output, never estimated. Last run 2026-10-09 (Sprint 1 Phase 3, recordings and session routes): backend unit and integration; frontend unit and e2e from the Phase 2 run (no frontend change since); e2e against the compose stack on ports 8100/3100.
 
 | Layer | Count |
 |-------|-------|
-| Unit (backend) | 503 |
-| Integration (backend, testcontainers pgvector) | 130 |
+| Unit (backend) | 521 |
+| Integration (backend, testcontainers pgvector) | 145 |
 | Frontend unit (Vitest) | 113 |
 | Frontend e2e (Playwright, against the compose stack) | 12 (1 setup + 11) |
-| **Total** | **758** |
+| **Total** | **791** |
 
 ## How to run
 - Backend unit: `cd backend && uv run pytest tests/unit`
@@ -24,6 +24,7 @@ Counts are taken from the test run output, never estimated. Last run 2026-10-09 
 |------|-------|--------|
 | `test_assemblyai_client.py` | 6 | Polls a submitted transcript until completed and returns utterances in ms; the EU base URL, key, models and the 2–4 speaker range come from settings; a failed transcript, one still running at the timeout, and a request failure (SDK or network) are `TranscriptionError` |
 | `test_access_rule.py` | 14 | `may_use_app` (active and a known role), `assert_may_sign_in` (403, WARNING), `get_current_user` refuses a removed role or disabled account with 401 and a WARNING |
+| `test_body_limit.py` | 4 | A body within the limit reaches the route; a declared length over it is refused at once (413) and a chunked one as it passes it, before the route runs; other routes are not limited |
 | `test_auth_endpoints.py` | 15 | Register, login, refresh, logout, `/me` (role in the response) |
 | `test_auth_schemas.py` | 11 | Auth request/response schemas; `role` required but nullable |
 | `test_config.py` | 4 | `app_debug` off unless `APP_DEBUG` is set, on when set; transcription defaults to the EU endpoint and Universal-3.5 Pro with a Universal-2 fallback; models read from a JSON env value |
@@ -33,7 +34,7 @@ Counts are taken from the test run output, never estimated. Last run 2026-10-09 
 | `test_db_bootstrap.py` | 11 | Bootstrap config from the environment (defaults, overrides, every missing name listed); URL encoding of credentials; random passwords; secret merge keeps other keys; placeholder detection; exit code 2 without settings |
 | `test_db_session.py` | 1 | Engine command timeout |
 | `test_db_session_scope.py` | 28 | Every route's session is function-scoped, so it commits before the response (one case per route); a failed commit answers 500, not success |
-| `test_entitlement_coverage.py` | 37 | Every `/api/v1` route carries a guard or is listed public or self-scoped; placement-id routes carry a placement-scope guard |
+| `test_entitlement_coverage.py` | 45 | Every `/api/v1` route carries a guard or is listed public or self-scoped; placement-id routes carry a placement-scope guard; recording, folder and user id routes carry `require_roles`; the role guard is told apart from the placement guards |
 | `test_entitlements.py` | 35 | Global vs scoped roles, fail-closed for no role or unknown roles, 404-on-denial, role gate, bootstrap elevation rules |
 | `test_folder_names.py` | 15 | Folding (accents, case, en dashes, apostrophes); dated names lose the `#-#` and `#|#` suffixes; undated names with en dashes and placement dates; an impossible date is no date; an empty name; call times from Talk names in summer (BST) and winter (GMT), `V1_` names and `screen-recording-<ms>`; names without a valid time give none |
 | `test_health.py` | 1 | Health endpoint |
@@ -68,6 +69,7 @@ Counts are taken from the test run output, never estimated. Last run 2026-10-09 
 | `test_db_command_timeout.py` | 1 | asyncpg command timeout |
 | `test_health.py` | 1 | Health endpoint |
 | `test_migrations.py` | 5 | `alembic upgrade head` on an empty DB, `alembic check` (no drift), downgrade and re-upgrade; 002 drops the Microsoft token columns and its downgrade restores them; 003 adds the session and recordings tables and the `processing_costs.session_id` key, and its downgrade removes them; 004 adds and removes `recording_scans` |
+| `test_recordings_api.py` | 15 | The folder list (decided and undecided folders, unmatched left out, recordings with name or S3 time and their session, candidates, the last scan, the scan settings); choosing a consultant makes the folder `chosen`, an unknown consultant 422, an unknown folder 404; Scan now queues one scan; Process creates and queues the session, answers 409 with the placement choices and accepts one, and refuses a second Process; upload stores and queues (time kept as an instant, in UTC), `held_at` without a zone 422; a URL session is checked and queued; a metadata-address URL is refused and nothing is created; scoped roles get 403 on every route |
 | `test_recordings_scanner.py` | 8 | Recordings are allowed files directly in a folder (notes, nested files and objects under the prefix ignored); a first scan catalogs folders and recordings, matches by name, offers a choice for a shared first name, leaves a nameless folder unmatched, reads the call time from the name; nothing is processed or queued; a new file in a known room is added once; an unmatched folder matches once the consultant is registered; chosen and matched folders are never re-matched; a failed listing is recorded and changes nothing; the takeover sweep fails scans left running |
 | `test_register_api.py` | 20 | Register routes: a manager builds a placement; names tidied; uniqueness (client name, consultant email, project per client, placement key) answers 409; end before start, inactive or role-less people and unknown references answer 422; required fields cannot be cleared; partial PATCH with null clearing; ending a placement; a PS reads only their own placement by id (404 otherwise) and cannot list or edit (403); the user list has no secrets |
 | `test_register_import.py` | 10 | CSV import: a dry run previews and writes nothing; Confirm writes and a re-import is unchanged (rows reuse what earlier rows created); any row error writes nothing; filled cells overwrite, empty cells keep; a consultant entered by name gains the email; two consultants with one name need an email; people must be users with a role, a different role warns; not a `.csv` is 422; scoped roles cannot import |

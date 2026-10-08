@@ -101,9 +101,11 @@ def covers(placement: Placement, day: date) -> bool:
     return placement.start_date <= day and (end is None or day <= end)
 
 
-def _require_aware(held_at: datetime) -> None:
+def _in_utc(held_at: datetime) -> datetime:
+    """The call time in UTC; a time without a zone is refused, not guessed."""
     if held_at.tzinfo is None:
         raise ValidationError("held_at must include a time zone")
+    return held_at.astimezone(UTC)
 
 
 class SessionService:
@@ -195,7 +197,7 @@ class SessionService:
         self, file: UploadFile, placement_id: uuid.UUID, held_at: datetime
     ) -> Session:
         """A session for an uploaded recording, stored before this returns."""
-        _require_aware(held_at)
+        held_at = _in_utc(held_at)
         await self._placement(placement_id)
         upload = self._upload_service or UploadService()
         upload.validate_file(file)
@@ -214,7 +216,7 @@ class SessionService:
         self, url: str, placement_id: uuid.UUID, held_at: datetime
     ) -> Session:
         """A session for a recording at a URL, checked now, downloaded by the job."""
-        _require_aware(held_at)
+        held_at = _in_utc(held_at)
         await self._placement(placement_id)
         url_service = self._url_service or UrlDownloadService()
         check = await url_service.validate_url(url)

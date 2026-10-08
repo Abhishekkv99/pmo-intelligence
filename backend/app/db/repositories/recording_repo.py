@@ -6,8 +6,15 @@ from datetime import datetime
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.enums import ScanStatus
-from app.models.session import RecordingFolder, RecordingScan, SourceRecording
+from app.models.enums import FolderMatchStatus, ScanStatus
+from app.models.session import RecordingFolder, RecordingScan, Session, SourceRecording
+
+# Folders shown on the Recordings tab; unmatched ones are not listed.
+LISTED = (
+    FolderMatchStatus.MATCHED.value,
+    FolderMatchStatus.CHOSEN.value,
+    FolderMatchStatus.NEEDS_CHOICE.value,
+)
 
 
 class RecordingRepository:
@@ -33,6 +40,35 @@ class RecordingRepository:
         )
         row = result.one_or_none()
         return None if row is None else (row[0], row[1])
+
+    async def get_folder(self, folder_id: uuid.UUID) -> RecordingFolder | None:
+        return await self.session.get(RecordingFolder, folder_id)
+
+    async def listed_folders(self) -> list[RecordingFolder]:
+        """Matched, chosen and needs-choice folders, newest folder date first."""
+        result = await self.session.execute(
+            select(RecordingFolder)
+            .where(RecordingFolder.match_status.in_(LISTED))
+            .order_by(
+                RecordingFolder.folder_date.desc().nulls_last(),
+                RecordingFolder.display_name,
+            )
+        )
+        return list(result.scalars().all())
+
+    async def recordings_with_sessions(
+        self, folder_ids: list[uuid.UUID]
+    ) -> list[tuple[SourceRecording, uuid.UUID | None, str | None]]:
+        """Each recording in the folders, with its session's id and status if any."""
+        if not folder_ids:
+            return []
+        result = await self.session.execute(
+            select(SourceRecording, Session.id, Session.status)
+            .outerjoin(Session, Session.source_recording_id == SourceRecording.id)
+            .where(SourceRecording.folder_id.in_(folder_ids))
+            .order_by(SourceRecording.object_key)
+        )
+        return [(row[0], row[1], row[2]) for row in result.all()]
 
     def add(self, row: RecordingFolder | SourceRecording) -> None:
         self.session.add(row)
