@@ -3,7 +3,7 @@
 **Goal**: let PMO Intelligence read the consultant group chats it is explicitly added to, and nothing else.
 **Route**: resource-specific consent (RSC), with application permission `Chat.Read.All` requested in parallel as the fallback.
 **Tenant**: Information Tech Consultants (`2b32b1fa-7899-482e-a6de-be99c0ff5516`)
-**Status**: A1–A3 done 2026-10-06 (app-only sign-in verified). A4: custom app upload is blocked for the developer account, so the package was submitted via "Submit an app to your org" on 2026-10-06; Teams accepted it (manifest valid) and it is **pending admin approval**. Next: send the Part B email, then add the app to a test chat after approval and run A5.
+**Status**: A1–A3 done 2026-10-06 (app-only sign-in verified). A4: the package was submitted via "Submit an app to your org" on 2026-10-06, and the Teams app **PMO Intelligence 1.0.0 was seen published in the Teams admin center on 2026-10-08** (approval done; no ticket number was issued). Its availability is the org-wide default, *everyone, including guests and external users*: to be narrowed to the PMO team (BACKLOG). Installed for no one yet. Still open: chat RSC state (admin step 1) and the A5 read test, both before Phase 3 watches real chats.
 **Research date**: 2026-10-06. Graph rules change, so re-check the linked Microsoft pages before acting.
 
 | Part | Who | Needs admin rights? |
@@ -90,11 +90,11 @@ Send this after A2 (and A4 if you used "Submit an app to your org"). Fill in the
 | Graph app (client) ID | `d3b0556f-bcf2-4a5a-8d05-37f40aaa03b3` (created 2026-10-06; app-only sign-in verified, no roles granted) |
 | Teams app ID | `0f2eaf35-928a-4321-9261-692893f270ff` |
 | Certificate thumbprint and expiry date | `F46877044D95A517407208FF2D2FE9F382684BD3`, expires 2027-10-06 |
-| Chat RSC state (admin step 1) | |
-| Teams app approved (date) | submitted 2026-10-06, pending |
+| Chat RSC state (admin step 1) | not yet confirmed (needs a Teams or Global admin; before Phase 3) |
+| Teams app approved (date) | submitted 2026-10-06; seen **published, version 1.0.0** on 2026-10-08 (exact approval date not recorded). Available to: everyone (org-wide default, including guests and external users), to be narrowed to the PMO team. Installed for: no one |
 | Fallback `Chat.Read.All` status | requested, not granted |
-| Admin ticket number | |
-| Test chat verified (A5 date) | |
+| Admin ticket number | none issued: the app was approved without one (Sprint 0 exit gate met by the approval itself, user decision 2026-10-08) |
+| Test chat verified (A5 date) | not yet run (before Phase 3) |
 
 ---
 
