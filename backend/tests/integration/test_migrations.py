@@ -28,6 +28,7 @@ EXPECTED_TABLES = {
     "processing_jobs",
     "projects",
     "recording_folders",
+    "recording_scans",
     "refresh_tokens",
     "session_transcripts",
     "sessions",
@@ -167,3 +168,17 @@ class TestMigrations:
         assert downgrade.returncode == 0, downgrade.stderr
         assert not SESSION_TABLES & await _tables(fresh_database_url)
         assert await _cost_session_foreign_keys(fresh_database_url) == 0
+
+    async def test_004_adds_the_recording_scans_table_and_removes_it(
+        self, fresh_database_url: str
+    ) -> None:
+        assert _alembic(fresh_database_url, "upgrade", "003").returncode == 0
+        assert "recording_scans" not in await _tables(fresh_database_url)
+
+        upgrade = _alembic(fresh_database_url, "upgrade", "004")
+        assert upgrade.returncode == 0, upgrade.stderr
+        assert "recording_scans" in await _tables(fresh_database_url)
+
+        downgrade = _alembic(fresh_database_url, "downgrade", "003")
+        assert downgrade.returncode == 0, downgrade.stderr
+        assert "recording_scans" not in await _tables(fresh_database_url)

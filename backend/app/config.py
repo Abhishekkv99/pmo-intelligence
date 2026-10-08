@@ -70,6 +70,17 @@ class Settings(BaseSettings):
         ".m4a",
         ".ogg",
     ]
+    # The PMO recordings folder (main ITC account, read through a bucket
+    # policy). A folder under the prefix is a recurring Talk room; the scan
+    # only catalogs it, and a recording is processed when a person asks.
+    recordings_source_bucket: str = "nextcloud-talk-recordings-itc"
+    recordings_source_prefix: str = "recordings/pmo/"
+    # Off unless set: development has no access to the source bucket.
+    recordings_scan_enabled: bool = False
+    recordings_scan_interval_seconds: int = 900
+    # Recording file names carry the local time of the call.
+    recordings_timezone: str = "Europe/London"
+
     # Downloading a recording from a URL; max_upload_size_mb caps it too.
     url_download_timeout_seconds: int = 1800
     url_download_max_redirects: int = 5

@@ -94,6 +94,14 @@ class FolderMatchStatus(enum.StrEnum):
     UNMATCHED = "unmatched"
 
 
+class ScanStatus(enum.StrEnum):
+    """How a pass over the recordings folder ended (``running`` until it does)."""
+
+    RUNNING = "running"
+    COMPLETED = "completed"
+    FAILED = "failed"
+
+
 def check_in(column: str, values: type[enum.StrEnum]) -> str:
     """SQL for a CHECK constraint limiting ``column`` to ``values``."""
     allowed = ", ".join(f"'{member.value}'" for member in values)

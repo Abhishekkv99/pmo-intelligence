@@ -67,6 +67,14 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
         hold_processing,
     )
     from app.services.processing_queue import get_processing_queue
+    from app.services.recordings.periodic import (
+        PeriodicRecordingsScan,
+        register_recordings_scan,
+    )
+
+    # Runners and takeover sweeps are registered before the takeover starts,
+    # so the first owner already sweeps scans a previous task left running.
+    register_recordings_scan()
 
     processing_queue = get_processing_queue()
     processing_ownership = ProcessingOwnership(engine)
@@ -75,7 +83,16 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
         name="processing-takeover",
     )
 
+    # Every task queues the scan; only the processing owner's queue runs it.
+    periodic_scan: PeriodicRecordingsScan | None = None
+    if settings.recordings_scan_enabled:
+        periodic_scan = PeriodicRecordingsScan()
+        periodic_scan.start()
+
     yield
+
+    if periodic_scan is not None:
+        await periodic_scan.stop()
 
     # Shutdown: stop the processing queue last, after every producer, then
     # give up ownership so the next task can take over. No drain: ECS allows

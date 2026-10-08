@@ -1,15 +1,15 @@
 # Test Tracking
 
 ## Summary
-Counts are taken from the test run output, never estimated. Last run 2026-10-08 (Sprint 1 Phase 3, ingestion services): backend unit (integration from the migration 003 run, no database change since); frontend unit and e2e from the Phase 2 run (no frontend change since); e2e against the compose stack on ports 8100/3100.
+Counts are taken from the test run output, never estimated. Last run 2026-10-08 (Sprint 1 Phase 3, recordings scanner): backend unit and integration; frontend unit and e2e from the Phase 2 run (no frontend change since); e2e against the compose stack on ports 8100/3100.
 
 | Layer | Count |
 |-------|-------|
-| Unit (backend) | 468 |
-| Integration (backend, testcontainers pgvector) | 100 |
+| Unit (backend) | 502 |
+| Integration (backend, testcontainers pgvector) | 109 |
 | Frontend unit (Vitest) | 113 |
 | Frontend e2e (Playwright, against the compose stack) | 12 (1 setup + 11) |
-| **Total** | **693** |
+| **Total** | **736** |
 
 ## How to run
 - Backend unit: `cd backend && uv run pytest tests/unit`
@@ -35,15 +35,18 @@ Counts are taken from the test run output, never estimated. Last run 2026-10-08 
 | `test_db_session_scope.py` | 28 | Every route's session is function-scoped, so it commits before the response (one case per route); a failed commit answers 500, not success |
 | `test_entitlement_coverage.py` | 37 | Every `/api/v1` route carries a guard or is listed public or self-scoped; placement-id routes carry a placement-scope guard |
 | `test_entitlements.py` | 35 | Global vs scoped roles, fail-closed for no role or unknown roles, 404-on-denial, role gate, bootstrap elevation rules |
+| `test_folder_names.py` | 15 | Folding (accents, case, en dashes, apostrophes); dated names lose the `#-#` and `#|#` suffixes; undated names with en dashes and placement dates; an impossible date is no date; an empty name; call times from Talk names in summer (BST) and winter (GMT), `V1_` names and `screen-recording-<ms>`; names without a valid time give none |
 | `test_health.py` | 1 | Health endpoint |
 | `test_llm_factory.py` | 11 | Cached Azure OpenAI clients with timeout |
 | `test_media_files.py` | 30 | Each allowed extension's signature matches and another type's does not; extension check names the allowed list; clean file names (spaces, path parts, `..`, 200 chars, empty); the stream passes a matching file unchanged, checks a signature split over 1-byte chunks or shorter than the window, releases no byte of a wrong file, stops at the cap as bytes arrive, refuses an empty file |
 | `test_memory.py` | 11 | RSS probe and tracemalloc diagnostics |
 | `test_multipart_upload.py` | 7 | Copied: small chunks buffered into 8 MiB parts, a short stream as one part, a custom part size, an empty stream, a failed part and cancellation abort the upload, a part size under S3's 5 MiB floor refused |
+| `test_name_match.py` | 14 | First and last tokens only; first or last name alone matches; part of a word does not; accents and case ignored; a middle name does not match; a shared first name needs a choice; the one full name wins; two identical full names offer only those two; a single-name consultant is a full match; no name, or an empty name, is unmatched |
 | `test_processing_ownership.py` | 8 | Takeover order (sweeps, start, re-queues), retry, non-fatal steps, heartbeat loss |
 | `test_processing_queue.py` | 27 | Priorities (chat < session < backlog), dedup, dispatch order, workers, stragglers, runner registry |
 | `test_processing_status_api.py` | 11 | Queue status route; manager/admin only |
 | `test_rate_limiting.py` | 4 | Auth rate limits |
+| `test_recordings_periodic.py` | 5 | The scan is one fixed backlog job; a second request while queued adds nothing; the runner and takeover sweep are registered once; the loop queues at start and each interval without stacking; stop ends it |
 | `test_refresh_tokens.py` | 15 | Refresh token storage, rotation, revocation; refresh refused, every token revoked and a WARNING logged for no role, a disabled account or a missing user |
 | `test_register_import_file.py` | 13 | Register CSV file checks: line numbers, Excel BOM, header case and spaces, trimmed cells, blank lines skipped; missing and unknown columns named; not UTF-8, over 1 MB, empty or header-only, over 1,000 rows refused; name normalisation |
 | `test_security_middleware.py` | 10 | Security headers, CORS lockdown |
@@ -64,7 +67,8 @@ Counts are taken from the test run output, never estimated. Last run 2026-10-08 
 | `test_db_bootstrap.py` | 5 | First run creates a non-superuser login that owns the database and `public` schema, can run DDL and use `vector`; a second run keeps the password; rotation invalidates the old password; `run` writes a `DATABASE_URL` that connects and leaves it alone on re-run; an existing login with no URL exits 1 until `--rotate-password` |
 | `test_db_command_timeout.py` | 1 | asyncpg command timeout |
 | `test_health.py` | 1 | Health endpoint |
-| `test_migrations.py` | 4 | `alembic upgrade head` on an empty DB, `alembic check` (no drift), downgrade and re-upgrade; 002 drops the Microsoft token columns and its downgrade restores them; 003 adds the session and recordings tables and the `processing_costs.session_id` key, and its downgrade removes them |
+| `test_migrations.py` | 5 | `alembic upgrade head` on an empty DB, `alembic check` (no drift), downgrade and re-upgrade; 002 drops the Microsoft token columns and its downgrade restores them; 003 adds the session and recordings tables and the `processing_costs.session_id` key, and its downgrade removes them; 004 adds and removes `recording_scans` |
+| `test_recordings_scanner.py` | 8 | Recordings are allowed files directly in a folder (notes, nested files and objects under the prefix ignored); a first scan catalogs folders and recordings, matches by name, offers a choice for a shared first name, leaves a nameless folder unmatched, reads the call time from the name; nothing is processed or queued; a new file in a known room is added once; an unmatched folder matches once the consultant is registered; chosen and matched folders are never re-matched; a failed listing is recorded and changes nothing; the takeover sweep fails scans left running |
 | `test_register_api.py` | 20 | Register routes: a manager builds a placement; names tidied; uniqueness (client name, consultant email, project per client, placement key) answers 409; end before start, inactive or role-less people and unknown references answer 422; required fields cannot be cleared; partial PATCH with null clearing; ending a placement; a PS reads only their own placement by id (404 otherwise) and cannot list or edit (403); the user list has no secrets |
 | `test_register_import.py` | 10 | CSV import: a dry run previews and writes nothing; Confirm writes and a re-import is unchanged (rows reuse what earlier rows created); any row error writes nothing; filled cells overwrite, empty cells keep; a consultant entered by name gains the email; two consultants with one name need an email; people must be users with a role, a different role warns; not a `.csv` is 422; scoped roles cannot import |
 | `test_placement_scope.py` | 10 | Who can read a placement (each role); denial identical to a missing row; `access_log` rows only for permitted logged reads |

@@ -6,6 +6,7 @@ from app.models.refresh_token import RefreshToken
 from app.models.register import Client, Consultant, Placement, Project
 from app.models.session import (
     RecordingFolder,
+    RecordingScan,
     Session,
     SessionTranscript,
     SourceRecording,
@@ -22,6 +23,7 @@ __all__ = [
     "ProcessingJob",
     "Project",
     "RecordingFolder",
+    "RecordingScan",
     "RefreshToken",
     "Session",
     "SessionTranscript",

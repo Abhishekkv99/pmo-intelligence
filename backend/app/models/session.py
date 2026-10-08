@@ -26,6 +26,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 from app.models.base import Base, TimestampMixin, UUIDMixin
 from app.models.enums import (
     FolderMatchStatus,
+    ScanStatus,
     SessionKind,
     SessionSource,
     SessionStatus,
@@ -85,10 +86,52 @@ class SourceRecording(Base, UUIDMixin, TimestampMixin):
     last_modified: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False
     )
-    # From the file name's timestamp; NULL when the name does not carry one.
+    # From the file name's timestamp; NULL when the name does not carry one,
+    # and the page then shows ``last_modified``, marked as such.
     recorded_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+
+
+class RecordingScan(Base, UUIDMixin, TimestampMixin):
+    """One pass over the recordings folder: what it found, and how it ended."""
+
+    __tablename__ = "recording_scans"
+    __table_args__ = (
+        CheckConstraint(
+            check_in("status", ScanStatus), name="ck_recording_scans_status"
+        ),
+    )
+
+    started_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, index=True
+    )
+    finished_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    status: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+        default=ScanStatus.RUNNING.value,
+        server_default=ScanStatus.RUNNING.value,
+    )
+    folders_seen: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default="0"
+    )
+    folders_added: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default="0"
+    )
+    # Folders tied to a consultant by this pass (new, or newly resolved).
+    folders_matched: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default="0"
+    )
+    recordings_seen: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default="0"
+    )
+    recordings_added: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default="0"
+    )
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
 
 
 class Session(Base, UUIDMixin, TimestampMixin):
