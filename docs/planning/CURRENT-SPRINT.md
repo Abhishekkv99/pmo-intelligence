@@ -64,7 +64,7 @@
 **Code work**
 - [x] `backend/app/config.py`: `app_debug` defaults to `False`; compose and `.env.example` set `APP_DEBUG=true` for development (both already did; only the default changed; `tests/unit/test_config.py`)
 - [x] Stop storing users' Microsoft tokens at sign-in (`services/sso_service.py`), remove `refresh_microsoft_token`; migration `002_drop_user_ms_tokens.py` drops `ms_access_token`, `ms_refresh_token`, `ms_token_expires_at`; `User` model updated (also: sign-in asks for `openid email profile` only, no `offline_access`, backend and `useSSOLogin.ts`; the app registration keeps the scope, unused; user decision 2026-10-08)
-- [ ] `.github/workflows/ci.yml`: `workflow_dispatch` with a `target` choice (backend / frontend / both) that redeploys that side of staging from `develop`; every `uses:` ref verified with `gh api`
+- [x] `.github/workflows/ci.yml`: `workflow_dispatch` with a `target` choice (backend / frontend / both) that redeploys that side of staging from `develop`; every `uses:` ref verified with `gh api` (no new refs; actionlint clean via Docker; runs that side's checks and e2e first, user decision 2026-10-08; fails on any branch but `develop`; first manual run after the push)
 - [ ] Settings: `assemblyai_base_url` (EU default), `assemblyai_speech_models`, AssemblyAI prices as configuration; `cost_tracker` reads them
 - [ ] Smoke test (not committed): the PMO key on the EU endpoint with a short public sample; record the key's region and the working `speech_models` value here
 - [ ] Tests: config default, SSO without token storage, migration 002 up and down, AssemblyAI cost
@@ -74,7 +74,7 @@
 
 **Commit checkpoints**
 - [x] `fix: stop storing microsoft tokens at sign-in` (a2adca8)
-- [ ] `fix: default debug off outside development`
+- [x] `fix: default debug off outside development` (957636c)
 - [ ] `ci: add a manual staging redeploy`
 
 ### Phase 2: Placement register, CSV import, Users and roles
@@ -220,18 +220,18 @@
 
 >>> CURRENT PHASE: Phase 1 — Backlog fixes and transcription smoke test (in progress)
 
-## Session State (last updated: 2026-10-08 16:55)
+## Session State (last updated: 2026-10-08 17:15)
 - **Sprint**: 1 — Register and Sessions (PRD Phase 1)
 - **Current phase**: Phase 1 — Backlog fixes and transcription smoke test (in progress)
-- **Phase progress**: 2 of 6 Phase 1 code tasks complete
-- **Last completed task**: `app_debug` defaults to `False`
-- **Next task**: `ci.yml` `workflow_dispatch` manual staging redeploy (backend / frontend / both)
-- **Last commit**: a2adca8 "fix: stop storing microsoft tokens at sign-in" (not pushed); `fix: default debug off outside development` follows
-- **Uncommitted changes**: none after the debug commit
+- **Phase progress**: 3 of 6 Phase 1 code tasks complete
+- **Last completed task**: manual staging redeploy (`workflow_dispatch`) in `ci.yml`; docs updated
+- **Next task**: push Phase 1 commits (CI deploys the backend: migration 002 runs on staging), try a manual frontend redeploy; then AssemblyAI settings (EU base URL, models, prices) and the smoke test
+- **Last commit**: 957636c "fix: default debug off outside development" (a2adca8 and 957636c not pushed); `ci: add a manual staging redeploy` follows
+- **Uncommitted changes**: none after the redeploy commit
 - **Blockers**: none yet (see Blockers and Dependencies)
 - **Tests passing**: 293 unit + 48 integration (backend) + 88 frontend unit (2026-10-08 16:50) + 9 e2e (Sprint 0 close) = 438; ruff, mypy, eslint, typecheck, Prettier clean
 - **Files created this session**: `backend/alembic/versions/002_drop_user_ms_tokens.py`, `backend/tests/unit/test_config.py`
-- **Files modified this session**: `backend/app/config.py`, `backend/app/services/sso_service.py`, `backend/app/models/user.py`, `backend/tests/unit/test_sso_service.py`, `backend/tests/integration/test_migrations.py`, `frontend/src/hooks/useSSOLogin.ts`, `frontend/src/hooks/useSSOLogin.test.ts`, `docs/ARCHITECTURE.md`, `docs/DEPLOYMENT.md`, `docs/planning/{CURRENT-SPRINT,BACKLOG}.md`, `docs/tracking/{CHANGELOG,FEATURES,TESTS}.md`
+- **Files modified this session**: `.github/workflows/ci.yml`, `README.md`, `docs/tracking/FEATURES.md`, `backend/app/config.py`, `backend/app/services/sso_service.py`, `backend/app/models/user.py`, `backend/tests/unit/test_sso_service.py`, `backend/tests/integration/test_migrations.py`, `frontend/src/hooks/useSSOLogin.ts`, `frontend/src/hooks/useSSOLogin.test.ts`, `docs/ARCHITECTURE.md`, `docs/DEPLOYMENT.md`, `docs/planning/{CURRENT-SPRINT,BACKLOG}.md`, `docs/tracking/{CHANGELOG,FEATURES,TESTS}.md`
 - **Key decisions this session**: Sprint 1 plan (User Decisions Made); `offline_access` dropped from sign-in requests, kept on the registration (Decisions Log)
 - **Recovery instructions**:
   - Read this file first, then `docs/handover/sprint-00-handover.md`.
@@ -252,4 +252,5 @@
 | By-id session routes use a session scope guard (session → placement → scope, 404); a session page view writes `access_log` | Server-side scope on every by-id route; session pages show a consultant's data |
 | The Users page refuses to remove or change the last active `pmo_manager` | Plan approval 2026-10-08; prevents a lockout that only `make user-role` could undo |
 | Sign-in requests identity scopes only (`openid email profile`); `offline_access` dropped from the authorize request and the code exchange, kept on the app registration | User decision 2026-10-08; with no Microsoft token stored, a refresh token has no use. Leaving the registration alone keeps existing consents and needs no Entra change. Alternatives offered: drop it from the registration too (re-run the script); keep requesting it |
+| A manual redeploy re-runs the chosen side's checks and e2e before deploying | User decision 2026-10-08; keeps "deploy only after CI succeeds". Alternative offered: deploy straight away |
 | AssemblyAI model names and prices are configuration | Plan approval 2026-10-08; the docs give two spellings for the current model and the prices differ from the tracker's |

@@ -70,7 +70,7 @@ Every push and pull request to `main` or `develop` runs `.github/workflows/ci.ym
 - lint, type checks, unit and integration tests for the parts that changed
 - end-to-end tests against the compose stack
 
-A push to `develop` that passes deploys the changed side to staging. Details are in `docs/ARCHITECTURE.md`, "Local development and CI/CD".
+A push to `develop` that passes deploys the changed side to staging. To rebuild and redeploy one side without a change, run `gh workflow run ci.yml --ref develop -f target=frontend` (`backend`, `frontend` or `both`); it runs that side's checks first. Details are in `docs/ARCHITECTURE.md`, "Local development and CI/CD (as built)".
 
 ## Documentation
 | Document | Contents |

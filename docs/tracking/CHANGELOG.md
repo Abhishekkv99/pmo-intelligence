@@ -11,6 +11,7 @@ All notable changes to this project will be documented in this file.
 - `APP_DEBUG` now defaults to off, so a backend container that does not set it (the migration container, a one-off ECS task) no longer echoes every SQL statement into its logs. Compose and `.env.example` turn it on for development.
 
 ### Added
+- Manual staging redeploy: run the CI workflow on `develop` with `target` set to backend, frontend or both; it runs that side's checks and e2e, then deploys.
 - Backend skeleton: FastAPI app with security headers, CORS, rate limiting and a health endpoint.
 - Sign-in with Microsoft Entra ID (authorization code + PKCE) and local password auth for development and CI; refresh-token rotation.
 - Role entitlement: `pmo_manager`, `sme`, `tech_lead`, `ps`, `admin`.

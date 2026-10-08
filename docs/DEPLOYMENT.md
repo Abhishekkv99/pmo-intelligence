@@ -149,7 +149,7 @@ terraform output github_variables
    | `AZURE_ALLOWED_TENANT_IDS` | By hand, optional | Comma-separated tenant ids allowed to sign in besides the home tenant (`AZURE_TENANT_ID`, always allowed); empty by default |
 
    To change one key and keep the others, read the secret, change that key in the JSON, and write the whole object back. A running task reads the secret only at start, so redeploy the backend afterwards.
-3. **Images.** The services run the `staging-latest` tag. Until one exists, ECS keeps retrying the task. CI deploys only the side that changed since the previous commit, so the first image of an unchanged side is pushed by hand. On Windows, `docker login` to ECR fails with the credential store ("The stub received bad data"), so use a temporary `DOCKER_CONFIG` whose `config.json` holds an `auths` entry for the registry, base64 of `AWS:<aws ecr get-login-password>`. Build from Git Bash only with `MSYS_NO_PATHCONV=1`, and with CI's build argument (`--build-arg NEXT_PUBLIC_API_URL=/api/v1`, `--platform linux/amd64`); tag `sha-<full commit sha>` and `staging-latest`. Without it Git Bash turns `/api/v1` into `C:/Program Files/Git/api/v1`, which the frontend then calls (staging sign-in failed this way until 2026-10-08). Check the bundle before pushing: `docker run --rm --entrypoint sh <image> -c "grep -rhoE '.{20}api/v1' .next/static/chunks"`.
+3. **Images.** The services run the `staging-latest` tag. Until one exists, ECS keeps retrying the task. CI deploys only the side that changed since the previous commit, so push the first image of an unchanged side with a manual run: `gh workflow run ci.yml --ref develop -f target=both` (see "Redeploying without a change"). Before Sprint 1 the first images were built by hand. If an image ever has to be built by hand again, follow the infrastructure and tooling rules: on Windows a temporary `DOCKER_CONFIG` for the ECR login, `MSYS_NO_PATHCONV=1` with CI's build argument (`--build-arg NEXT_PUBLIC_API_URL=/api/v1`, `--platform linux/amd64`), and a check of the bundle before pushing (`docker run --rm --entrypoint sh <image> -c "grep -rhoE '.{20}api/v1' .next/static/chunks"`). Without the build argument fix, Git Bash turns `/api/v1` into `C:/Program Files/Git/api/v1` (staging sign-in failed this way until 2026-10-08).
 
 **Protection**: the RDS instance (deletion protection, final snapshot), the media bucket, the app secret and the hosted zone carry `prevent_destroy`. Recreating the zone would change its name servers and break the delegation. Everything else can be destroyed and recreated.
 
@@ -270,6 +270,15 @@ make user-role ENV=staging ARGS=--list                                          
 - **Who was refused**: every refused sign-in is a WARNING in the backend log group, `Sign-in refused: ...`, with the account it was for.
 - `scripts/user-role.sh` reads the cluster, task definition, subnets and security group from the environment's Terraform outputs, accepts only a plain email address and a known role, waits for the task, prints its own log stream and exits with the task's exit code.
 - **Needs the backend image** with `app/cli/user_role.py` (`staging-latest`).
+
+## Redeploying without a change
+To rebuild and redeploy one side of staging from the head of `develop` (for example after a secret value changed, or to replace a bad image), run the CI workflow by hand:
+
+```bash
+gh workflow run ci.yml --ref develop -f target=frontend    # target: backend, frontend or both
+```
+
+It runs that side's checks and e2e, then deploys as a push does. Redeploying the backend restarts processing. Prefer this to building and pushing an image by hand.
 
 ## Rollback
 - **A bad app deploy**: every deploy pushes `sha-<full commit sha>` next to `staging-latest`, and the services always run `staging-latest`. Point the tag back at a good image, then fix `develop`:

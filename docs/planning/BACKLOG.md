@@ -28,7 +28,7 @@ From the PRD, "Decisions needed before Sprint 1". Each one changes the data mode
 - [x] (2026-10-08, set by Abhishek) Create a PMO-only AssemblyAI API key and set `ASSEMBLYAI_API_KEY` in `pmo-intelligence/staging/app` (needed before the session pipeline in Sprint 1; keeps PMO's transcription cost separate from Interview Intelligence)
 
 ## Low Priority
-- [ ] A manual CI redeploy trigger (`workflow_dispatch` with a backend/frontend choice) so an unchanged side can be rebuilt by CI instead of by hand (Sprint 0 handover)
+- [x] (Sprint 1 Phase 1, 2026-10-08: `workflow_dispatch` with a `target` input, checks first) A manual CI redeploy trigger (`workflow_dispatch` with a backend/frontend choice) so an unchanged side can be rebuilt by CI instead of by hand (Sprint 0 handover)
 
 ## Tech Debt
 - [x] (Sprint 1 Phase 1, 2026-10-08: `app_debug` defaults to false in `config.py`; takes effect on the next backend deploy) Set `APP_DEBUG=false` on the backend's `migration` container (`infra/modules/environment/ecs.tf`), or make `app_debug` default to false in `backend/app/config.py`; today migrations echo SQL in the migration log group (found 2026-10-08 on the admin-cli task, which is fixed). Replaces the backend task definition, so it redeploys the backend

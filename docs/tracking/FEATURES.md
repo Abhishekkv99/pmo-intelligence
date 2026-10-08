@@ -23,6 +23,7 @@
 | Admin page with the processing queue | `frontend/src/components/admin/AdminView.tsx`, `frontend/src/components/admin/ProcessingStatusPanel.tsx` | Done |
 | Local stack: Docker Compose (PostgreSQL 16 + pgvector, backend, frontend) with health checks and configurable host ports; Makefile targets | `docker-compose.yml`, `backend/Dockerfile`, `frontend/Dockerfile`, `Makefile`, `.env.example` | Done |
 | CI: path-filtered backend and frontend checks, e2e on the compose stack; staging deploy after the checks pass | `.github/workflows/ci.yml` | Done |
+| Manual staging redeploy of one side (`workflow_dispatch`, `target` backend / frontend / both; checks first) | `.github/workflows/ci.yml` | Done (Sprint 1; first manual run pending) |
 | Infrastructure as code: state bucket, shared stack (VPC, ECR, ECS cluster, GitHub OIDC deploy role) and the staging environment (ALB, RDS, secret, bucket, SES, ECS) | `infra/bootstrap/`, `infra/shared/`, `infra/modules/environment/`, `infra/environments/staging/` | Done (staging applied; production at product Phase 5) |
 | Database bootstrap as a one-off ECS task (`pmo_app` login, pgvector, `DATABASE_URL` into the secret) | `backend/app/cli/db_bootstrap.py`, `scripts/db-bootstrap.sh`, `infra/modules/environment/db_bootstrap.tf` | Done (run on staging) |
 | PMO's own Azure OpenAI (Sweden Central, Data Zone Standard: gpt-5.4-mini and text-embedding-3-small for staging) | `infra/azure/` | Done (applied) |

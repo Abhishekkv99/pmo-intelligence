@@ -101,15 +101,15 @@ Next.js 16.3.8 App Router app in `frontend/`, TypeScript strict, React 19.2, sha
 - **Frontend**: three stages on `node:22-alpine`. pnpm `12.6.0` comes through corepack, and `pnpm-workspace.yaml` is copied for the build-script approvals. The Next.js `standalone` output runs as a non-root user with `HOSTNAME=0.0.0.0`, because the server binds to `$HOSTNAME` and Docker sets that to the container id.
 - Each build context has a `.dockerignore`. Virtual environments, `node_modules`, build output, caches, `.env` files and tests stay out of the images.
 
-**CI** (`.github/workflows/ci.yml`, on push and pull request to `main` and `develop`):
+**CI** (`.github/workflows/ci.yml`, on push and pull request to `main` and `develop`, and run by hand on `develop` to redeploy one side of staging):
 
 | Job | Runs when | Steps |
 |-----|-----------|-------|
-| Detect Changes | always | Path filters: backend, frontend, compose file; a change to `ci.yml` runs everything. A pull request compares with its base branch, a push to `main` with the previous commit, and a push to any other branch with `main`, so on `develop` everything not yet released counts as changed |
+| Detect Changes | always | A manual run takes its sides from the `target` input (backend, frontend or both) and fails on any branch but `develop`. Otherwise, path filters: backend, frontend, compose file; a change to `ci.yml` runs everything. A pull request compares with its base branch, a push to `main` with the previous commit, and a push to any other branch with `main`, so on `develop` everything not yet released counts as changed |
 | Backend CI | `backend/**` changed | `uv sync --frozen`; ruff check; ruff format check; `mypy app` (strict); unit tests; integration tests (testcontainers starts pgvector) |
 | Frontend CI | `frontend/**` changed | `pnpm install --frozen-lockfile`; eslint; `tsc --noEmit`; Prettier check; Vitest; `next build` |
 | E2E Tests | backend, frontend or compose file changed | `docker compose up --build --wait`; `alembic upgrade head` from the runner; Playwright (Chromium) with local auth; stack logs on failure; report uploaded |
-| Deploy to staging | push to `develop`, every job above passed or skipped, `vars.AWS_ROLE_ARN` set | See below |
+| Deploy to staging | push or manual run on `develop`, every job above passed or skipped, `vars.AWS_ROLE_ARN` set | See below |
 
 - Checkout uses the default `GITHUB_TOKEN`, so there is no personal token to renew.
 - The tools are pinned: uv `0.9.18`, pnpm from the `packageManager` field, Node 22. The actions are on their node24 majors.
@@ -117,6 +117,7 @@ Next.js 16.3.8 App Router app in `frontend/`, TypeScript strict, React 19.2, sha
 
 **Deploy** (the `deploy-staging` job in `ci.yml`):
 - Only the side that changed since the previous commit on `develop` is rebuilt and redeployed. Redeploying the backend restarts processing, so a frontend-only push leaves it alone.
+- **Manual redeploy**: `gh workflow run ci.yml --ref develop -f target=frontend` (or Actions > CI > Run workflow) rebuilds and redeploys the named side (`backend`, `frontend` or `both`) from the head of `develop`. It runs that side's checks and e2e first, so it still deploys only after CI passes. This replaces building an image by hand.
 - AWS access is through OIDC, assuming `vars.AWS_ROLE_ARN`. Only this job has `id-token: write`.
 - Images go to ECR `pmo-intelligence-backend` and `pmo-intelligence-frontend` with the tags `sha-<commit>` and `staging-latest`. Then `aws ecs update-service --force-new-deployment` runs.
 - The identifiers are repository variables, because none are secret with OIDC: `AWS_ROLE_ARN`, `AWS_REGION`, `ECR_REGISTRY`, `ECS_CLUSTER_NAME`, `ECS_STAGING_BACKEND_SERVICE`, `ECS_STAGING_FRONTEND_SERVICE`. Their values come from the Terraform outputs (Sprint 0 Phase 4). Until `AWS_ROLE_ARN` is set, the job is skipped.

@@ -5,6 +5,16 @@ on:
     branches: [main, develop]
   pull_request:
     branches: [main, develop]
+  # Manual staging redeploy of one side, from develop. It runs that side's
+  # checks and e2e first, then deploys as a push would.
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Side of staging to rebuild and redeploy (run on develop)
+        type: choice
+        options: [backend, frontend, both]
+        default: backend
+        required: true
 
 concurrency:
   group: ci-${{ github.head_ref || github.ref }}
@@ -20,16 +30,40 @@ jobs:
     permissions:
       contents: read
       pull-requests: read
+    # A manual run takes its sides from the input instead of the path
+    # filters; its "false" is a non-empty string, so it wins over the empty
+    # filter output in `||`.
     outputs:
-      backend: ${{ steps.filter.outputs.backend }}
-      frontend: ${{ steps.filter.outputs.frontend }}
+      backend: ${{ steps.dispatch.outputs.backend || steps.filter.outputs.backend }}
+      frontend: ${{ steps.dispatch.outputs.frontend || steps.filter.outputs.frontend }}
       stack: ${{ steps.filter.outputs.stack }}
-      deploy_backend: ${{ steps.deploy-filter.outputs.backend }}
-      deploy_frontend: ${{ steps.deploy-filter.outputs.frontend }}
+      deploy_backend: ${{ steps.dispatch.outputs.backend || steps.deploy-filter.outputs.backend }}
+      deploy_frontend: ${{ steps.dispatch.outputs.frontend || steps.deploy-filter.outputs.frontend }}
     steps:
+      - name: Manual redeploy target
+        id: dispatch
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        env:
+          TARGET: ${{ inputs.target }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          if [ "$REF_NAME" != "develop" ]; then
+            echo "::error::A manual redeploy runs on develop only (got $REF_NAME)"
+            exit 1
+          fi
+          case "$TARGET" in
+            backend)  backend=true;  frontend=false ;;
+            frontend) backend=false; frontend=true ;;
+            both)     backend=true;  frontend=true ;;
+            *) echo "::error::Unknown target: $TARGET"; exit 1 ;;
+          esac
+          echo "backend=$backend" >> "$GITHUB_OUTPUT"
+          echo "frontend=$frontend" >> "$GITHUB_OUTPUT"
+
       - uses: actions/checkout@v7
       - uses: dorny/paths-filter@v4
         id: filter
+        if: ${{ github.event_name != 'workflow_dispatch' }}
         with:
           filters: |
             backend:
@@ -208,13 +242,14 @@ jobs:
   # production infrastructure is applied. Identifiers are repository variables
   # (none are secret with OIDC); their values are the Terraform outputs. The
   # job is skipped until AWS_ROLE_ARN is set, so CI stays green before the
-  # staging infrastructure exists.
+  # staging infrastructure exists. A manual run (workflow_dispatch) deploys
+  # the side it names, after that side's checks.
   deploy-staging:
     name: Deploy to staging
     needs: [changes, backend-ci, frontend-ci, e2e-tests]
     if: >-
       ${{ !cancelled()
-      && github.event_name == 'push'
+      && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
       && github.ref_name == 'develop'
       && vars.AWS_ROLE_ARN != ''
       && !contains(needs.*.result, 'failure')
