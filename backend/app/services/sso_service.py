@@ -9,9 +9,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.db.repositories.user_repo import UserRepository
+from app.models.enums import Role
 from app.models.user import User
-from app.utils.entitlements import elevate_if_bootstrap_admin
-from app.utils.exceptions import AuthenticationError
+from app.utils.entitlements import (
+    assert_may_sign_in,
+    elevate_if_bootstrap_admin,
+    is_bootstrap_admin,
+)
+from app.utils.exceptions import AuthenticationError, AuthorizationError
 
 logger = logging.getLogger(__name__)
 
@@ -57,6 +62,33 @@ def sso_authority() -> str:
 def allowed_issuers() -> list[str]:
     """The id_token issuers accepted by validate_id_token, one per tenant."""
     return [f"{MICROSOFT_LOGIN_BASE}/{tenant}/v2.0" for tenant in allowed_tenant_ids()]
+
+
+GUEST_MESSAGE = "Guest accounts cannot sign in to PMO Intelligence."
+
+# The optional id-token claim the app registration adds
+# (scripts/entra/Register-SsoApp.ps1): 0 for a member of the tenant, 1 for a
+# guest. Entra may send it as a number or a string.
+MEMBER_ACCOUNT = "0"
+
+
+def assert_tenant_member(claims: dict[str, Any]) -> None:
+    """Refuse a guest account, and any token without the ``acct`` claim.
+
+    A missing claim is refused too (fail closed): it means the app
+    registration has lost the optional claim, and letting the token through
+    would let every guest in.
+    """
+    acct = claims.get("acct")
+    if acct is not None and str(acct) == MEMBER_ACCOUNT:
+        return
+    logger.warning(
+        "Sign-in refused: not a tenant member (acct=%s account=%s oid=%s)",
+        acct,
+        claims.get("preferred_username") or claims.get("email"),
+        claims.get("oid"),
+    )
+    raise AuthorizationError(GUEST_MESSAGE)
 
 
 def _token_url() -> str:
@@ -174,47 +206,49 @@ class SSOService:
             logger.error("SSO id_token validation failed: %s", err)
             raise AuthenticationError("Invalid SSO token") from err
 
-    async def get_or_create_user(self, claims: dict[str, Any]) -> User:
-        """JIT provision or auto-link a user based on id_token claims.
+    async def find_user_for_sign_in(self, claims: dict[str, Any]) -> User | None:
+        """The user an SSO sign-in belongs to, or None when there is none.
 
-        Logic:
-        1. Look up by entra_oid — if found, return existing user
-        2. Look up by email — if found, auto-link (set entra_oid + auth_provider)
-        3. Otherwise, create a new user (SSO-only, no password)
+        1. By Entra object id: a user who has signed in before.
+        2. By email: a user a PMO manager created ahead of their first
+           sign-in (``app.cli.user_role``), or a local account; the Entra id
+           and the name from the token are linked to it.
+        3. Otherwise a row is created only for a bootstrap admin, who gets
+           ``pmo_manager`` at once. Nobody else gets a row: an unknown account
+           is refused by the caller and leaves nothing behind.
+
+        A listed bootstrap admin is raised to ``pmo_manager`` on every path.
+        Whether the user may actually sign in is decided by the caller.
         """
         oid = claims["oid"]
         email = (claims.get("email") or claims.get("preferred_username", "")).lower()
         full_name = claims.get("name") or email.split("@")[0]
 
-        # 1. Existing SSO user — look up by oid
         user = await self.user_repo.get_by_entra_oid(oid)
-        if user is not None:
+        if user is None:
+            user = await self.user_repo.get_by_email(email)
+            if user is not None:
+                # The role is left as it is: linking grants nothing
+                user.entra_oid = oid
+                user.auth_provider = "microsoft_entra"
+                if claims.get("name"):
+                    user.full_name = claims["name"]
+                logger.info("Linked SSO to existing user: %s", email)
+        if user is None:
+            if not is_bootstrap_admin(email):
+                return None
+            user = await self.user_repo.create(
+                email=email,
+                hashed_password=None,
+                full_name=full_name,
+                auth_provider="microsoft_entra",
+                entra_oid=oid,
+                role=Role.PMO_MANAGER.value,
+            )
+            logger.info("Provisioned bootstrap admin on first sign-in: %s", email)
             return user
-
-        # 2. Existing local user — auto-link by email
-        user = await self.user_repo.get_by_email(email)
-        if user is not None:
-            user.entra_oid = oid
-            user.auth_provider = "microsoft_entra"
-            await self.session.flush()
-            logger.info("Auto-linked SSO to existing user: %s", email)
-            return user
-
-        # 3. New user — JIT provision (SSO-only, no password) with no role:
-        # they can sign in but read nothing until a role is granted. The
-        # auto-link path above deliberately does not touch the role.
-        user = await self.user_repo.create(
-            email=email,
-            hashed_password=None,
-            full_name=full_name,
-            auth_provider="microsoft_entra",
-            entra_oid=oid,
-        )
-        logger.info("JIT provisioned new SSO user: %s (no role)", email)
-        # A configured PMO manager signing in for the first time gets the
-        # role now rather than on the next deploy's startup sweep.
-        if elevate_if_bootstrap_admin(user):
-            await self.session.flush()
+        elevate_if_bootstrap_admin(user)
+        await self.session.flush()
         return user
 
     async def authenticate_sso(
@@ -233,11 +267,16 @@ class SSOService:
         if not id_token:
             raise AuthenticationError("No id_token in SSO response")
 
-        # Step 2: Validate the id_token
+        # Step 2: Validate the id_token; members of the tenant only
         claims = self.validate_id_token(id_token)
+        assert_tenant_member(claims)
 
-        # Step 3: Get or create the user
-        user = await self.get_or_create_user(claims)
+        # Step 3: Find the user; refuse anyone without an active role
+        user = assert_may_sign_in(
+            await self.find_user_for_sign_in(claims),
+            account=str(claims.get("preferred_username") or claims.get("email")),
+            via="sso",
+        )
 
         # Step 4: Store Microsoft tokens for Graph API (Teams integration)
         ms_access_token = token_response.get("access_token")

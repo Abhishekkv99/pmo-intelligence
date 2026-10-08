@@ -10,7 +10,7 @@ import pytest
 from app.config import settings
 from app.schemas.auth import UserRegister
 from app.services.auth_service import AuthService, password_hash
-from app.utils.exceptions import AuthenticationError
+from app.utils.exceptions import AuthenticationError, AuthorizationError
 
 
 class TestPasswordHashing:
@@ -221,10 +221,27 @@ class TestAuthenticate:
         mock_user = MagicMock()
         mock_user.hashed_password = hashed
         mock_user.is_active = True
+        mock_user.role = "tech_lead"
 
         with patch.object(service.user_repo, "get_by_email", return_value=mock_user):
             result = await service.authenticate("user@example.com", "correctPassword")
         assert result == mock_user
+
+    async def test_authenticate_user_without_a_role_is_refused(self) -> None:
+        """The same rule as SSO: no role, no session, even with the password."""
+        mock_session = AsyncMock()
+        service = AuthService(mock_session)
+
+        mock_user = MagicMock()
+        mock_user.hashed_password = password_hash.hash("correctPassword")
+        mock_user.is_active = True
+        mock_user.role = None
+
+        with (
+            patch.object(service.user_repo, "get_by_email", return_value=mock_user),
+            pytest.raises(AuthorizationError, match="has not been given access"),
+        ):
+            await service.authenticate("user@example.com", "correctPassword")
 
     async def test_authenticate_wrong_password_raises(self) -> None:
         mock_session = AsyncMock()
@@ -276,9 +293,10 @@ class TestAuthenticate:
         inactive_user = MagicMock()
         inactive_user.hashed_password = hashed
         inactive_user.is_active = False
+        inactive_user.role = "sme"
 
         with (
             patch.object(service.user_repo, "get_by_email", return_value=inactive_user),
-            pytest.raises(AuthenticationError, match="disabled"),
+            pytest.raises(AuthorizationError, match="has not been given access"),
         ):
             await service.authenticate("inactive@example.com", "correctPassword")

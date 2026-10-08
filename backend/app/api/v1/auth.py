@@ -205,10 +205,8 @@ async def sso_microsoft_callback(
         redirect_uri=data.redirect_uri,
     )
 
-    if not user.is_active:
-        raise AuthenticationError("Account is disabled")
-
-    # Issue app tokens (same as email/password login)
+    # Issue app tokens (same as email/password login); the service has
+    # already refused guests and anyone without an active role
     access_token = AuthService.create_access_token(user.id)
     raw_refresh = AuthService.create_refresh_token()
     auth_service = AuthService(db)

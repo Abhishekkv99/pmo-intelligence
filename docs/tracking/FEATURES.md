@@ -5,6 +5,8 @@
 |---------|-------|--------|
 | Backend skeleton (FastAPI, settings, security headers, CORS, rate limits) | `backend/app/main.py`, `backend/app/config.py`, `backend/app/middleware/security.py`, `backend/app/rate_limiter.py` | Done |
 | Sign-in: Entra ID SSO (PKCE) and local auth for dev and CI | `backend/app/api/v1/auth.py`, `backend/app/services/auth_service.py`, `backend/app/services/sso_service.py`, `frontend/src/hooks/useSSOLogin.ts`, `frontend/src/app/auth/callback/microsoft/page.tsx`, `frontend/src/components/providers/AuthProvider.tsx` | Done (backend and frontend) |
+| Sign-in for tenant members with a role only: guests refused (id-token `acct`), no row for unknown accounts, role re-checked on refresh and every request, refusal reason shown on the callback page | `backend/app/services/sso_service.py`, `backend/app/utils/entitlements.py`, `backend/app/services/auth_service.py`, `backend/app/dependencies.py`, `frontend/src/app/auth/callback/microsoft/page.tsx` | Done |
+| Role grants by email until the Admin page exists (`make user-role`, one-off ECS task) | `backend/app/services/user_roles.py`, `backend/app/cli/user_role.py`, `scripts/user-role.sh`, `infra/modules/environment/admin_cli.tf` | Done |
 | Role entitlement with placement scope (404 on denial) and route-coverage check | `backend/app/utils/entitlements.py`, `backend/app/dependencies.py`, `backend/tests/unit/test_entitlement_coverage.py` | Done |
 | Access log of consultant-data reads | `backend/app/models/access_log.py`, `backend/app/db/repositories/access_log_repo.py` | Done (writer; no viewer yet) |
 | Bootstrap PMO managers from configuration | `backend/app/services/bootstrap_admins.py` | Done |

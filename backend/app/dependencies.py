@@ -1,3 +1,4 @@
+import logging
 import uuid
 from collections.abc import AsyncGenerator, Awaitable, Callable
 from typing import Annotated, Any
@@ -13,13 +14,16 @@ from app.db.session import async_session_factory
 from app.models.enums import Role
 from app.models.register import Placement, Project
 from app.models.user import User
-from app.services.auth_service import AuthService
+from app.services.auth_service import SESSION_ENDED_MESSAGE, AuthService
 from app.utils.entitlements import (
     PlacementPeople,
     assert_can_read_placement,
     assert_has_role,
+    may_use_app,
 )
 from app.utils.exceptions import AuthenticationError, NotFoundError
+
+logger = logging.getLogger(__name__)
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
 
@@ -45,6 +49,7 @@ async def get_db() -> AsyncGenerator[AsyncSession]:
 
 
 async def get_current_user(
+    request: Request,
     token: str = Depends(oauth2_scheme),
     db: AsyncSession = Depends(get_db),
 ) -> User:
@@ -54,8 +59,16 @@ async def get_current_user(
     user = await repo.get_by_id(user_id)
     if user is None:
         raise AuthenticationError("User not found")
-    if not user.is_active:
-        raise AuthenticationError("Account is disabled")
+    if not may_use_app(user):
+        # Disabled, or the role was removed since the access token was issued
+        logger.warning(
+            "Request refused: no access (user_id=%s role=%s active=%s path=%s)",
+            user.id,
+            user.role,
+            user.is_active,
+            request.url.path,
+        )
+        raise AuthenticationError(SESSION_ENDED_MESSAGE)
     return user
 
 

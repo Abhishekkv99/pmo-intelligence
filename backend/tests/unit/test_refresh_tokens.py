@@ -1,8 +1,9 @@
 """Unit tests for refresh token service methods."""
 
+import logging
 import uuid
 from datetime import UTC, datetime, timedelta
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -80,12 +81,54 @@ class TestValidateAndRotateRefreshToken:
         mock_result = MagicMock()
         mock_result.scalar_one_or_none.return_value = mock_refresh
         mock_session.execute.return_value = mock_result
+        user = MagicMock(id=user_id, is_active=True, role="ps")
 
-        returned_user_id = await service.validate_and_rotate_refresh_token(raw_token)
+        with patch.object(service.user_repo, "get_by_id", return_value=user):
+            returned_user_id = await service.validate_and_rotate_refresh_token(
+                raw_token
+            )
 
         assert returned_user_id == user_id
         assert mock_refresh.is_revoked is True
         mock_session.flush.assert_awaited()
+
+    @pytest.mark.parametrize(
+        ("role", "active", "exists"),
+        [(None, True, True), ("ps", False, True), ("ps", True, False)],
+    )
+    async def test_user_without_an_active_role_loses_every_session(
+        self,
+        role: str | None,
+        active: bool,
+        exists: bool,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        """A removed role or a disabled account ends the session at refresh."""
+        mock_session = AsyncMock()
+        service = AuthService(mock_session)
+        user_id = uuid.uuid4()
+
+        mock_refresh = MagicMock(spec=RefreshToken)
+        mock_refresh.user_id = user_id
+        mock_refresh.is_revoked = False
+        mock_refresh.expires_at = datetime.now(UTC) + timedelta(days=1)
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = mock_refresh
+        mock_session.execute.return_value = mock_result
+        user = MagicMock(id=user_id, is_active=active, role=role) if exists else None
+
+        with (
+            patch.object(service.user_repo, "get_by_id", return_value=user),
+            patch.object(
+                service, "revoke_all_user_tokens", return_value=2
+            ) as mock_revoke_all,
+            caplog.at_level(logging.WARNING, logger="app.services.auth_service"),
+            pytest.raises(AuthenticationError, match="session has ended"),
+        ):
+            await service.validate_and_rotate_refresh_token("valid-token")
+
+        mock_revoke_all.assert_awaited_once_with(user_id)
+        assert "Session refresh refused: no access" in caplog.text
 
     async def test_invalid_token_raises(self) -> None:
         mock_session = AsyncMock()

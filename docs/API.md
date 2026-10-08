@@ -19,7 +19,13 @@ Applied on the server for every route; the route-coverage test (`backend/tests/u
 **Roles** are `pmo_manager`, `sme`, `tech_lead`, `ps` and `admin`, defined in `backend/app/models/enums.py`.
 - **Global roles** (`pmo_manager`, `admin`) read every placement.
 - **Other roles** read only the placements that name them, as PS, SME, or the project's tech lead.
-- **No role** (`null`), the state of a new account, reads nothing.
+- **No role** (`null`): cannot sign in at all (below), and would read nothing.
+
+**Who may sign in**: an active member of the InformationTech tenant whose user row holds a role.
+- `POST /auth/sso/microsoft/callback` answers **403** `{"detail": "Guest accounts cannot sign in to PMO Intelligence."}` for a guest (id-token claim `acct` not `0`, or missing), and **403** `{"detail": "Your account has not been given access to PMO Intelligence. Ask a PMO manager."}` for anyone without an active role. No row is created for an unknown account, except a bootstrap admin (`pmo_manager`).
+- `POST /auth/login` (dev and CI only) answers the same 403 for a correct password without a role.
+- `POST /auth/refresh` answers **401** `{"detail": "Your session has ended. Please sign in again."}`, clears the cookie and revokes every refresh token of the user, once the role is removed or the account disabled.
+- Every authenticated route answers **401** with the same message for such a user, so access ends within the 15-minute access-token life.
 
 ## Implemented Endpoints
 
@@ -32,12 +38,12 @@ Applied on the server for every route; the route-coverage test (`backend/tests/u
 | Method | Path | Auth | Rate limit | Request | Response |
 |--------|------|------|-----------|---------|----------|
 | POST | `/auth/register` | Public; 403 when `LOCAL_AUTH_ENABLED=false` | 3/min | `{email, password (8–128), full_name}` | `201` `UserResponse` |
-| POST | `/auth/login` | Public; 403 when `LOCAL_AUTH_ENABLED=false` | 5/min | `{email, password}` | `TokenResponse`; sets the `refresh_token` httpOnly cookie |
-| POST | `/auth/refresh` | `refresh_token` cookie | 10/min | — | `TokenResponse`; rotates the cookie |
+| POST | `/auth/login` | Public; 403 when `LOCAL_AUTH_ENABLED=false` | 5/min | `{email, password}` | `TokenResponse`; sets the `refresh_token` httpOnly cookie. 403 without a role |
+| POST | `/auth/refresh` | `refresh_token` cookie | 10/min | — | `TokenResponse`; rotates the cookie. 401 once the role is removed or the account disabled |
 | POST | `/auth/logout` | Bearer | — | — | `{message, revoked_tokens}`; clears the cookie |
 | GET | `/auth/me` | Bearer | — | — | `UserResponse` |
 | GET | `/auth/sso/microsoft/config` | Public | — | — | `{client_id, tenant_id, authority, redirect_uri}` |
-| POST | `/auth/sso/microsoft/callback` | Public | 10/min | `{code, code_verifier, redirect_uri}` | `TokenResponse`; sets the refresh cookie |
+| POST | `/auth/sso/microsoft/callback` | Public | 10/min | `{code, code_verifier, redirect_uri}` | `TokenResponse`; sets the refresh cookie. 403 for a guest or a user without a role |
 
 - **`UserResponse`**: `{id, email, full_name, is_active, auth_provider, role, created_at}`. `role` is one of the roles above, or `null`.
 - **`TokenResponse`**: `{access_token, token_type: "bearer"}`. The access token lasts 15 minutes; the refresh cookie lasts 7 days.

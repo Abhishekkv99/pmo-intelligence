@@ -4,13 +4,17 @@ The single owner of the rule. The API layer applies it through dependencies
 (``app.dependencies``); nothing else decides who sees what, so there is one
 place to read.
 
-Three rules live here:
+Four rules live here:
 
+* **Access at all** — only an active user holding a known role may sign in,
+  refresh a session or make any request (``may_use_app``). A user with no
+  role is refused at the door, not merely shown nothing, and SSO creates no
+  row for an unknown account unless it is a bootstrap admin.
 * **The scope** — a user with a *global* role (``pmo_manager``, ``admin``)
   reads every placement. Any other role reads only the placements that name
   them: as the placement specialist, the SME, or the tech lead of the
-  placement's project. A user with no role (``NULL``, the state of a newly
-  provisioned SSO account) or an unknown role reads nothing — the check fails
+  placement's project. A user with no role (``NULL``, which the first rule
+  already keeps out) or an unknown role reads nothing — the check fails
   closed.
 * **The status code** — a denied *read* of a resource addressed by id raises
   ``NotFoundError``, byte-identical to a missing row, so a 403 can never
@@ -24,9 +28,10 @@ Three rules live here:
 The first PMO managers come from configuration, not by hand:
 ``BOOTSTRAP_ADMIN_EMAILS`` lists them, and ``elevate_if_bootstrap_admin``
 raises a listed user to ``pmo_manager`` at startup
-(``app.services.bootstrap_admins``) and at row creation (SSO JIT
-provisioning, local ``register``). Elevate-only — nothing here ever lowers a
-role — so a list edit can never lock a manager out.
+(``app.services.bootstrap_admins``), at row creation (SSO, which creates
+rows only for them, and local ``register``) and at every SSO sign-in.
+Elevate-only — nothing here ever lowers a role — so a list edit can never lock
+a manager out.
 """
 
 import logging
@@ -43,6 +48,37 @@ from app.utils.exceptions import AuthorizationError, NotFoundError
 logger = logging.getLogger(__name__)
 
 _KNOWN_ROLES = frozenset(role.value for role in Role)
+
+# What a refused sign-in shows; the same words whatever the reason, so the
+# page cannot be used to learn whether an account exists or why it is barred
+NO_ACCESS_MESSAGE = (
+    "Your account has not been given access to PMO Intelligence. Ask a PMO manager."
+)
+
+
+def may_use_app(user: User) -> bool:
+    """True for an active user with a known role; fails closed otherwise."""
+    return user.is_active and user.role in _KNOWN_ROLES
+
+
+def assert_may_sign_in(user: User | None, account: str, via: str) -> User:
+    """Return ``user`` when it may sign in; otherwise log and raise 403.
+
+    ``account`` is what the person signed in as (an email address) and
+    ``via`` the route (``sso``, ``password``), for the WARNING line, which is
+    the only record of a refused sign-in when no row exists.
+    """
+    if user is not None and may_use_app(user):
+        return user
+    logger.warning(
+        "Sign-in refused: no access (via=%s account=%s user_id=%s role=%s active=%s)",
+        via,
+        account,
+        user.id if user is not None else None,
+        user.role if user is not None else None,
+        user.is_active if user is not None else None,
+    )
+    raise AuthorizationError(NO_ACCESS_MESSAGE)
 
 
 class Principal(Protocol):

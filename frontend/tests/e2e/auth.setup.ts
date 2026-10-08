@@ -12,9 +12,10 @@ const authFile = "playwright/.auth/user.json";
  * false, where these two endpoints return 403.
  *
  * Requires E2E_USER_EMAIL and E2E_USER_PASSWORD env vars (defaults provided
- * for local Docker Compose). The user registers with no role (unless it is
- * listed in BOOTSTRAP_ADMIN_EMAILS), so the suite checks only what every
- * signed-in user sees: the risk board, actions and settings.
+ * for local Docker Compose). Signing in needs a role, so docker-compose.yml
+ * lists the default user in BOOTSTRAP_ADMIN_EMAILS and it registers as a PMO
+ * manager. The suite still checks only what every signed-in user sees: the
+ * risk board, actions and settings.
  */
 setup("authenticate", async ({ page, context, request }) => {
   const email =

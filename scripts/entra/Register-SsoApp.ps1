@@ -8,7 +8,8 @@
     `aws sso login --profile pmo-intelligence`. Safe to re-run. It:
       1. creates the single-tenant app registration (or finds the existing one by exact name)
       2. adds the Web redirect URIs (keeps any already there) and the delegated OpenID scopes
-         openid, email, profile and offline_access
+         openid, email, profile and offline_access, and the optional id-token claim acct, which
+         the backend reads to refuse guest accounts
       3. creates the service principal, makes you an owner of it, and sets "assignment required"
          from -RequireAssignment (off by default)
       4. assigns the users in -AssignUsers (default access); this only limits sign-in when
@@ -98,7 +99,9 @@ $awsAccount = Invoke-Aws @("sts", "get-caller-identity", "--query", "Account", "
 if ($awsAccount -ne "260172548683") { throw "AWS profile $AwsProfile is in account $awsAccount, expected 260172548683." }
 
 # 1. App registration (az ad app list matches names by prefix, so filter for the exact name)
-$apps = @(Invoke-Az @("ad", "app", "list", "--display-name", $DisplayName, "-o", "json") | Out-String | ConvertFrom-Json |
+# The parentheses matter: Windows PowerShell's ConvertFrom-Json sends a JSON array down the
+# pipeline as one object, so without them Where-Object sees every app at once
+$apps = @((Invoke-Az @("ad", "app", "list", "--display-name", $DisplayName, "-o", "json") | Out-String | ConvertFrom-Json) |
     Where-Object { $_.displayName -eq $DisplayName })
 if ($apps.Count -gt 1) { throw "More than one app registration is named '$DisplayName'. Resolve that first." }
 if ($apps.Count -eq 1) {
@@ -125,6 +128,23 @@ $access = @(foreach ($name in $OidcScopes) {
 $file = Write-TempJson @(@{ resourceAppId = $GraphAppId; resourceAccess = $access })
 try { Invoke-Az @("ad", "app", "update", "--id", $appId, "--required-resource-accesses", "@$file") | Out-Null }
 finally { Remove-Item $file -Force }
+
+# The backend refuses any id token without acct = 0 (a tenant member; 1 is a guest), so the
+# claim must be on the app before that backend is deployed. Other optional claims are kept.
+$claims = Invoke-Az @("ad", "app", "show", "--id", $appId, "--query", "optionalClaims", "-o", "json") | Out-String | ConvertFrom-Json
+$idTokenClaims = @($(if ($claims) { $claims.idToken }) | Where-Object { $_ })
+if (-not ($idTokenClaims | Where-Object { $_.name -eq "acct" })) {
+    Write-Host "Adding the optional id-token claim acct (member or guest)..."
+    $idTokenClaims += @{ name = "acct"; essential = $false; additionalProperties = @() }
+    $optional = @{
+        idToken     = $idTokenClaims
+        accessToken = @($(if ($claims) { $claims.accessToken }) | Where-Object { $_ })
+        saml2Token  = @($(if ($claims) { $claims.saml2Token }) | Where-Object { $_ })
+    }
+    $file = Write-TempJson $optional
+    try { Invoke-Az @("ad", "app", "update", "--id", $appId, "--optional-claims", "@$file") | Out-Null }
+    finally { Remove-Item $file -Force }
+}
 
 # 3. Service principal, its owner, assignment required (needs admin consent when on)
 $spId = Invoke-Az @("ad", "sp", "list", "--filter", "appId eq '$appId'", "--query", "[0].id", "-o", "tsv")

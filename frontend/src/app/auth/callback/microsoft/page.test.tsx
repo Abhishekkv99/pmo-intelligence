@@ -17,7 +17,8 @@ vi.mock("next/navigation", () => ({
   useSearchParams: () => mockSearchParams,
 }));
 
-vi.mock("@/lib/api", () => ({
+vi.mock("@/lib/api", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/api")>()),
   api: { post: mockPost },
 }));
 
@@ -35,6 +36,7 @@ vi.mock("@/lib/pkce", () => ({
 
 // Import after mocks are set up
 import MicrosoftCallbackPage from "./page";
+import { ApiError } from "@/lib/api";
 
 describe("MicrosoftCallbackPage", () => {
   beforeEach(() => {
@@ -112,6 +114,40 @@ describe("MicrosoftCallbackPage", () => {
   it("shows error when code exchange fails", async () => {
     mockSearchParams = new URLSearchParams({ code: "auth_code_123" });
     mockPost.mockRejectedValueOnce(new Error("Network error"));
+
+    render(<MicrosoftCallbackPage />);
+
+    await waitFor(() => {
+      expect(
+        screen.getByText("Failed to complete SSO login. Please try again."),
+      ).toBeInTheDocument();
+    });
+  });
+
+  it("shows the backend's reason when the sign-in is refused", async () => {
+    mockSearchParams = new URLSearchParams({ code: "auth_code_123" });
+    mockPost.mockRejectedValueOnce(
+      new ApiError(
+        "Your account has not been given access to PMO Intelligence. Ask a PMO manager.",
+        403,
+      ),
+    );
+
+    render(<MicrosoftCallbackPage />);
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(
+          "Your account has not been given access to PMO Intelligence. Ask a PMO manager.",
+        ),
+      ).toBeInTheDocument();
+    });
+    expect(mockSetToken).not.toHaveBeenCalled();
+  });
+
+  it("keeps the generic message for a failure that is not a refusal", async () => {
+    mockSearchParams = new URLSearchParams({ code: "auth_code_123" });
+    mockPost.mockRejectedValueOnce(new ApiError("Invalid SSO token", 401));
 
     render(<MicrosoftCallbackPage />);
 

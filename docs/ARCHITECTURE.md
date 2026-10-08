@@ -34,15 +34,23 @@ FastAPI app in `backend/app/`, layered routes → services → repositories → 
 | Ownership lock | `app/services/processing_ownership.py` | Postgres advisory lock on an AUTOCOMMIT connection, 30 s heartbeat; takeover steps registered (`register_takeover_sweep` before start, `register_takeover_requeue` after) |
 | LLM factory | `app/ai/llm_factory.py` | Cached Azure OpenAI chat and embedding clients with a finite timeout (300 s) |
 | Cost tracker | `app/services/cost_tracker.py` | Pure cost functions for LLM, embedding and transcription calls |
-| Auth | `app/api/v1/auth.py`, `app/services/{auth,sso}_service.py` | Entra ID SSO (authorization code + PKCE, code exchanged by the backend); local password auth only when `LOCAL_AUTH_ENABLED` (dev and CI) |
+| Auth | `app/api/v1/auth.py`, `app/services/{auth,sso}_service.py` | Entra ID SSO (authorization code + PKCE, code exchanged by the backend); members of the tenant with a role only (see the role model); local password auth only when `LOCAL_AUTH_ENABLED` (dev and CI), under the same role rule |
+| Role grants | `app/services/user_roles.py`, `app/cli/user_role.py` | Grant, change or remove a role by email, or list users; run as a one-off ECS task with `make user-role` until the Admin "Users and roles" page exists |
 | Migrations | `alembic/versions/001_create_initial_schema.py` | Async Alembic; enables pgvector |
+| Admin commands | ECS task definition `<env>-admin-cli` (`infra/modules/environment/admin_cli.tf`) | The backend image with `DATABASE_URL`, run by `scripts/user-role.sh` in the backend's subnets and security group |
 | Database bootstrap | `app/cli/db_bootstrap.py` | One-off ECS task per deployed environment: creates the `pmo_app` login (random password), makes it owner of the database and `public` schema, creates `vector`, and writes `DATABASE_URL` into the app secret. Idempotent; `--rotate-password` rotates. Run with `make db-bootstrap ENV=<env>` |
 
 **Role model**:
 - `users.role` is nullable, one of `pmo_manager | sme | tech_lead | ps | admin`.
 - `pmo_manager` and `admin` read every placement.
 - `sme`, `tech_lead` and `ps` read the placements that name them (`placements.ps_user_id`, `placements.sme_user_id`, `projects.tech_lead_user_id`).
-- `NULL` (a newly provisioned SSO account) reads nothing.
+- **Signing in needs a role.** Only an active member of the InformationTech tenant whose user row holds a role may sign in, refresh a session or make any request (`may_use_app`).
+  - Guests are refused by the id-token claim `acct` (0 member, 1 guest); a token without the claim is refused too.
+  - SSO finds the user by Entra object id, then by email (a user granted a role ahead of their first sign-in is linked then). It creates a row only for a bootstrap admin, as `pmo_manager`. Anyone else without a row, or with no role, is refused with 403 and no row is written.
+  - A removed role or a disabled account ends access: refresh revokes every refresh token of the user, and each request re-checks the role, so an open page stops within the 15-minute access-token life.
+  - Every refusal logs a WARNING (sign-in, refresh, request).
+- `NULL` reads nothing either, should a row without a role ever reach the scope check.
+- Roles are granted with `make user-role ENV=<env> EMAIL=... ROLE=...` (`ROLE=none` removes one, `ARGS=--list` lists users).
 - A denied by-id read answers 404, identical to a missing row, and logs a WARNING with user id and role.
 - `BOOTSTRAP_ADMIN_EMAILS` raises listed users to `pmo_manager` at startup and at first sign-in (elevate-only).
 
@@ -65,12 +73,12 @@ Next.js 16.3.8 App Router app in `frontend/`, TypeScript strict, React 19.2, sha
 
 **Auth flow**:
 1. The login page offers only "Sign in with Microsoft". `useSSOLogin` fetches `/auth/sso/microsoft/config`, creates a PKCE verifier (kept in `sessionStorage`) and sends the browser to the Entra authorize URL.
-2. Entra redirects to `/auth/callback/microsoft`. The page posts the code, the verifier and the redirect URI to `/auth/sso/microsoft/callback`. The backend sets the `refresh_token` httpOnly cookie and returns an access token.
+2. Entra redirects to `/auth/callback/microsoft`. The page posts the code, the verifier and the redirect URI to `/auth/sso/microsoft/callback`. The backend refuses a guest or a user without a role with 403, and the page shows the reason it returns. Otherwise it sets the `refresh_token` httpOnly cookie and returns an access token.
 3. The page stores the access token in memory and does a full navigation to `/`, so the proxy sees the new cookie.
 4. On every page load `AuthProvider` restores the session: `POST /auth/refresh` (cookie) for a new access token, then `GET /auth/me` for the user and role. It sends a signed-out user to `/login` and a signed-in user away from `/login` to `/`.
 5. A request that answers 401 triggers one shared refresh and one retry. If that fails, the session expires and the browser goes to `/login`.
 
-**Role in the UI**: the frontend only decides what to show; the backend enforces every permission. The Admin link appears for `pmo_manager` and `admin` only. A user with no role signs in and sees the empty Risk board, Actions and Settings pages.
+**Role in the UI**: the frontend only decides what to show; the backend enforces every permission. The Admin link appears for `pmo_manager` and `admin` only. A user with no role cannot sign in; the callback page shows the backend's message.
 
 **Tooling**: `pnpm lint` (ESLint with Next's rules and `eslint-config-prettier`), `pnpm typecheck` (`tsc --noEmit`), `pnpm format` / `format:check` (Prettier 3 defaults over every file), `pnpm test` (Vitest), `pnpm test:e2e` (Playwright; signs in with local auth, so it needs a backend with `LOCAL_AUTH_ENABLED=true`).
 
@@ -127,7 +135,7 @@ AWS account **ITC Sandbox PD Intelligence (`260172548683`)**, eu-west-2. Nothing
 - **Egress**: tasks run in public subnets with a public IPv4 each (no NAT) to reach Azure OpenAI, AssemblyAI, Entra, ECR and CloudWatch. S3 traffic goes through the gateway endpoint.
 - **Database isolation**: staging has its own instance. Production gets another at product Phase 5. The app will connect as `pmo_app`, not the master user (database bootstrap, Phase 4).
 - **Protection**: `prevent_destroy` on the RDS instance (which also has deletion protection and a final snapshot), the media bucket, the app secret, the hosted zone and the state bucket. Everything else can be recreated.
-- **Entra SSO app** (`scripts/entra/Register-SsoApp.ps1`): one single-tenant app registration, "PMO Intelligence", for every environment, with Web redirect URIs. Assignment is not required, so any account in the tenant can sign in, with no role (and nothing visible) until a PMO manager gives it one. Each environment has its own client secret, written into its app secret.
+- **Entra SSO app** (`scripts/entra/Register-SsoApp.ps1`): one single-tenant app registration, "PMO Intelligence", for every environment, with Web redirect URIs and the optional id-token claim `acct`. Assignment is not required in Entra; the backend admits only members of the tenant with a role. Each environment has its own client secret, written into its app secret.
 - **Azure OpenAI** (`infra/azure/`): PMO's own resource group `rg-pmo-intelligence-swc` and resource `oai-pmo-intelligence-swc` in Sweden Central, with Data Zone Standard deployments per environment (`gpt-5.4-mini-<env>`, `text-embedding-3-small-<env>`). Prompt processing stays in the EU data zone, and cost is tracked per resource group. AssemblyAI uses a PMO-only API key.
 - **Credential expiry reminders** (`infra/shared/`): EventBridge Scheduler emails the SNS topic `pmo-intelligence-credential-expiry` 30, 14 and 3 days before each date in `credential_expiries`. It tracks the Teams Graph certificate and the Entra SSO client secret for staging.
 

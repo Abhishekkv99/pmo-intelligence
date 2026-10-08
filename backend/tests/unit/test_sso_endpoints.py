@@ -3,6 +3,7 @@
 import uuid
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 from starlette.requests import Request
@@ -12,8 +13,9 @@ from app.api.v1.auth import REFRESH_COOKIE_NAME, router
 from app.dependencies import get_db
 from app.models.user import User
 from app.services.auth_service import AuthService
-from app.services.sso_service import SSOService
-from app.utils.exceptions import AppError, AuthenticationError
+from app.services.sso_service import GUEST_MESSAGE, SSOService
+from app.utils.entitlements import NO_ACCESS_MESSAGE
+from app.utils.exceptions import AppError, AuthenticationError, AuthorizationError
 
 # Minimal FastAPI app for unit testing SSO routes
 _app = FastAPI()
@@ -185,10 +187,14 @@ class TestSSOCallbackEndpoint:
 
         assert response.status_code == 401
 
-    async def test_callback_disabled_user_returns_401(self) -> None:
-        disabled_user = _make_mock_user(is_active=False)
-
-        with patch.object(SSOService, "authenticate_sso", return_value=disabled_user):
+    @pytest.mark.parametrize("message", [NO_ACCESS_MESSAGE, GUEST_MESSAGE])
+    async def test_callback_refused_sign_in_returns_403_with_the_reason(
+        self, message: str
+    ) -> None:
+        """The callback page shows this detail, so it must reach the client."""
+        with patch.object(
+            SSOService, "authenticate_sso", side_effect=AuthorizationError(message)
+        ):
             _app.dependency_overrides[get_db] = _mock_db_override
             try:
                 async with AsyncClient(
@@ -206,7 +212,9 @@ class TestSSOCallbackEndpoint:
             finally:
                 _app.dependency_overrides.clear()
 
-        assert response.status_code == 401
+        assert response.status_code == 403
+        assert response.json() == {"detail": message}
+        assert "set-cookie" not in response.headers
 
     async def test_callback_validates_code_verifier_length(self) -> None:
         _app.dependency_overrides[get_db] = _mock_db_override

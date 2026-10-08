@@ -1,6 +1,9 @@
 """Unit tests for SSO service (token exchange, id_token validation, JIT)."""
 
+import logging
 import uuid
+from contextlib import ExitStack
+from typing import cast
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import jwt
@@ -11,16 +14,18 @@ from app.services.sso_service import (
     SSOService,
     allowed_issuers,
     allowed_tenant_ids,
+    assert_tenant_member,
     sso_authority,
 )
-from app.utils.exceptions import AuthenticationError
+from app.utils.exceptions import AuthenticationError, AuthorizationError
 
 
 def _make_mock_user(
     user_id: uuid.UUID | None = None,
     email: str = "sso@example.com",
     auth_provider: str = "microsoft_entra",
-    entra_oid: str = "oid-123",
+    entra_oid: str | None = "oid-123",
+    role: str | None = "sme",
 ) -> MagicMock:
     user = MagicMock()
     user.id = user_id or uuid.uuid4()
@@ -29,6 +34,7 @@ def _make_mock_user(
     user.is_active = True
     user.auth_provider = auth_provider
     user.entra_oid = entra_oid
+    user.role = role
     return user
 
 
@@ -243,8 +249,36 @@ class TestValidateIdToken:
                 service.validate_id_token("invalid.token")
 
 
-class TestGetOrCreateUser:
-    """Tests for SSOService.get_or_create_user (JIT provisioning + auto-linking)."""
+class TestAssertTenantMember:
+    """Guests are refused by the optional ``acct`` claim, failing closed."""
+
+    @pytest.mark.parametrize("acct", [0, "0"])
+    def test_member_passes(self, acct: object) -> None:
+        assert_tenant_member({"oid": "o", "acct": acct})  # no exception
+
+    @pytest.mark.parametrize("acct", [1, "1"])
+    def test_guest_is_refused(
+        self, acct: object, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        with (
+            caplog.at_level(logging.WARNING, logger="app.services.sso_service"),
+            pytest.raises(AuthorizationError, match="Guest accounts cannot sign in"),
+        ):
+            assert_tenant_member(
+                {"oid": "guest-oid", "acct": acct, "preferred_username": "g@x.com"}
+            )
+        assert "not a tenant member" in caplog.text
+        assert "g@x.com" in caplog.text
+
+    def test_missing_claim_is_refused(self) -> None:
+        """A registration that lost the optional claim must not let guests in."""
+        with pytest.raises(AuthorizationError, match="Guest accounts"):
+            assert_tenant_member({"oid": "o", "email": "m@co.com"})
+
+
+class TestFindUserForSignIn:
+    """SSOService.find_user_for_sign_in: by oid, then email; new rows for
+    bootstrap admins only."""
 
     async def test_existing_sso_user_returned_by_oid(self) -> None:
         mock_session = AsyncMock()
@@ -253,39 +287,80 @@ class TestGetOrCreateUser:
         existing_user = _make_mock_user(entra_oid="oid-existing")
         claims = {"oid": "oid-existing", "email": "user@co.com", "name": "User"}
 
-        with patch.object(
-            service.user_repo, "get_by_entra_oid", return_value=existing_user
+        with (
+            patch.object(
+                service.user_repo, "get_by_entra_oid", return_value=existing_user
+            ),
+            patch.object(service.user_repo, "create") as mock_create,
         ):
-            result = await service.get_or_create_user(claims)
+            result = await service.find_user_for_sign_in(claims)
 
-        assert result == existing_user
+        assert result is existing_user
+        mock_create.assert_not_called()
 
-    async def test_existing_local_user_auto_linked_by_email(self) -> None:
+    async def test_user_created_ahead_is_linked_by_email(self) -> None:
+        """A row granted a role by email gets the Entra id and real name."""
         mock_session = AsyncMock()
         service = SSOService(mock_session)
 
-        local_user = _make_mock_user(
-            auth_provider="local", entra_oid=None, email="local@co.com"
-        )
-        claims = {"oid": "new-oid-456", "email": "local@co.com", "name": "Local User"}
+        waiting = _make_mock_user(entra_oid=None, email="jane@co.com", role="sme")
+        waiting.full_name = "jane"
+        claims = {"oid": "new-oid-456", "email": "jane@co.com", "name": "Jane Doe"}
 
         with (
             patch.object(service.user_repo, "get_by_entra_oid", return_value=None),
-            patch.object(service.user_repo, "get_by_email", return_value=local_user),
+            patch.object(service.user_repo, "get_by_email", return_value=waiting),
         ):
-            result = await service.get_or_create_user(claims)
+            result = await service.find_user_for_sign_in(claims)
 
-        assert result == local_user
-        assert local_user.entra_oid == "new-oid-456"
-        assert local_user.auth_provider == "microsoft_entra"
-        mock_session.flush.assert_called_once()
+        assert result is waiting
+        assert waiting.entra_oid == "new-oid-456"
+        assert waiting.auth_provider == "microsoft_entra"
+        assert waiting.full_name == "Jane Doe"
+        assert waiting.role == "sme"
 
-    async def test_new_user_jit_provisioned(self) -> None:
+    async def test_linking_keeps_the_name_when_the_token_has_none(self) -> None:
         mock_session = AsyncMock()
         service = SSOService(mock_session)
 
-        new_user = _make_mock_user(email="new@co.com")
+        waiting = _make_mock_user(entra_oid=None, email="jane@co.com")
+        waiting.full_name = "jane"
+        claims = {"oid": "oid", "email": "jane@co.com"}
+
+        with (
+            patch.object(service.user_repo, "get_by_entra_oid", return_value=None),
+            patch.object(service.user_repo, "get_by_email", return_value=waiting),
+        ):
+            await service.find_user_for_sign_in(claims)
+
+        assert waiting.full_name == "jane"
+
+    async def test_unknown_account_gets_no_row(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(settings, "bootstrap_admin_emails", "someone@else.com")
+        mock_session = AsyncMock()
+        service = SSOService(mock_session)
         claims = {"oid": "brand-new-oid", "email": "new@co.com", "name": "New User"}
+
+        with (
+            patch.object(service.user_repo, "get_by_entra_oid", return_value=None),
+            patch.object(service.user_repo, "get_by_email", return_value=None),
+            patch.object(service.user_repo, "create") as mock_create,
+        ):
+            result = await service.find_user_for_sign_in(claims)
+
+        assert result is None
+        mock_create.assert_not_called()
+
+    async def test_bootstrap_admin_is_created_as_pmo_manager(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(settings, "bootstrap_admin_emails", "New@Co.com")
+        mock_session = AsyncMock()
+        service = SSOService(mock_session)
+        new_user = _make_mock_user(email="new@co.com", role="pmo_manager")
+        claims = {"oid": "brand-new-oid", "email": "NEW@co.com", "name": "New User"}
 
         with (
             patch.object(service.user_repo, "get_by_entra_oid", return_value=None),
@@ -294,168 +369,154 @@ class TestGetOrCreateUser:
                 service.user_repo, "create", return_value=new_user
             ) as mock_create,
         ):
-            result = await service.get_or_create_user(claims)
+            result = await service.find_user_for_sign_in(claims)
 
-        assert result == new_user
+        assert result is new_user
         mock_create.assert_called_once_with(
             email="new@co.com",
             hashed_password=None,
             full_name="New User",
             auth_provider="microsoft_entra",
             entra_oid="brand-new-oid",
+            role="pmo_manager",
         )
 
-    async def test_jit_provision_elevates_bootstrap_admin(
+    async def test_bootstrap_admin_uses_email_prefix_when_name_missing(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        monkeypatch.setattr(settings, "bootstrap_admin_emails", "New@Co.com")
+        monkeypatch.setattr(settings, "bootstrap_admin_emails", "jane.doe@company.com")
         mock_session = AsyncMock()
         service = SSOService(mock_session)
-
-        new_user = _make_mock_user(email="new@co.com")
-        new_user.role = None
-        claims = {"oid": "brand-new-oid", "email": "new@co.com", "name": "New User"}
-
-        with (
-            patch.object(service.user_repo, "get_by_entra_oid", return_value=None),
-            patch.object(service.user_repo, "get_by_email", return_value=None),
-            patch.object(service.user_repo, "create", return_value=new_user),
-        ):
-            result = await service.get_or_create_user(claims)
-
-        assert result is new_user
-        assert new_user.role == "pmo_manager"
-        mock_session.flush.assert_awaited_once()
-
-    async def test_jit_provision_leaves_unlisted_user_without_a_role(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        monkeypatch.setattr(settings, "bootstrap_admin_emails", "someone@else.com")
-        mock_session = AsyncMock()
-        service = SSOService(mock_session)
-
-        new_user = _make_mock_user(email="new@co.com")
-        new_user.role = None
-        claims = {"oid": "brand-new-oid", "email": "new@co.com", "name": "New User"}
-
-        with (
-            patch.object(service.user_repo, "get_by_entra_oid", return_value=None),
-            patch.object(service.user_repo, "get_by_email", return_value=None),
-            patch.object(service.user_repo, "create", return_value=new_user),
-        ):
-            await service.get_or_create_user(claims)
-
-        assert new_user.role is None
-        mock_session.flush.assert_not_awaited()
-
-    async def test_jit_provision_uses_email_prefix_when_name_missing(self) -> None:
-        mock_session = AsyncMock()
-        service = SSOService(mock_session)
-
-        new_user = _make_mock_user()
         claims = {"oid": "oid-no-name", "email": "jane.doe@company.com"}
 
         with (
             patch.object(service.user_repo, "get_by_entra_oid", return_value=None),
             patch.object(service.user_repo, "get_by_email", return_value=None),
             patch.object(
-                service.user_repo, "create", return_value=new_user
+                service.user_repo, "create", return_value=_make_mock_user()
             ) as mock_create,
         ):
-            await service.get_or_create_user(claims)
+            await service.find_user_for_sign_in(claims)
 
-        call_kwargs = mock_create.call_args.kwargs
-        assert call_kwargs["full_name"] == "jane.doe"
+        assert mock_create.call_args.kwargs["full_name"] == "jane.doe"
 
     async def test_email_lowercased_for_lookup(self) -> None:
         mock_session = AsyncMock()
         service = SSOService(mock_session)
-
-        new_user = _make_mock_user()
         claims = {"oid": "oid-mixed", "email": "UPPER@CASE.COM", "name": "Upper"}
 
         with (
             patch.object(service.user_repo, "get_by_entra_oid", return_value=None),
-            patch.object(service.user_repo, "get_by_email", return_value=None),
             patch.object(
-                service.user_repo, "create", return_value=new_user
-            ) as mock_create,
+                service.user_repo, "get_by_email", return_value=None
+            ) as mock_by_email,
         ):
-            await service.get_or_create_user(claims)
+            await service.find_user_for_sign_in(claims)
 
-        call_kwargs = mock_create.call_args.kwargs
-        assert call_kwargs["email"] == "upper@case.com"
+        mock_by_email.assert_awaited_once_with("upper@case.com")
 
-    async def test_jit_provision_never_sets_a_role_on_creation(self) -> None:
+    async def test_listed_user_without_a_role_is_elevated(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(settings, "bootstrap_admin_emails", "boss@co.com")
         mock_session = AsyncMock()
         service = SSOService(mock_session)
+        boss = _make_mock_user(email="boss@co.com", role=None)
 
-        new_user = _make_mock_user(email="jane@informationtechconsultants.com")
-        claims = {
-            "oid": "oid-itc",
-            "email": "Jane@InformationTechConsultants.com",
-            "name": "Jane",
-        }
+        with patch.object(service.user_repo, "get_by_entra_oid", return_value=boss):
+            result = await service.find_user_for_sign_in(
+                {"oid": "oid-123", "email": "boss@co.com"}
+            )
 
-        with (
-            patch.object(service.user_repo, "get_by_entra_oid", return_value=None),
-            patch.object(service.user_repo, "get_by_email", return_value=None),
-            patch.object(
-                service.user_repo, "create", return_value=new_user
-            ) as mock_create,
-        ):
-            await service.get_or_create_user(claims)
-
-        assert "role" not in mock_create.call_args.kwargs
-
-    async def test_auto_link_leaves_the_existing_role_untouched(self) -> None:
-        """An existing row keeps its role when SSO is linked to it."""
-        mock_session = AsyncMock()
-        service = SSOService(mock_session)
-
-        local_user = _make_mock_user(
-            auth_provider="local", entra_oid=None, email="override@gmail.com"
-        )
-        local_user.role = "tech_lead"
-        claims = {"oid": "oid-link", "email": "override@gmail.com", "name": "O"}
-
-        with (
-            patch.object(service.user_repo, "get_by_entra_oid", return_value=None),
-            patch.object(service.user_repo, "get_by_email", return_value=local_user),
-            patch.object(service.user_repo, "create") as mock_create,
-        ):
-            result = await service.get_or_create_user(claims)
-
-        assert result is local_user
-        assert local_user.role == "tech_lead"
-        mock_create.assert_not_called()
+        assert result is boss
+        assert boss.role == "pmo_manager"
 
 
 class TestAuthenticateSSO:
     """Tests for SSOService.authenticate_sso (full flow)."""
 
-    async def test_full_flow_returns_user(self) -> None:
-        mock_session = AsyncMock()
-        service = SSOService(mock_session)
+    @staticmethod
+    def _patched(
+        service: SSOService, claims: dict[str, object], user: MagicMock | None
+    ) -> ExitStack:
+        stack = ExitStack()
+        stack.enter_context(
+            patch.object(
+                service,
+                "exchange_code_for_tokens",
+                return_value={"id_token": "valid.id.token", "access_token": "ms-at"},
+            )
+        )
+        stack.enter_context(
+            patch.object(service, "validate_id_token", return_value=claims)
+        )
+        stack.enter_context(
+            patch.object(service, "find_user_for_sign_in", return_value=user)
+        )
+        return stack
 
-        mock_user = _make_mock_user()
-        token_response = {"id_token": "valid.id.token", "access_token": "ms-at"}
-        claims = {"oid": "oid-full", "email": "user@co.com", "name": "Full Flow"}
+    async def _sign_in(self, service: SSOService) -> MagicMock:
+        result = await service.authenticate_sso(
+            code="auth-code",
+            code_verifier="verifier",
+            redirect_uri="http://localhost/callback",
+        )
+        return cast("MagicMock", result)
+
+    async def test_member_with_a_role_signs_in(self) -> None:
+        service = SSOService(AsyncMock())
+        user = _make_mock_user(role="ps")
+        claims = {"oid": "oid-full", "email": "user@co.com", "acct": 0}
+
+        with self._patched(service, claims, user):
+            result = await self._sign_in(service)
+
+        assert result is user
+
+    async def test_guest_is_refused_before_any_lookup(self) -> None:
+        service = SSOService(AsyncMock())
+        claims = {"oid": "guest", "email": "g@partner.com", "acct": 1}
 
         with (
-            patch.object(
-                service, "exchange_code_for_tokens", return_value=token_response
-            ),
-            patch.object(service, "validate_id_token", return_value=claims),
-            patch.object(service, "get_or_create_user", return_value=mock_user),
+            self._patched(service, claims, _make_mock_user(role="ps")),
+            patch.object(service, "find_user_for_sign_in") as mock_find,
+            pytest.raises(AuthorizationError, match="Guest accounts"),
         ):
-            result = await service.authenticate_sso(
-                code="auth-code",
-                code_verifier="verifier",
-                redirect_uri="http://localhost/callback",
-            )
+            await self._sign_in(service)
 
-        assert result == mock_user
+        mock_find.assert_not_called()
+
+    @pytest.mark.parametrize(
+        ("role", "active"), [(None, True), ("sme", False), ("someone", True)]
+    )
+    async def test_user_without_an_active_role_is_refused(
+        self, role: str | None, active: bool, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        service = SSOService(AsyncMock())
+        user = _make_mock_user(role=role)
+        user.is_active = active
+        claims = {"oid": "oid-123", "preferred_username": "x@co.com", "acct": "0"}
+
+        with (
+            self._patched(service, claims, user),
+            caplog.at_level(logging.WARNING, logger="app.utils.entitlements"),
+            pytest.raises(AuthorizationError, match="has not been given access"),
+        ):
+            await self._sign_in(service)
+
+        assert "Sign-in refused: no access (via=sso account=x@co.com" in caplog.text
+        # Refused before the Microsoft tokens are stored on the row
+        assert user.ms_access_token != "ms-at"
+
+    async def test_unknown_account_is_refused(self) -> None:
+        service = SSOService(AsyncMock())
+        claims = {"oid": "oid-new", "email": "new@co.com", "acct": 0}
+
+        with (
+            self._patched(service, claims, None),
+            pytest.raises(AuthorizationError, match="has not been given access"),
+        ):
+            await self._sign_in(service)
 
     async def test_missing_id_token_raises_authentication_error(self) -> None:
         mock_session = AsyncMock()

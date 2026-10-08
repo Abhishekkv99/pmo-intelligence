@@ -34,3 +34,9 @@ class UserRepository(BaseRepository[User]):
         stmt = select(User).where(User.entra_oid == entra_oid)
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
+
+    async def list_by_email(self) -> list[User]:
+        """Every user, ordered by email. Tens of rows, so no paging."""
+        stmt = select(User).order_by(User.email)
+        result = await self.session.execute(stmt)
+        return list(result.scalars().all())

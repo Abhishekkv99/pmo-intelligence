@@ -236,7 +236,8 @@ One app registration, **PMO Intelligence** (client id `ac99fe5f-a3bb-4299-afdc-0
 | Redirect URIs (Web) | `http://localhost:3000/auth/callback/microsoft`, `http://localhost:3100/auth/callback/microsoft`, `https://pmo-intelligence-staging.itcapp.ai/auth/callback/microsoft`; prod's is added at product Phase 5 |
 | Platform | **Web, not SPA**: the browser does PKCE, but the backend redeems the code with the client secret, and Entra refuses a server-side redemption for an SPA redirect |
 | Scopes | Delegated Microsoft Graph `openid`, `email`, `profile`, `offline_access` |
-| Assignment required | **Off.** Any account in the tenant can sign in, consenting for itself to the four scopes (the tenant's user consent policy, `microsoft-user-default-recommended`, allows them), and has no role, so it sees nothing until a PMO manager gives it one. Turning assignment on (`-RequireAssignment`) makes Entra demand **admin consent** for the app regardless of the user consent policy, so nobody signs in until a tenant administrator grants it ("Need admin approval", seen on 2026-10-08) |
+| Optional claim | `acct` in the ID token: `0` for a member of the tenant, `1` for a guest. The backend refuses any token without `acct` = 0, so the claim must be on the app **before** a backend that checks it is deployed, or nobody can sign in |
+| Assignment required | **Off.** Entra lets any account in the tenant through, consenting for itself to the four scopes (the tenant's user consent policy, `microsoft-user-default-recommended`, allows them); the backend then admits only members with a role (section 8). Turning assignment on (`-RequireAssignment`) makes Entra demand **admin consent** for the app regardless of the user consent policy, so nobody signs in until a tenant administrator grants it ("Need admin approval", seen on 2026-10-08) |
 | Client secrets | One per environment, named after it (`staging`, expires 2027-10-08), 12 months each |
 
 ```powershell
@@ -251,6 +252,24 @@ The script is safe to re-run: it finds the app by exact name, adds redirect URIs
 - **Rotate**: `-RotateSecret` adds a new secret and writes it, keeping the old one so running tasks still sign in. Redeploy the backend, then delete the old secret with the `az ad app credential delete` command the script prints.
 - **Prod (product Phase 5)**: `-Environment prod -RedirectUris https://pmo-intelligence.itcapp.ai/auth/callback/microsoft`.
 - **Bootstrap admins**: `bootstrap_admin_emails` in each environment's git-ignored `terraform.tfvars` (copy `terraform.tfvars.example`); staging has `Abhishek.Verma@InformationTechConsultants.com`. Changing it replaces the backend task definition and redeploys.
+
+### 8. Granting roles (`make user-role`)
+Only an active member of the tenant whose user row holds a role can sign in. Guests are always refused. Until the Admin "Users and roles" page exists (Sprint 1), roles are set with a one-off ECS task, `<env>-admin-cli`: the backend image with the app's `DATABASE_URL`, run in the backend's subnets and security group.
+
+```bash
+export AWS_PROFILE=pmo-intelligence
+make user-role ENV=staging EMAIL=jane.doe@informationtechconsultants.com ROLE=sme   # grant or change
+make user-role ENV=staging EMAIL=jane.doe@informationtechconsultants.com ROLE=none  # remove
+make user-role ENV=staging ARGS=--list                                              # every user and role
+```
+
+- **Roles**: `pmo_manager`, `sme`, `tech_lead`, `ps`, `admin` (`backend/app/models/enums.py`).
+- **A new person**: granting a role to an address that has never signed in creates the user by email. Their first Microsoft sign-in finds the row by email, links their Entra account and takes their name from the token. Use the address their token carries (their sign-in name, normally `first.last@informationtechconsultants.com`).
+- **Removing a role** ends every session the user has at once (their refresh tokens are revoked), and any page they have open stops working within 15 minutes. The row stays, without a role, so the role can be granted again.
+- **Bootstrap admins** (`bootstrap_admin_emails` in `terraform.tfvars`) are `pmo_manager` regardless: removing their role here lasts only until their next sign-in or the next deploy. Take them off the list as well.
+- **Who was refused**: every refused sign-in is a WARNING in the backend log group, `Sign-in refused: ...`, with the account it was for.
+- `scripts/user-role.sh` reads the cluster, task definition, subnets and security group from the environment's Terraform outputs, accepts only a plain email address and a known role, waits for the task, prints its own log stream and exits with the task's exit code.
+- **Needs the backend image** with `app/cli/user_role.py` (`staging-latest`).
 
 ## Rollback
 - **A bad app deploy**: every deploy pushes `sha-<full commit sha>` next to `staging-latest`, and the services always run `staging-latest`. Point the tag back at a good image, then fix `develop`:

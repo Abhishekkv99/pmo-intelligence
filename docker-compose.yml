@@ -33,6 +33,9 @@ services:
       STORAGE_BACKEND: local
       LOCAL_UPLOAD_DIR: /app/uploads
       LOCAL_AUTH_ENABLED: "true"
+      # Sign-in needs a role, so the e2e user (frontend/tests/e2e/auth.setup.ts)
+      # is a bootstrap admin; set BOOTSTRAP_ADMIN_EMAILS to sign in as someone else
+      BOOTSTRAP_ADMIN_EMAILS: ${BOOTSTRAP_ADMIN_EMAILS:-e2e@informationtechconsultants.com}
     volumes:
       - upload_data:/app/uploads
     depends_on:

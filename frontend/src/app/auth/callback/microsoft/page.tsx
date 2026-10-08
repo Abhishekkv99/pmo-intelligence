@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { api } from "@/lib/api";
+import { api, ApiError } from "@/lib/api";
 import { setToken } from "@/lib/auth-token";
 import { retrieveCodeVerifier } from "@/lib/pkce";
 import { API_ROUTES, ROUTES } from "@/lib/constants";
@@ -58,8 +58,13 @@ function MicrosoftCallbackContent() {
         // processes the Set-Cookie header before the next request, so
         // the proxy.ts middleware sees the refresh_token cookie.
         window.location.href = ROUTES.home;
-      } catch {
-        setError("Failed to complete SSO login. Please try again.");
+      } catch (err) {
+        // A refused sign-in (403: a guest, or no role) carries the reason
+        setError(
+          err instanceof ApiError && err.status === 403
+            ? err.message
+            : "Failed to complete SSO login. Please try again.",
+        );
       }
     }
 

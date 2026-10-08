@@ -1,4 +1,5 @@
 import hashlib
+import logging
 import secrets
 import uuid
 from datetime import UTC, datetime, timedelta
@@ -15,10 +16,20 @@ from app.db.repositories.user_repo import UserRepository
 from app.models.refresh_token import RefreshToken
 from app.models.user import User
 from app.schemas.auth import UserRegister
-from app.utils.entitlements import elevate_if_bootstrap_admin
+from app.utils.entitlements import (
+    assert_may_sign_in,
+    elevate_if_bootstrap_admin,
+    may_use_app,
+)
 from app.utils.exceptions import AuthenticationError
 
+logger = logging.getLogger(__name__)
+
 password_hash = PasswordHash.recommended()
+
+# A refused refresh: the session ends and the person signs in again, where a
+# refused sign-in says why
+SESSION_ENDED_MESSAGE = "Your session has ended. Please sign in again."
 
 
 class AuthService:
@@ -55,9 +66,8 @@ class AuthService:
             )
         if not password_hash.verify(password, user.hashed_password):
             raise AuthenticationError("Invalid email or password")
-        if not user.is_active:
-            raise AuthenticationError("Account is disabled")
-        return user
+        # The same rule as SSO: an active account with a role, or no session
+        return assert_may_sign_in(user, account=email, via="password")
 
     @staticmethod
     def _hash_password(password: str) -> str:
@@ -123,6 +133,9 @@ class AuthService:
     async def validate_and_rotate_refresh_token(self, token: str) -> uuid.UUID:
         """Validate a refresh token, revoke it, and return the user_id.
 
+        The user must still be active and hold a role: otherwise every one of
+        their refresh tokens is revoked, so a removed role or a disabled
+        account ends access by the time the current access token expires.
         The caller is responsible for issuing a new refresh token after this.
         """
         token_hash = self.hash_token(token)
@@ -145,6 +158,17 @@ class AuthService:
         # Revoke the old token (rotation)
         refresh.is_revoked = True
         await self.session.flush()
+
+        user = await self.user_repo.get_by_id(refresh.user_id)
+        if user is None or not may_use_app(user):
+            await self.revoke_all_user_tokens(refresh.user_id)
+            logger.warning(
+                "Session refresh refused: no access (user_id=%s role=%s active=%s)",
+                refresh.user_id,
+                user.role if user is not None else None,
+                user.is_active if user is not None else None,
+            )
+            raise AuthenticationError(SESSION_ENDED_MESSAGE)
 
         return refresh.user_id
 

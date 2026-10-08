@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import settings
 from app.db.repositories.user_repo import UserRepository
 from app.services.auth_service import AuthService
+from app.utils.entitlements import NO_ACCESS_MESSAGE
 
 
 class TestRegister:
@@ -95,6 +96,7 @@ class TestLogin:
             email="loginuser@example.com",
             hashed_password=AuthService._hash_password("LoginPass123"),
             full_name="Login User",
+            role="sme",
         )
 
         response = await client.post(
@@ -129,6 +131,25 @@ class TestLogin:
         )
         assert response.status_code == 401
         assert "Invalid email or password" in response.json()["detail"]
+
+    async def test_login_without_a_role_returns_403(
+        self, client: AsyncClient, db_session: AsyncSession
+    ) -> None:
+        """A correct password is not enough: no role, no session."""
+        await UserRepository(db_session).create(
+            email="norole-login@example.com",
+            hashed_password=AuthService._hash_password("LoginPass123"),
+            full_name="No Role",
+        )
+
+        response = await client.post(
+            "/api/v1/auth/login",
+            json={"email": "norole-login@example.com", "password": "LoginPass123"},
+        )
+
+        assert response.status_code == 403
+        assert response.json() == {"detail": NO_ACCESS_MESSAGE}
+        assert "set-cookie" not in response.headers
 
     async def test_login_nonexistent_user_returns_401(
         self, client: AsyncClient
