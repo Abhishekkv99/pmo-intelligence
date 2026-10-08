@@ -83,3 +83,15 @@ output "db_bootstrap_log_group" {
   description = "Log group of the bootstrap task"
   value       = aws_cloudwatch_log_group.this["db-bootstrap"].name
 }
+
+# What `make user-role` passes to aws ecs run-task; it runs in the bootstrap's
+# subnets and security group (db_bootstrap_subnets, db_bootstrap_security_group)
+output "admin_cli_task_definition" {
+  description = "Task definition ARN of the one-off admin commands"
+  value       = aws_ecs_task_definition.admin_cli.arn
+}
+
+output "admin_cli_log_group" {
+  description = "Log group of the admin command task"
+  value       = aws_cloudwatch_log_group.this["admin-cli"].name
+}

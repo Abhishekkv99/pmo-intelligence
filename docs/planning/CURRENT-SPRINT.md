@@ -130,7 +130,7 @@
 - [x] Backend, no role: sign-in finds the user by Entra oid, then by email; creates a row only for a bootstrap admin (`pmo_manager` at once); a user with no role, a disabled user, or an unknown email is refused with 403 "Your account has not been given access to PMO Intelligence. Ask a PMO manager.", WARNING logged, **no row created**. Local password login (dev and CI only) follows the same rule (`find_user_for_sign_in` + `assert_may_sign_in` in `entitlements.py`; `authenticate` for passwords)
 - [x] Backend, every request and refresh: `get_current_user` answers 401 for a user with no role; `/auth/refresh` refuses (401, cookie cleared, the user's refresh tokens revoked) a disabled or no-role user, so a revoked role ends access within the 15-minute access-token life (`get_current_user`, `validate_and_rotate_refresh_token`)
 - [x] Role CLI `backend/app/cli/user_role.py`: `--email <addr> --role <pmo_manager|sme|tech_lead|ps|admin|none>` creates the user by email if missing (name from the address until first sign-in, linked to Entra at first sign-in) or changes the role; `none` clears it and revokes the user's refresh tokens; `--list` prints email, role, active, last sign-in source. Run as a one-off ECS task: `scripts/user-role.sh` + `make user-role ENV=staging EMAIL=... ROLE=...` (`ARGS=--list`) (service `app/services/user_roles.py`; `--list` shows email, name, role, active, signed in with Microsoft or not yet; `scripts/user-role.sh` accepts only a plain address and a known role)
-- [ ] Terraform: `<env>-admin-cli` task definition (backend image, `DATABASE_URL` from the app secret, the app's execution role, backend subnets and security group), its outputs; plan, then apply on approval. Needs the backend image with the CLI, so it runs after the CI deploy (written: `infra/modules/environment/admin_cli.tf`, log group `admin-cli`, outputs; plan and apply next)
+- [x] Terraform: `<env>-admin-cli` task definition (backend image, `DATABASE_URL` from the app secret, the app's execution role, backend subnets and security group), its outputs; plan, then apply on approval. Needs the backend image with the CLI, so it runs after the CI deploy (written: `infra/modules/environment/admin_cli.tf`, log group `admin-cli`, outputs; staging applied 2026-10-08: 2 added)
 - [x] Frontend: the callback page shows the backend's refusal message instead of the generic failure
 - [x] e2e: compose gives the e2e user a role through `BOOTSTRAP_ADMIN_EMAILS`, since a no-role local login is now refused (9/9 on the compose stack, ports 8100/3100)
 - [x] Tests: guest (acct 1, missing), no-role refusal with no row created, bootstrap creation, disabled user, refresh and per-request refusal, CLI (create, change, revoke, list); integration for refresh and the CLI against Postgres; frontend callback message (backend 289 unit + 47 integration, frontend 88 unit, e2e 9; `make lint` clean)
@@ -141,8 +141,8 @@
 
 **Commit checkpoints for the discovered work**
 - [x] `fix: let tenant users consent to the sso app` (pending fixes from earlier today, before any new code)
-- [ ] `feat: limit sign-in to tenant members with a role` (backend, frontend, tests, script, docs)
-- [ ] `feat: add a one-off ecs task for granting roles` (Terraform, script, make target; after apply)
+- [x] `feat: limit sign-in to tenant members with a role` (backend, frontend, tests, script, docs) (57b1385)
+- [x] `feat: add a one-off ecs task for granting roles` (Terraform, script, make target; after apply)
 
 **Doc updates (concurrent)**
 - [ ] `SPRINT-AUDIT.md` (Rule C), `docs/handover/sprint-00-handover.md`, `BACKLOG.md`, `ROADMAP.md`, `TEAMS-GRAPH-SETUP.md`

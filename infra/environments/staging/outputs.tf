@@ -76,3 +76,13 @@ output "db_bootstrap_log_group" {
   description = "Log group of the bootstrap task"
   value       = module.environment.db_bootstrap_log_group
 }
+
+output "admin_cli_task_definition" {
+  description = "Task definition ARN of the one-off admin commands"
+  value       = module.environment.admin_cli_task_definition
+}
+
+output "admin_cli_log_group" {
+  description = "Log group of the admin command task"
+  value       = module.environment.admin_cli_log_group
+}
