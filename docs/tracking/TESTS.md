@@ -1,15 +1,15 @@
 # Test Tracking
 
 ## Summary
-Counts are taken from the test run output, never estimated. Last run 2026-10-08 (Sprint 1 Phase 1, after the Microsoft tokens were dropped): backend unit and integration, frontend unit. e2e was last run at the Sprint 0 close the same day (compose stack on ports 8100/3100); this change does not touch the local sign-in it uses.
+Counts are taken from the test run output, never estimated. Last run 2026-10-08 (Sprint 1 Phase 1, after debug was turned off by default): backend unit and integration, frontend unit. e2e was last run at the Sprint 0 close the same day (compose stack on ports 8100/3100); this change does not touch the local sign-in it uses.
 
 | Layer | Count |
 |-------|-------|
-| Unit (backend) | 291 |
+| Unit (backend) | 293 |
 | Integration (backend, testcontainers pgvector) | 48 |
 | Frontend unit (Vitest) | 88 |
 | Frontend e2e (Playwright, against the compose stack) | 9 (1 setup + 8) |
-| **Total** | **436** |
+| **Total** | **438** |
 
 ## How to run
 - Backend unit: `cd backend && uv run pytest tests/unit`
@@ -25,6 +25,7 @@ Counts are taken from the test run output, never estimated. Last run 2026-10-08 
 | `test_access_rule.py` | 14 | `may_use_app` (active and a known role), `assert_may_sign_in` (403, WARNING), `get_current_user` refuses a removed role or disabled account with 401 and a WARNING |
 | `test_auth_endpoints.py` | 15 | Register, login, refresh, logout, `/me` (role in the response) |
 | `test_auth_schemas.py` | 11 | Auth request/response schemas; `role` required but nullable |
+| `test_config.py` | 2 | `app_debug` off unless `APP_DEBUG` is set, on when set |
 | `test_auth_service.py` | 18 | Password hashing, tokens, register (no role on creation, bootstrap elevation); password login refused without a role or when disabled |
 | `test_bootstrap_admins.py` | 6 | Startup bootstrap sweep |
 | `test_cost_tracker.py` | 7 | LLM, embedding and transcription cost calculation |

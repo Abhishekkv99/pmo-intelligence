@@ -11,7 +11,10 @@ class Settings(BaseSettings):
     # Application
     project_name: str = "pmo-intelligence"
     app_env: str = "development"
-    app_debug: bool = True
+    # Echoes every SQL statement when on. Off unless set, so a container that
+    # forgets APP_DEBUG (a one-off ECS task, the migration container) stays
+    # quiet; compose and .env.example turn it on for development.
+    app_debug: bool = False
     app_port: int = 8000
     frontend_url: str = "http://localhost:3000"
     backend_url: str = "http://localhost:8000"

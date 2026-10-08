@@ -31,5 +31,5 @@ From the PRD, "Decisions needed before Sprint 1". Each one changes the data mode
 - [ ] A manual CI redeploy trigger (`workflow_dispatch` with a backend/frontend choice) so an unchanged side can be rebuilt by CI instead of by hand (Sprint 0 handover)
 
 ## Tech Debt
-- [ ] Set `APP_DEBUG=false` on the backend's `migration` container (`infra/modules/environment/ecs.tf`), or make `app_debug` default to false in `backend/app/config.py`; today migrations echo SQL in the migration log group (found 2026-10-08 on the admin-cli task, which is fixed). Replaces the backend task definition, so it redeploys the backend
+- [x] (Sprint 1 Phase 1, 2026-10-08: `app_debug` defaults to false in `config.py`; takes effect on the next backend deploy) Set `APP_DEBUG=false` on the backend's `migration` container (`infra/modules/environment/ecs.tf`), or make `app_debug` default to false in `backend/app/config.py`; today migrations echo SQL in the migration log group (found 2026-10-08 on the admin-cli task, which is fixed). Replaces the backend task definition, so it redeploys the backend
 - [ ] Make the backend tests pass mypy strict (`uv run mypy app tests`: 57 errors in 8 test files, e.g. `tests/unit/test_llm_factory.py`), then widen `make lint` and CI to `app tests`

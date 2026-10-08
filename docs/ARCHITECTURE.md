@@ -25,7 +25,7 @@ FastAPI app in `backend/app/`, layered routes → services → repositories → 
 | Area | Path | Notes |
 |------|------|-------|
 | App and lifespan | `app/main.py` | Startup: bootstrap-admin grant, then the processing takeover in a background task. Shutdown: queue stop, then lock release. |
-| Settings | `app/config.py` | `pydantic-settings`, env vars or `.env` |
+| Settings | `app/config.py` | `pydantic-settings`, env vars or `.env`; `APP_DEBUG` (SQL echo) is off unless set, and compose and `.env.example` turn it on for development |
 | Routes | `app/api/v1/{health,auth,processing}.py` | See `docs/API.md` |
 | Entitlement | `app/utils/entitlements.py`, `app/dependencies.py` | Role model below; guards `require_roles`, `require_placement_scope`, `require_logged_placement_scope` |
 | Enumerations | `app/models/enums.py` | `Role`, `GLOBAL_ROLES`, `ConsultantStatus`, `ExtensionStatus`, `PlacementStatus`, `JobStatus`; stored as strings with CHECK constraints |

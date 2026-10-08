@@ -62,7 +62,7 @@
 
 ### Phase 1: Backlog fixes and transcription smoke test
 **Code work**
-- [ ] `backend/app/config.py`: `app_debug` defaults to `False`; compose and `.env.example` set `APP_DEBUG=true` for development
+- [x] `backend/app/config.py`: `app_debug` defaults to `False`; compose and `.env.example` set `APP_DEBUG=true` for development (both already did; only the default changed; `tests/unit/test_config.py`)
 - [x] Stop storing users' Microsoft tokens at sign-in (`services/sso_service.py`), remove `refresh_microsoft_token`; migration `002_drop_user_ms_tokens.py` drops `ms_access_token`, `ms_refresh_token`, `ms_token_expires_at`; `User` model updated (also: sign-in asks for `openid email profile` only, no `offline_access`, backend and `useSSOLogin.ts`; the app registration keeps the scope, unused; user decision 2026-10-08)
 - [ ] `.github/workflows/ci.yml`: `workflow_dispatch` with a `target` choice (backend / frontend / both) that redeploys that side of staging from `develop`; every `uses:` ref verified with `gh api`
 - [ ] Settings: `assemblyai_base_url` (EU default), `assemblyai_speech_models`, AssemblyAI prices as configuration; `cost_tracker` reads them
@@ -73,7 +73,7 @@
 - [ ] `ARCHITECTURE.md` (users table, `> Status:`), `DEPLOYMENT.md` (manual redeploy, `> Status:`), `README.md` (redeploy row), `TESTS.md`, `FEATURES.md`, `CHANGELOG.md`, `BACKLOG.md` (three items ticked)
 
 **Commit checkpoints**
-- [ ] `fix: stop storing microsoft tokens at sign-in`
+- [x] `fix: stop storing microsoft tokens at sign-in` (a2adca8)
 - [ ] `fix: default debug off outside development`
 - [ ] `ci: add a manual staging redeploy`
 
@@ -220,18 +220,18 @@
 
 >>> CURRENT PHASE: Phase 1 — Backlog fixes and transcription smoke test (in progress)
 
-## Session State (last updated: 2026-10-08 16:40)
+## Session State (last updated: 2026-10-08 16:55)
 - **Sprint**: 1 — Register and Sessions (PRD Phase 1)
 - **Current phase**: Phase 1 — Backlog fixes and transcription smoke test (in progress)
-- **Phase progress**: 1 of 6 Phase 1 code tasks complete
-- **Last completed task**: Microsoft tokens no longer stored; migration 002; identity scopes only
-- **Next task**: `app_debug` defaults to `False` (compose and `.env.example` keep `APP_DEBUG=true`)
-- **Last commit**: 544e212 "docs: plan sprint 1, register and sessions" (pushed); `fix: stop storing microsoft tokens at sign-in` follows
-- **Uncommitted changes**: none after the token commit
+- **Phase progress**: 2 of 6 Phase 1 code tasks complete
+- **Last completed task**: `app_debug` defaults to `False`
+- **Next task**: `ci.yml` `workflow_dispatch` manual staging redeploy (backend / frontend / both)
+- **Last commit**: a2adca8 "fix: stop storing microsoft tokens at sign-in" (not pushed); `fix: default debug off outside development` follows
+- **Uncommitted changes**: none after the debug commit
 - **Blockers**: none yet (see Blockers and Dependencies)
-- **Tests passing**: 291 unit + 48 integration (backend) + 88 frontend unit (2026-10-08 16:35) + 9 e2e (Sprint 0 close) = 436; ruff, mypy, eslint, typecheck, Prettier clean
-- **Files created this session**: `backend/alembic/versions/002_drop_user_ms_tokens.py`
-- **Files modified this session**: `backend/app/services/sso_service.py`, `backend/app/models/user.py`, `backend/tests/unit/test_sso_service.py`, `backend/tests/integration/test_migrations.py`, `frontend/src/hooks/useSSOLogin.ts`, `frontend/src/hooks/useSSOLogin.test.ts`, `docs/ARCHITECTURE.md`, `docs/DEPLOYMENT.md`, `docs/planning/{CURRENT-SPRINT,BACKLOG}.md`, `docs/tracking/{CHANGELOG,FEATURES,TESTS}.md`
+- **Tests passing**: 293 unit + 48 integration (backend) + 88 frontend unit (2026-10-08 16:50) + 9 e2e (Sprint 0 close) = 438; ruff, mypy, eslint, typecheck, Prettier clean
+- **Files created this session**: `backend/alembic/versions/002_drop_user_ms_tokens.py`, `backend/tests/unit/test_config.py`
+- **Files modified this session**: `backend/app/config.py`, `backend/app/services/sso_service.py`, `backend/app/models/user.py`, `backend/tests/unit/test_sso_service.py`, `backend/tests/integration/test_migrations.py`, `frontend/src/hooks/useSSOLogin.ts`, `frontend/src/hooks/useSSOLogin.test.ts`, `docs/ARCHITECTURE.md`, `docs/DEPLOYMENT.md`, `docs/planning/{CURRENT-SPRINT,BACKLOG}.md`, `docs/tracking/{CHANGELOG,FEATURES,TESTS}.md`
 - **Key decisions this session**: Sprint 1 plan (User Decisions Made); `offline_access` dropped from sign-in requests, kept on the registration (Decisions Log)
 - **Recovery instructions**:
   - Read this file first, then `docs/handover/sprint-00-handover.md`.
