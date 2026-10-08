@@ -75,24 +75,24 @@
 **Commit checkpoints**
 - [x] `fix: stop storing microsoft tokens at sign-in` (a2adca8)
 - [x] `fix: default debug off outside development` (957636c)
-- [ ] `feat: configure transcription for the eu endpoint` (deviation: a fourth Phase 1 commit for the AssemblyAI settings, which the plan did not list as its own commit)
+- [x] `feat: configure transcription for the eu endpoint` (1e7e2f8, pushed; deviation: a fourth Phase 1 commit for the AssemblyAI settings, which the plan did not list as its own commit)
 - [x] `ci: add a manual staging redeploy` (b3fe779; pushed with a2adca8 and 957636c, CI run 37769000185 green and deployed both sides: migration 002 ran on staging, no SQL echo in the migration log, the live login bundle asks for `openid email profile` only)
 
 ### Phase 2: Placement register, CSV import, Users and roles
 **Code work**
-- [ ] Repositories: `consultant_repo`, `client_repo`, `project_repo`, `placement_repo` (on `db/repositories/base.py`)
-- [ ] `services/register_service.py`: CRUD, client `normalized_name`, validation (end after start, enumerations)
-- [ ] `services/register_import.py`: CSV → per-row result (create / update / error); dry run; Confirm all-or-nothing in one transaction. Columns `consultant_full_name, consultant_email, client_name, project_name, client_manager_name, tech_lead_email, ps_email, sme_email, start_date, expected_end_date, extension_status, rate_band`. Dedup: clients on normalized name; consultants on email (else full name); projects on (client, name); placements on (consultant, project, start_date). Dates ISO or `DD/MM/YYYY`; UTF-8 with or without BOM; 1 MB, 1,000 rows at most
-- [ ] Routes `api/v1/register.py` (global roles): list, create, update consultants, clients, projects, placements; `GET /placements/{placement_id}` with `require_placement_scope`; `POST /register/import?dry_run=`
+- [x] Repositories: `consultant_repo`, `client_repo`, `project_repo`, `placement_repo` (on `db/repositories/base.py`) (`PlacementRow` loads a placement with its consultant, project, client and people in one joined query)
+- [x] `services/register_service.py`: CRUD, client `normalized_name`, validation (end after start, enumerations) (plus uniqueness as 409 and the people rule; no delete, user decision 2026-10-08)
+- [x] `services/register_import.py`: CSV → per-row result (create / update / error); dry run; Confirm all-or-nothing in one transaction. Columns `consultant_full_name, consultant_email, client_name, project_name, client_manager_name, tech_lead_email, ps_email, sme_email, start_date, expected_end_date, extension_status, rate_band`. Dedup: clients on normalized name; consultants on email (else full name); projects on (client, name); placements on (consultant, project, start_date). Dates ISO or `DD/MM/YYYY`; UTF-8 with or without BOM; 1 MB, 1,000 rows at most (filled cells overwrite, empty cells keep; people must be users with a role, a different role warns; user decisions 2026-10-08. A savepoint per file and one per row)
+- [x] Routes `api/v1/register.py` (global roles): list, create, update consultants, clients, projects, placements; `GET /placements/{placement_id}` with `require_placement_scope`; `POST /register/import?dry_run=` (`PATCH` for updates, so CORS now allows `PATCH`; import rate-limited 10/min; always 200 with `applied`)
 - [ ] Routes `api/v1/users.py` (global roles): list, grant by email, change or remove a role, through `services/user_roles.py`; refuse to remove or change the last active `pmo_manager` (your own included)
-- [ ] Frontend: Admin as tabs (Register, Import, Users and roles, Recordings, Processing); TanStack tables, create/edit dialogs (react-hook-form + zod); hooks `useRegister.ts`, `useUsers.ts`; `API_ROUTES` additions
-- [ ] Tests: service, import (dry run, row errors, dedup, date formats, BOM, size), routes and guards (coverage test), integration against Postgres, frontend components
+- [~] Frontend: Admin as tabs (Register, Import, Users and roles, Recordings, Processing); TanStack tables, create/edit dialogs (react-hook-form + zod); hooks `useRegister.ts`, `useUsers.ts`; `API_ROUTES` additions (register part done: tabs Register, Import, Processing with `?tab=`; Placements first with sub-tabs, user decision 2026-10-08; generic `DataTable`; `api.patch`. Users and roles comes with its commit, Recordings in Phase 3)
+- [~] Tests: service, import (dry run, row errors, dedup, date formats, BOM, size), routes and guards (coverage test), integration against Postgres, frontend components (register part done: 13 unit, 30 integration, 20 frontend unit, 2 new e2e specs on the compose stack; users tests with the users commit)
 
 **Doc updates (concurrent)**
 - [ ] `API.md` (register, import, users), `ARCHITECTURE.md` (register as built, Admin tabs, `> Status:`), `FEATURES.md`, `TESTS.md`, `CHANGELOG.md`, `ROADMAP.md` (tick "Placement register"), `DEPLOYMENT.md` (`make user-role` stays as a fallback)
 
 **Commit checkpoints**
-- [ ] `feat: add the placement register with csv import`
+- [ ] `feat: add the placement register with csv import` (deviation: also brings `GET /users`, which the people pickers need)
 - [ ] `feat: add the users and roles admin page`
 
 ### Phase 3: Sessions and ingestion (folder scanner, upload, URL, transcription)
@@ -219,21 +219,21 @@
 - Register data for the consultants in the gate calls: a CSV from the PS team's spreadsheet.
 - Three consultants told in advance that their calls will be analysed, and the PMO manager available for the review.
 
->>> CURRENT PHASE: Phase 1 — Backlog fixes and transcription smoke test (in progress)
+>>> CURRENT PHASE: Phase 2 — Placement register, CSV import, Users and roles (in progress)
 
-## Session State (last updated: 2026-10-08 18:05)
+## Session State (last updated: 2026-10-08 20:45)
 - **Sprint**: 1 — Register and Sessions (PRD Phase 1)
-- **Current phase**: Phase 1 — Backlog fixes and transcription smoke test (all tasks done; closing commit pending)
-- **Phase progress**: 6 of 6 Phase 1 code tasks complete; docs complete
-- **Last completed task**: AssemblyAI settings (EU endpoint, `["universal-3-5-pro", "universal-2"]`, prices) and the EU smoke test; manual redeploy verified (run 37770017665)
-- **Next task**: Phase 2, first item: the register repositories (`consultant_repo`, `client_repo`, `project_repo`, `placement_repo`)
-- **Last commit**: b3fe779 "ci: add a manual staging redeploy" (pushed with a2adca8 and 957636c); `feat: configure transcription for the eu endpoint` follows
-- **Uncommitted changes**: none after the transcription commit
+- **Current phase**: Phase 2 — Placement register, CSV import, Users and roles (in progress)
+- **Phase progress**: register, import and their tests done (commit pending); the Users and roles part not started
+- **Last completed task**: placement register and CSV import, backend and Admin pages, with tests; e2e 11/11 on the compose stack (8100/3100)
+- **Next task**: commit the register; then `api/v1/users.py` role changes (grant by email, change, remove; last-pmo_manager guard) and the Users and roles tab
+- **Last commit**: 1e7e2f8 "feat: configure transcription for the eu endpoint" (pushed); `feat: add the placement register with csv import` follows
+- **Uncommitted changes**: none after the register commit
 - **Blockers**: none yet (see Blockers and Dependencies)
-- **Tests passing**: 297 unit + 48 integration (backend) + 88 frontend unit (2026-10-08 18:00) + 9 e2e (CI runs 37769000185, 37770017665) = 442; ruff, mypy, eslint, typecheck, Prettier, actionlint clean
-- **Files created this session**: `backend/alembic/versions/002_drop_user_ms_tokens.py`, `backend/tests/unit/test_config.py`
-- **Files modified this session**: `.env.example`, `backend/app/services/cost_tracker.py`, `backend/tests/unit/test_cost_tracker.py`, `.github/workflows/ci.yml`, `README.md`, `docs/tracking/FEATURES.md`, `backend/app/config.py`, `backend/app/services/sso_service.py`, `backend/app/models/user.py`, `backend/tests/unit/test_sso_service.py`, `backend/tests/integration/test_migrations.py`, `frontend/src/hooks/useSSOLogin.ts`, `frontend/src/hooks/useSSOLogin.test.ts`, `docs/ARCHITECTURE.md`, `docs/DEPLOYMENT.md`, `docs/planning/{CURRENT-SPRINT,BACKLOG}.md`, `docs/tracking/{CHANGELOG,FEATURES,TESTS}.md`
-- **Key decisions this session**: Sprint 1 plan (User Decisions Made); `offline_access` dropped from sign-in requests; manual redeploy re-runs checks; AssemblyAI `["universal-3-5-pro", "universal-2"]` (Decisions Log)
+- **Tests passing**: 325 unit + 78 integration (backend) + 108 frontend unit + 11 e2e = 522 (2026-10-08 20:40); ruff, mypy, eslint, typecheck, Prettier clean; `next build` green
+- **Files created this session**: Phase 2: `backend/app/db/repositories/{consultant,client,project,placement}_repo.py`, `backend/app/schemas/{register,users}.py`, `backend/app/services/{register_service,register_import}.py`, `backend/app/api/v1/{register,users}.py`, `backend/tests/unit/test_register_import_file.py`, `backend/tests/integration/test_register_{api,import}.py`, `frontend/src/components/admin/register/*`, `frontend/src/components/common/DataTable{,.test}.tsx`, `frontend/src/hooks/{useRegister,useUsers}.ts`, `frontend/src/hooks/useRegister.test.ts`, `frontend/src/lib/register{,.test}.ts`, `frontend/src/types/register.ts`, `frontend/tests/e2e/admin-register.spec.ts`
+- **Files modified this session**: Phase 2: `backend/app/api/router.py`, `backend/app/main.py` (CORS PATCH), `backend/app/db/repositories/user_repo.py`, `backend/app/services/user_roles.py` (id on `UserSummary`), `frontend/src/components/admin/AdminView{,.test}.tsx`, `frontend/src/app/admin/page.tsx`, `frontend/src/lib/{api,api.test,constants}.ts`; docs `API`, `ARCHITECTURE`, `planning/{CURRENT-SPRINT,ROADMAP}`, `tracking/{CHANGELOG,FEATURES,TESTS}`
+- **Key decisions this session**: CSV blanks keep; people are users with any role; no delete; Placements-first layout (Decisions Log)
 - **Recovery instructions**:
   - Read this file first, then `docs/handover/sprint-00-handover.md`.
   - **Copying from Interview Intelligence**: code comes from `E:\E Projects\Interview Intelligence Platform`. Fix its known gaps on copy (see Research Findings).
@@ -255,4 +255,9 @@
 | Sign-in requests identity scopes only (`openid email profile`); `offline_access` dropped from the authorize request and the code exchange, kept on the app registration | User decision 2026-10-08; with no Microsoft token stored, a refresh token has no use. Leaving the registration alone keeps existing consents and needs no Entra change. Alternatives offered: drop it from the registration too (re-run the script); keep requesting it |
 | A manual redeploy re-runs the chosen side's checks and e2e before deploying | User decision 2026-10-08; keeps "deploy only after CI succeeds". Alternative offered: deploy straight away |
 | AssemblyAI default models `["universal-3-5-pro", "universal-2"]`, cost $0.21/hr plus $0.02/hr diarization | User decision 2026-10-08 after the smoke test: the current rate-card model, with Universal-2 for a language 3.5 Pro does not cover. Alternatives offered: 3.5 Pro alone; `universal-3-pro` as Interview Intelligence (accepted by the API, not on the rate card) |
+| CSV re-import: a filled cell overwrites, an empty cell keeps the stored value | User decision 2026-10-08; re-importing the same sheet changes nothing. Alternatives offered: blanks clear; create only |
+| People named in the register (CSV and pages) are active users with any role; a role other than the column's is a warning | User decision 2026-10-08. Alternatives offered: matching role required; any user row |
+| No delete in Sprint 1: placements end by status, consultants leave by status | User decision 2026-10-08; foreign keys are RESTRICT and history will hang off these rows. Alternative offered: delete when unreferenced |
+| Register tab opens on Placements, with sub-tabs for Consultants, Clients and Projects; the Admin tab is in the URL | User decision 2026-10-08. Alternatives offered: four equal sub-tabs; separate pages |
+| `GET /users` ships with the register commit; changing roles stays with the Users and roles commit | The register's people pickers need the user list |
 | AssemblyAI model names and prices are configuration | Plan approval 2026-10-08; the docs give two spellings for the current model and the prices differ from the tracker's |

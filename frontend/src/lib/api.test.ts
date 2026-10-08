@@ -133,3 +133,42 @@ describe("ApiClient 401 handling", () => {
     expect(expired).not.toHaveBeenCalled();
   });
 });
+
+describe("ApiClient.patch", () => {
+  beforeEach(() => {
+    fetchMock.mockReset();
+    vi.stubGlobal("fetch", fetchMock);
+    setToken("token");
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    removeToken();
+  });
+
+  it("sends a PATCH with the JSON body and the bearer token", async () => {
+    fetchMock.mockResolvedValueOnce(json(200, { id: "1" }));
+
+    await expect(
+      api.patch("/placements/1", { status: "ended" }),
+    ).resolves.toEqual({ id: "1" });
+
+    const init = fetchMock.mock.calls[0][1] as RequestInit;
+    expect(init.method).toBe("PATCH");
+    expect(init.body).toBe(JSON.stringify({ status: "ended" }));
+    expect((init.headers as Record<string, string>).Authorization).toBe(
+      "Bearer token",
+    );
+  });
+
+  it("raises the API's message on an error", async () => {
+    fetchMock.mockResolvedValueOnce(
+      json(409, { detail: "A client named Barclays already exists" }),
+    );
+
+    await expect(api.patch("/clients/1", { name: "x" })).rejects.toMatchObject({
+      status: 409,
+      message: "A client named Barclays already exists",
+    });
+  });
+});

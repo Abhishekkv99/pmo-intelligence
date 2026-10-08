@@ -1,15 +1,15 @@
 # Test Tracking
 
 ## Summary
-Counts are taken from the test run output, never estimated. Last run 2026-10-08 (Sprint 1 Phase 1, after the AssemblyAI settings): backend unit and integration, frontend unit. e2e (9) passed in CI on the same code (runs 37769000185 and 37770017665, compose stack on the runner).
+Counts are taken from the test run output, never estimated. Last run 2026-10-08 (Sprint 1 Phase 2, after the placement register): every layer; e2e against the compose stack on ports 8100/3100.
 
 | Layer | Count |
 |-------|-------|
-| Unit (backend) | 297 |
-| Integration (backend, testcontainers pgvector) | 48 |
-| Frontend unit (Vitest) | 88 |
-| Frontend e2e (Playwright, against the compose stack) | 9 (1 setup + 8) |
-| **Total** | **442** |
+| Unit (backend) | 325 |
+| Integration (backend, testcontainers pgvector) | 78 |
+| Frontend unit (Vitest) | 108 |
+| Frontend e2e (Playwright, against the compose stack) | 11 (1 setup + 10) |
+| **Total** | **522** |
 
 ## How to run
 - Backend unit: `cd backend && uv run pytest tests/unit`
@@ -31,7 +31,7 @@ Counts are taken from the test run output, never estimated. Last run 2026-10-08 
 | `test_cost_tracker.py` | 9 | LLM, embedding and transcription cost calculation; AssemblyAI rate plus diarization from settings |
 | `test_db_bootstrap.py` | 11 | Bootstrap config from the environment (defaults, overrides, every missing name listed); URL encoding of credentials; random passwords; secret merge keeps other keys; placeholder detection; exit code 2 without settings |
 | `test_db_session.py` | 1 | Engine command timeout |
-| `test_entitlement_coverage.py` | 20 | Every `/api/v1` route carries a guard or is listed public or self-scoped; placement-id routes carry a placement-scope guard |
+| `test_entitlement_coverage.py` | 35 | Every `/api/v1` route carries a guard or is listed public or self-scoped; placement-id routes carry a placement-scope guard |
 | `test_entitlements.py` | 35 | Global vs scoped roles, fail-closed for no role or unknown roles, 404-on-denial, role gate, bootstrap elevation rules |
 | `test_health.py` | 1 | Health endpoint |
 | `test_llm_factory.py` | 11 | Cached Azure OpenAI clients with timeout |
@@ -41,6 +41,7 @@ Counts are taken from the test run output, never estimated. Last run 2026-10-08 
 | `test_processing_status_api.py` | 11 | Queue status route; manager/admin only |
 | `test_rate_limiting.py` | 4 | Auth rate limits |
 | `test_refresh_tokens.py` | 15 | Refresh token storage, rotation, revocation; refresh refused, every token revoked and a WARNING logged for no role, a disabled account or a missing user |
+| `test_register_import_file.py` | 13 | Register CSV file checks: line numbers, Excel BOM, header case and spaces, trimmed cells, blank lines skipped; missing and unknown columns named; not UTF-8, over 1 MB, empty or header-only, over 1,000 rows refused; name normalisation |
 | `test_security_middleware.py` | 10 | Security headers, CORS lockdown |
 | `test_sso_endpoints.py` | 9 | SSO config and callback routes; a refused sign-in answers 403 with the reason and sets no cookie |
 | `test_sso_service.py` | 37 | Token exchange (identity scopes only, no `offline_access`), id_token validation, tenant allowlist; guests refused by `acct` (missing claim refused); user found by oid, then email (linked, name taken); no row for an unknown account; bootstrap admin created as `pmo_manager`; full flow refuses no role, disabled or unknown; sign-in stores no Microsoft token |
@@ -55,6 +56,8 @@ Counts are taken from the test run output, never estimated. Last run 2026-10-08 
 | `test_db_command_timeout.py` | 1 | asyncpg command timeout |
 | `test_health.py` | 1 | Health endpoint |
 | `test_migrations.py` | 3 | `alembic upgrade head` on an empty DB, `alembic check` (no drift), downgrade and re-upgrade; 002 drops the Microsoft token columns and its downgrade restores them |
+| `test_register_api.py` | 20 | Register routes: a manager builds a placement; names tidied; uniqueness (client name, consultant email, project per client, placement key) answers 409; end before start, inactive or role-less people and unknown references answer 422; required fields cannot be cleared; partial PATCH with null clearing; ending a placement; a PS reads only their own placement by id (404 otherwise) and cannot list or edit (403); the user list has no secrets |
+| `test_register_import.py` | 10 | CSV import: a dry run previews and writes nothing; Confirm writes and a re-import is unchanged (rows reuse what earlier rows created); any row error writes nothing; filled cells overwrite, empty cells keep; a consultant entered by name gains the email; two consultants with one name need an email; people must be users with a role, a different role warns; not a `.csv` is 422; scoped roles cannot import |
 | `test_placement_scope.py` | 10 | Who can read a placement (each role); denial identical to a missing row; `access_log` rows only for permitted logged reads |
 | `test_processing_ownership.py` | 6 | Advisory lock acquire, hold, heartbeat, release |
 | `test_sign_in_access.py` | 8 | A role granted by email is linked at the first SSO sign-in; an unknown account leaves no row; change, list, remove-nothing and bad-address cases; removing a role revokes every refresh token; refresh refused once the role is gone; refresh works while it is held |
@@ -64,7 +67,10 @@ Counts are taken from the test run output, never estimated. Last run 2026-10-08 
 |------|-------|--------|
 | `app/auth/callback/microsoft/page.test.tsx` | 8 | Error param, missing code, missing PKCE verifier, code exchange payload and redirect to `/`, exchange failure, a refused sign-in shows the backend's reason, a non-refusal keeps the generic message, back to login |
 | `app/layout.test.tsx` | 3 | Metadata name and tagline; toast region mounted; toasts shown |
-| `components/admin/AdminView.test.tsx` | 6 | Queue panel for `pmo_manager` and `admin`; no-access message for `sme`, `tech_lead`, `ps` and no role |
+| `components/admin/AdminView.test.tsx` | 9 | Opens on the register for `pmo_manager` and `admin`; the tab in the URL opens (the queue polls only on its tab); choosing a tab writes `?tab=`; an unknown tab falls back; no tabs and the no-access message for `sme`, `tech_lead`, `ps` and no role |
+| `components/admin/register/ImportTab.test.tsx` | 3 | Preview then Confirm of a clean file; Confirm stays disabled while a row has an error; a refused file shows the reason |
+| `components/admin/register/PlacementDialog.test.tsx` | 3 | End date before the start refused in the form; every field sent with empties as null; a failed save stays open with the API's message |
+| `components/common/DataTable.test.tsx` | 3 | Search over every column; sort by header; empty and loading messages |
 | `components/admin/ProcessingStatusPanel.test.tsx` | 6 | Memory formatting; hidden when disabled; idle and busy queues; running jobs by kind, no links; memory diagnostics; request error |
 | `components/auth/LoginForm.test.tsx` | 7 | Microsoft button only; progress and error states; no password or sign-up |
 | `components/common/DateRangeFilter.test.tsx` | 8 | From/To inputs, clear button, change callbacks |
@@ -73,15 +79,18 @@ Counts are taken from the test run output, never estimated. Last run 2026-10-08 
 | `components/layout/Sidebar.test.tsx` | 3 | Nav for global roles (with Admin) and others (without); risk board at `/` |
 | `components/layout/ThemeToggle.test.tsx` | 4 | Light, dark and system options |
 | `components/providers/AuthProvider.test.tsx` | 6 | Session restore with role; no-role user stays; signed-in user leaves `/login` for `/`; signed-out visitor stays on `/login`; expiry sends to `/login` |
+| `hooks/useRegister.test.ts` | 3 | Create with POST, update with PATCH on the record's path; import sends the file and the dry-run flag |
 | `hooks/useProcessingStatus.test.ts` | 3 | No request when disabled; 5 s / 30 s polling; busy flag |
 | `hooks/useSSOLogin.test.ts` | 3 | Authority from the server and identity scopes only; single-tenant authority; config failure |
 | `hooks/useScrollRestore.test.ts` | 3 | Save and restore scroll position per key |
-| `lib/api.test.ts` | 6 | One refresh and retry on 401, no refresh loop, session expiry, refresh timeout, shared refresh, no refresh for auth endpoints |
+| `lib/api.test.ts` | 8 | `patch` sends PATCH with the body and token, and raises the API's message; one refresh and retry on 401, no refresh loop, session expiry, refresh timeout, shared refresh, no refresh for auth endpoints |
 | `lib/pkce.test.ts` | 7 | Verifier and S256 challenge; verifier stored once and cleared |
+| `lib/register.test.ts` | 3 | Enumeration labels; empty and none become null; skills split on commas |
 | `lib/roles.test.ts` | 4 | The five roles; `pmo_manager` and `admin` global; scoped roles and no role not global |
 
 ## Frontend e2e tests (`frontend/tests/e2e/`)
 | File | Tests | Covers |
 |------|-------|--------|
 | `auth.setup.ts` | 1 | Registers and signs in with local auth (the user is a bootstrap admin in `docker-compose.yml`, since sign-in needs a role), copies the refresh cookie, lands on the risk board, saves the storage state |
+| `admin-register.spec.ts` | 2 | A PMO manager adds a client in the dialog, and the same name again is refused with the reason; a CSV is previewed, confirmed, and its placement found on the register |
 | `auth.spec.ts` | 8 | Login page offers only Microsoft (no password, no sign-up); `/signup` redirects or 404s; signed-in user lands on the risk board, is sent from `/login` to `/`, opens Actions, sees the app name |

@@ -11,6 +11,11 @@ All notable changes to this project will be documented in this file.
 - `APP_DEBUG` now defaults to off, so a backend container that does not set it (the migration container, a one-off ECS task) no longer echoes every SQL statement into its logs. Compose and `.env.example` turn it on for development.
 
 ### Added
+- Placement register on the Admin page: create and edit consultants, clients, projects and placements. It opens on Placements (status filter, search), with sub-tabs for the rest, and create and edit dialogs that show the API's reason when a save is refused. Clients are unique by normalised name, consultants by email, projects by (client, name) and placements by (consultant, project, start date). Named people must be active users with a role. Nothing is deleted.
+- Register CSV import (`POST /register/import`): one row per placement, previewed as a dry run and confirmed all or nothing. Filled cells overwrite and empty cells keep, so re-importing a sheet changes nothing. People are named by the email of an existing user with a role. The Import tab offers a template.
+- Admin tabs (Register, Import, Processing), with the tab in the URL; the processing queue polls only while its tab is open.
+- `GET /users`, the user list for global roles (the people pickers).
+- `PATCH` allowed by CORS, for local development.
 - Transcription settings: AssemblyAI's EU endpoint by default (`ASSEMBLYAI_BASE_URL`), `ASSEMBLYAI_SPEECH_MODELS` (Universal-3.5 Pro with a Universal-2 fallback), and its prices as settings. Transcription cost is now $0.21/hr plus $0.02/hr for diarization (was a fixed $0.15/hr).
 - Manual staging redeploy: run the CI workflow on `develop` with `target` set to backend, frontend or both; it runs that side's checks and e2e, then deploys.
 - Backend skeleton: FastAPI app with security headers, CORS, rate limiting and a health endpoint.

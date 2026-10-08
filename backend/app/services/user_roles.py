@@ -8,6 +8,7 @@ the user holds.
 """
 
 import logging
+import uuid
 from dataclasses import dataclass
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -24,6 +25,7 @@ logger = logging.getLogger(__name__)
 class UserSummary:
     """One line of the user list; no tokens, no Entra ids."""
 
+    id: uuid.UUID
     email: str
     full_name: str
     role: str | None
@@ -93,6 +95,7 @@ class UserRoleService:
     async def list_users(self) -> list[UserSummary]:
         return [
             UserSummary(
+                id=user.id,
                 email=user.email,
                 full_name=user.full_name,
                 role=user.role,

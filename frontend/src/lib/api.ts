@@ -195,6 +195,25 @@ class ApiClient {
     return this.json<T>(response);
   }
 
+  async patch<T>(
+    path: string,
+    body?: unknown,
+    options?: RequestOptions,
+  ): Promise<T> {
+    const { params, ...fetchOptions } = options ?? {};
+    const response = await this.authorizedFetch(path, params, () => ({
+      ...fetchOptions,
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        ...getAuthHeaders(),
+        ...fetchOptions.headers,
+      },
+      body: body ? JSON.stringify(body) : undefined,
+    }));
+    return this.json<T>(response);
+  }
+
   async delete(path: string, options?: RequestOptions): Promise<void> {
     const { params, ...fetchOptions } = options ?? {};
     const response = await this.authorizedFetch(path, params, () => ({

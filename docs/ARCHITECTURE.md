@@ -1,6 +1,6 @@
 # Architecture Overview
 
-> **Status**: Sprint 1 in progress (Phase 1, 2026-10-08). **Built**: the backend skeleton (see "Backend (as built)"), with migrations 001–002 and sign-in for tenant members with a role, the frontend skeleton (see "Frontend (as built)"), local development with CI/CD (see "Local development and CI/CD (as built)"), and the staging infrastructure with PMO's Azure OpenAI and the Entra SSO app (see "Infrastructure (as built)"). Everything else is the planned design from `docs/PRD.md`; update each section as it is built.
+> **Status**: Sprint 1 in progress (Phase 2, 2026-10-08). **Built**: the backend skeleton (see "Backend (as built)"), with migrations 001–002, sign-in for tenant members with a role, and the placement register with CSV import (also in "Backend (as built)"), the frontend skeleton with the Admin register and import (see "Frontend (as built)"), local development with CI/CD (see "Local development and CI/CD (as built)"), and the staging infrastructure with PMO's Azure OpenAI and the Entra SSO app (see "Infrastructure (as built)"). Everything else is the planned design from `docs/PRD.md`; update each section as it is built.
 
 ## System Design
 PMO Intelligence has 3 inputs, 1 queue, 2 pipelines and 1 health model. Every input becomes a signal, and every placement gets one health reading.
@@ -26,7 +26,8 @@ FastAPI app in `backend/app/`, layered routes → services → repositories → 
 |------|------|-------|
 | App and lifespan | `app/main.py` | Startup: bootstrap-admin grant, then the processing takeover in a background task. Shutdown: queue stop, then lock release. |
 | Settings | `app/config.py` | `pydantic-settings`, env vars or `.env`; transcription on AssemblyAI's EU endpoint (`ASSEMBLYAI_BASE_URL`) with `ASSEMBLYAI_SPEECH_MODELS` `["universal-3-5-pro", "universal-2"]`; `APP_DEBUG` (SQL echo) is off unless set, and compose and `.env.example` turn it on for development |
-| Routes | `app/api/v1/{health,auth,processing}.py` | See `docs/API.md` |
+| Routes | `app/api/v1/{health,auth,processing,register,users}.py` | See `docs/API.md` |
+| Placement register | `app/services/register_service.py`, `app/services/register_import.py`, `app/db/repositories/{consultant,client,project,placement}_repo.py` | Create and edit consultants, clients, projects and placements; CSV import. Rules below |
 | Entitlement | `app/utils/entitlements.py`, `app/dependencies.py` | Role model below; guards `require_roles`, `require_placement_scope`, `require_logged_placement_scope` |
 | Enumerations | `app/models/enums.py` | `Role`, `GLOBAL_ROLES`, `ConsultantStatus`, `ExtensionStatus`, `PlacementStatus`, `JobStatus`; stored as strings with CHECK constraints |
 | Models | `app/models/` | `user`, `refresh_token`, `register` (consultants, clients, projects, placements), `access_log`, `processing_job`, `processing_cost` |
@@ -39,6 +40,13 @@ FastAPI app in `backend/app/`, layered routes → services → repositories → 
 | Migrations | `alembic/versions/001_create_initial_schema.py`, `002_drop_user_ms_tokens.py` | Async Alembic; 001 enables pgvector and builds the Sprint 0 schema; 002 drops the stored Microsoft tokens from `users` |
 | Admin commands | ECS task definition `<env>-admin-cli` (`infra/modules/environment/admin_cli.tf`) | The backend image with `DATABASE_URL`, run by `scripts/user-role.sh` in the backend's subnets and security group |
 | Database bootstrap | `app/cli/db_bootstrap.py` | One-off ECS task per deployed environment: creates the `pmo_app` login (random password), makes it owner of the database and `public` schema, creates `vector`, and writes `DATABASE_URL` into the app secret. Idempotent; `--rotate-password` rotates. Run with `make db-bootstrap ENV=<env>` |
+
+**Placement register** (owned here, BACKLOG #3):
+- Edited by `pmo_manager` and `admin` only. A single placement is read by id under placement scope, like every by-id read.
+- Unique: a client by its normalised name (case and spacing ignored), a consultant by email (any case), a project by (client, name), a placement by (consultant, project, start date). A duplicate answers 409.
+- People named on a project or placement (tech lead, PS, SME) must be active users with a role, because being named gives scoped read of the placement.
+- Nothing is deleted: a placement ends by `status` (`ended`, `terminated`, with `ended_reason`), a consultant by `left`.
+- The CSV import applies these rules row by row inside one savepoint, plus its own: an empty cell keeps the stored value, people are existing users (never created), and a dry run, or a Confirm with any row error, writes nothing. Details in `docs/API.md`.
 
 **Role model**:
 - `users.role` is nullable, one of `pmo_manager | sme | tech_lead | ps | admin`.
@@ -61,8 +69,12 @@ Next.js 16.3.8 App Router app in `frontend/`, TypeScript strict, React 19.2, sha
 |------|------|-------|
 | Root layout | `src/app/layout.tsx` | Theme (light/dark/system), `AuthProvider`, `SWRProvider`, toasts; metadata from `APP_NAME` and `APP_TAGLINE` |
 | Shell | `src/components/layout/{MainLayout,Sidebar,Header,ThemeToggle}.tsx` | Sidebar: Risk board, Actions, Admin (global roles only), Settings; header: app name, theme toggle, user menu with sign-out |
-| Pages | `src/app/page.tsx` (Risk board), `actions/`, `admin/`, `settings/`, `login/`, `auth/callback/microsoft/` | Risk board, Actions and Settings are empty-state placeholders; Admin shows the processing queue |
-| Admin | `src/components/admin/{AdminView,ProcessingStatusPanel}.tsx`, `src/hooks/useProcessingStatus.ts` | Queue depth, running jobs by kind, backend memory; polls every 5 s while busy, 30 s when idle; other roles see a no-access message and the queue is never requested |
+| Pages | `src/app/page.tsx` (Risk board), `actions/`, `admin/`, `settings/`, `login/`, `auth/callback/microsoft/` | Risk board, Actions and Settings are empty-state placeholders; Admin has the register, the import and the processing queue |
+| Admin | `src/components/admin/AdminView.tsx` | Tabs Register, Import, Processing; the tab is in the URL (`?tab=`), and the page wraps the view in `Suspense` for `useSearchParams`. Other roles see a no-access message and no tabs, and nothing is requested |
+| Register | `src/components/admin/register/` (`PlacementsTable`, `ConsultantsTable`, `ClientsTable`, `ProjectsTable`, their dialogs, `RecordDialog`, `fields`), `src/hooks/useRegister.ts`, `src/hooks/useUsers.ts`, `src/lib/register.ts` | Opens on Placements (status filter, search), with sub-tabs for Consultants, Clients and Projects; create and edit in dialogs (react-hook-form + zod); a failed save shows the API's message. `lib/register.ts` mirrors the register enumerations |
+| Import | `src/components/admin/register/ImportTab.tsx` | Choose a CSV, Preview (dry run), then Confirm, enabled only after a preview with no row errors; per-row outcome, changes, warnings and errors; a template download |
+| Processing | `src/components/admin/ProcessingStatusPanel.tsx`, `src/hooks/useProcessingStatus.ts` | Queue depth, running jobs by kind, backend memory; polls every 5 s while busy, 30 s when idle, and only while its tab is open |
+| Tables | `src/components/common/DataTable.tsx` | TanStack Table with sorting and a search box over every column, in the browser (the lists are small) |
 | Roles | `src/lib/roles.ts` | Mirrors `Role` and `GLOBAL_ROLES` from `backend/app/models/enums.py`; `hasGlobalRole()` |
 | Routes and API paths | `src/lib/constants.ts` | `ROUTES`, `API_ROUTES`, `APP_NAME`, `APP_TAGLINE` |
 | API client | `src/lib/api.ts`, `src/lib/auth-token.ts` | Bearer token held in memory; one shared, time-limited refresh on a 401, one retry |

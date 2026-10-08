@@ -1,3 +1,4 @@
+import uuid
 from collections.abc import Iterable
 
 from sqlalchemy import func, select
@@ -27,6 +28,15 @@ class UserRepository(BaseRepository[User]):
         if not wanted:
             return []
         stmt = select(User).where(func.lower(User.email).in_(wanted))
+        result = await self.session.execute(stmt)
+        return list(result.scalars().all())
+
+    async def get_by_ids(self, ids: Iterable[uuid.UUID]) -> list[User]:
+        """Rows with any of ``ids``; an empty set returns none without a query."""
+        wanted = set(ids)
+        if not wanted:
+            return []
+        stmt = select(User).where(User.id.in_(wanted))
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
 

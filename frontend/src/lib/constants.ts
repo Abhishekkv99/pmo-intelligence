@@ -19,4 +19,10 @@ export const API_ROUTES = {
   ssoMicrosoftConfig: "/auth/sso/microsoft/config",
   ssoMicrosoftCallback: "/auth/sso/microsoft/callback",
   processingStatus: "/processing/status",
+  consultants: "/consultants",
+  clients: "/clients",
+  projects: "/projects",
+  placements: "/placements",
+  registerImport: "/register/import",
+  users: "/users",
 } as const;
