@@ -70,6 +70,24 @@ async def _tables(url: str) -> set[str]:
         await check.dispose()
 
 
+async def _user_columns(url: str) -> set[str]:
+    check = create_async_engine(url)
+    try:
+        async with check.connect() as conn:
+            rows = await conn.execute(
+                text(
+                    "SELECT column_name FROM information_schema.columns "
+                    "WHERE table_schema = 'public' AND table_name = 'users'"
+                )
+            )
+            return {row[0] for row in rows}
+    finally:
+        await check.dispose()
+
+
+MS_TOKEN_COLUMNS = {"ms_access_token", "ms_refresh_token", "ms_token_expires_at"}
+
+
 class TestMigrations:
     async def test_upgrade_head_builds_the_schema_without_drift(
         self, fresh_database_url: str
@@ -94,3 +112,15 @@ class TestMigrations:
 
         again = _alembic(fresh_database_url, "upgrade", "head")
         assert again.returncode == 0, again.stderr
+
+    async def test_002_drops_the_microsoft_token_columns_and_restores_them(
+        self, fresh_database_url: str
+    ) -> None:
+        assert _alembic(fresh_database_url, "upgrade", "001").returncode == 0
+        assert MS_TOKEN_COLUMNS.issubset(await _user_columns(fresh_database_url))
+
+        assert _alembic(fresh_database_url, "upgrade", "002").returncode == 0
+        assert not MS_TOKEN_COLUMNS & await _user_columns(fresh_database_url)
+
+        assert _alembic(fresh_database_url, "downgrade", "001").returncode == 0
+        assert MS_TOKEN_COLUMNS.issubset(await _user_columns(fresh_database_url))

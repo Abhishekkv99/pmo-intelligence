@@ -1,5 +1,4 @@
 import logging
-from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import httpx
@@ -26,6 +25,11 @@ MICROSOFT_LOGIN_BASE = "https://login.microsoftonline.com"
 # accepts any work or school account; which tenants are actually allowed is
 # decided by the issuer check in validate_id_token, not by Microsoft.
 MULTI_TENANT_AUTHORITY = "organizations"
+
+# Identity only. No offline_access: PMO keeps no Microsoft token after sign-in
+# (Teams is read with the Graph app's own credential), so it asks for no
+# refresh token. Must match the scope useSSOLogin.ts sends to /authorize.
+SSO_SCOPES = "openid email profile"
 
 
 def allowed_tenant_ids() -> list[str]:
@@ -129,7 +133,7 @@ class SSOService:
             "code_verifier": code_verifier,
             "redirect_uri": redirect_uri,
             "grant_type": "authorization_code",
-            "scope": "openid email profile offline_access",
+            "scope": SSO_SCOPES,
         }
         if settings.azure_client_secret:
             token_data["client_secret"] = settings.azure_client_secret
@@ -278,60 +282,4 @@ class SSOService:
             via="sso",
         )
 
-        # Step 4: Store Microsoft tokens for Graph API (Teams integration)
-        ms_access_token = token_response.get("access_token")
-        ms_refresh_token = token_response.get("refresh_token")
-        expires_in = token_response.get("expires_in")
-
-        if ms_access_token:
-            user.ms_access_token = ms_access_token
-        if ms_refresh_token:
-            user.ms_refresh_token = ms_refresh_token
-        if expires_in:
-            user.ms_token_expires_at = datetime.now(UTC) + timedelta(
-                seconds=int(expires_in)
-            )
-        await self.session.flush()
-
         return user
-
-    async def refresh_microsoft_token(self, user: User) -> str | None:
-        """Refresh the Microsoft access token using the stored refresh token.
-
-        Returns the new access token, or None if refresh fails.
-        """
-        if not user.ms_refresh_token:
-            return None
-
-        token_data: dict[str, str] = {
-            "client_id": settings.azure_client_id,
-            "grant_type": "refresh_token",
-            "refresh_token": user.ms_refresh_token,
-            "scope": "openid email profile offline_access",
-        }
-        if settings.azure_client_secret:
-            token_data["client_secret"] = settings.azure_client_secret
-
-        try:
-            async with httpx.AsyncClient(timeout=10.0) as client:
-                resp = await client.post(_token_url(), data=token_data)
-
-            if resp.status_code != 200:
-                logger.warning("Microsoft token refresh failed: %s", resp.status_code)
-                return None
-
-            data = resp.json()
-            user.ms_access_token = data.get("access_token")
-            new_refresh = data.get("refresh_token")
-            if new_refresh:
-                user.ms_refresh_token = new_refresh
-            expires_in = data.get("expires_in")
-            if expires_in:
-                user.ms_token_expires_at = datetime.now(UTC) + timedelta(
-                    seconds=int(expires_in)
-                )
-            await self.session.flush()
-            return user.ms_access_token
-        except httpx.HTTPError:
-            logger.exception("Error refreshing Microsoft token")
-            return None

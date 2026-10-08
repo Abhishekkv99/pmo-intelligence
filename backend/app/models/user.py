@@ -1,6 +1,4 @@
-from datetime import datetime
-
-from sqlalchemy import Boolean, CheckConstraint, DateTime, String, Text
+from sqlalchemy import Boolean, CheckConstraint, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base, TimestampMixin, UUIDMixin
@@ -34,13 +32,6 @@ class User(Base, UUIDMixin, TimestampMixin):
     # UserRepository.create and a later read inside a request cannot
     # lazy-load it (MissingGreenlet).
     role: Mapped[str | None] = mapped_column(String(20), nullable=True, default=None)
-
-    # Microsoft OAuth tokens for Graph API (Teams integration)
-    ms_access_token: Mapped[str | None] = mapped_column(Text, nullable=True)
-    ms_refresh_token: Mapped[str | None] = mapped_column(Text, nullable=True)
-    ms_token_expires_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
 
     def __repr__(self) -> str:
         return f"<User id={self.id} email={self.email!r}>"

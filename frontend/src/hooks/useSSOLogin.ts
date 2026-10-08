@@ -38,7 +38,7 @@ export function useSSOLogin(): UseSSOLoginReturn {
         response_type: "code",
         redirect_uri: config.redirect_uri,
         response_mode: "query",
-        scope: "openid email profile offline_access",
+        scope: "openid email profile",
         code_challenge: codeChallenge,
         code_challenge_method: "S256",
       });

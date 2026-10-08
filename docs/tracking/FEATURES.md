@@ -15,6 +15,7 @@
 | Processing status endpoint | `backend/app/api/v1/processing.py` | Done |
 | LLM factory and cost tracker | `backend/app/ai/llm_factory.py`, `backend/app/services/cost_tracker.py` | Done (not used yet) |
 | Migration 001: users, register, processing, access log | `backend/alembic/versions/001_create_initial_schema.py` | Done |
+| Sign-in keeps no Microsoft token (identity scopes only; migration 002 drops the token columns) | `backend/app/services/sso_service.py`, `frontend/src/hooks/useSSOLogin.ts`, `backend/alembic/versions/002_drop_user_ms_tokens.py` | Done (Sprint 1) |
 | Teams Graph access setup (certificate, app registration, connector app package) | `scripts/teams/`, `teams-app/`, `docs/integrations/TEAMS-GRAPH-SETUP.md` | Done; pending admin approval |
 | Frontend skeleton: Next.js 16.3.8 shell with sidebar, header, dark mode, route guard | `frontend/src/app/layout.tsx`, `frontend/src/components/layout/`, `frontend/src/proxy.ts` | Done |
 | Role-aware navigation (Admin for `pmo_manager` and `admin` only) | `frontend/src/lib/roles.ts`, `frontend/src/components/layout/Sidebar.tsx` | Done |

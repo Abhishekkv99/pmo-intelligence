@@ -63,7 +63,7 @@
 ### Phase 1: Backlog fixes and transcription smoke test
 **Code work**
 - [ ] `backend/app/config.py`: `app_debug` defaults to `False`; compose and `.env.example` set `APP_DEBUG=true` for development
-- [ ] Stop storing users' Microsoft tokens at sign-in (`services/sso_service.py`), remove `refresh_microsoft_token`; migration `002_drop_user_ms_tokens.py` drops `ms_access_token`, `ms_refresh_token`, `ms_token_expires_at`; `User` model updated
+- [x] Stop storing users' Microsoft tokens at sign-in (`services/sso_service.py`), remove `refresh_microsoft_token`; migration `002_drop_user_ms_tokens.py` drops `ms_access_token`, `ms_refresh_token`, `ms_token_expires_at`; `User` model updated (also: sign-in asks for `openid email profile` only, no `offline_access`, backend and `useSSOLogin.ts`; the app registration keeps the scope, unused; user decision 2026-10-08)
 - [ ] `.github/workflows/ci.yml`: `workflow_dispatch` with a `target` choice (backend / frontend / both) that redeploys that side of staging from `develop`; every `uses:` ref verified with `gh api`
 - [ ] Settings: `assemblyai_base_url` (EU default), `assemblyai_speech_models`, AssemblyAI prices as configuration; `cost_tracker` reads them
 - [ ] Smoke test (not committed): the PMO key on the EU endpoint with a short public sample; record the key's region and the working `speech_models` value here
@@ -218,21 +218,21 @@
 - Register data for the consultants in the gate calls: a CSV from the PS team's spreadsheet.
 - Three consultants told in advance that their calls will be analysed, and the PMO manager available for the review.
 
->>> CURRENT PHASE: Phase 1 — Backlog fixes and transcription smoke test (not started)
+>>> CURRENT PHASE: Phase 1 — Backlog fixes and transcription smoke test (in progress)
 
-## Session State (last updated: 2026-10-08 16:15)
+## Session State (last updated: 2026-10-08 16:40)
 - **Sprint**: 1 — Register and Sessions (PRD Phase 1)
-- **Current phase**: Phase 1 — Backlog fixes and transcription smoke test (not started)
-- **Phase progress**: 0 of 6 Phase 1 code tasks complete
-- **Last completed task**: Sprint 1 planned and approved; this plan written; BACKLOG questions #2 and #3 marked decided, #5 deferred, #6 noted
-- **Next task**: Phase 1, first item: `app_debug` defaults to `False`
-- **Last commit**: the planning commit `docs: plan sprint 1, register and sessions` (hash recorded after the commit)
-- **Uncommitted changes**: none after the planning commit
+- **Current phase**: Phase 1 — Backlog fixes and transcription smoke test (in progress)
+- **Phase progress**: 1 of 6 Phase 1 code tasks complete
+- **Last completed task**: Microsoft tokens no longer stored; migration 002; identity scopes only
+- **Next task**: `app_debug` defaults to `False` (compose and `.env.example` keep `APP_DEBUG=true`)
+- **Last commit**: 544e212 "docs: plan sprint 1, register and sessions" (pushed); `fix: stop storing microsoft tokens at sign-in` follows
+- **Uncommitted changes**: none after the token commit
 - **Blockers**: none yet (see Blockers and Dependencies)
-- **Tests passing**: 289 unit + 47 integration (backend) + 88 frontend unit + 9 e2e = 433 (Sprint 0 close, 2026-10-08; nothing changed in code since)
-- **Files created this session**: none
-- **Files modified this session**: `docs/planning/CURRENT-SPRINT.md`, `docs/planning/BACKLOG.md`
-- **Key decisions this session**: see User Decisions Made and the Decisions Log above (recordings folder, one recording per session, no auto-processing, EU transcription, signals tables now)
+- **Tests passing**: 291 unit + 48 integration (backend) + 88 frontend unit (2026-10-08 16:35) + 9 e2e (Sprint 0 close) = 436; ruff, mypy, eslint, typecheck, Prettier clean
+- **Files created this session**: `backend/alembic/versions/002_drop_user_ms_tokens.py`
+- **Files modified this session**: `backend/app/services/sso_service.py`, `backend/app/models/user.py`, `backend/tests/unit/test_sso_service.py`, `backend/tests/integration/test_migrations.py`, `frontend/src/hooks/useSSOLogin.ts`, `frontend/src/hooks/useSSOLogin.test.ts`, `docs/ARCHITECTURE.md`, `docs/DEPLOYMENT.md`, `docs/planning/{CURRENT-SPRINT,BACKLOG}.md`, `docs/tracking/{CHANGELOG,FEATURES,TESTS}.md`
+- **Key decisions this session**: Sprint 1 plan (User Decisions Made); `offline_access` dropped from sign-in requests, kept on the registration (Decisions Log)
 - **Recovery instructions**:
   - Read this file first, then `docs/handover/sprint-00-handover.md`.
   - **Copying from Interview Intelligence**: code comes from `E:\E Projects\Interview Intelligence Platform`. Fix its known gaps on copy (see Research Findings).
@@ -251,4 +251,5 @@
 | Evidence quotes checked by a normalised substring match against the transcript; an unverified signal is never stored, only counted | PRD ("Keep the model honest") and the project rules; Interview Intelligence had no check |
 | By-id session routes use a session scope guard (session → placement → scope, 404); a session page view writes `access_log` | Server-side scope on every by-id route; session pages show a consultant's data |
 | The Users page refuses to remove or change the last active `pmo_manager` | Plan approval 2026-10-08; prevents a lockout that only `make user-role` could undo |
+| Sign-in requests identity scopes only (`openid email profile`); `offline_access` dropped from the authorize request and the code exchange, kept on the app registration | User decision 2026-10-08; with no Microsoft token stored, a refresh token has no use. Leaving the registration alone keeps existing consents and needs no Entra change. Alternatives offered: drop it from the registration too (re-run the script); keep requesting it |
 | AssemblyAI model names and prices are configuration | Plan approval 2026-10-08; the docs give two spellings for the current model and the prices differ from the tracker's |

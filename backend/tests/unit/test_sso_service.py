@@ -10,6 +10,7 @@ import jwt
 import pytest
 
 from app.config import settings
+from app.models.user import User
 from app.services.sso_service import (
     SSOService,
     allowed_issuers,
@@ -68,6 +69,29 @@ class TestExchangeCodeForTokens:
 
         assert result["id_token"] == "ms-id-token"
         assert result["access_token"] == "ms-access-token"
+
+    async def test_exchange_asks_for_identity_scopes_only(self) -> None:
+        service = SSOService(AsyncMock())
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = {"id_token": "ms-id-token"}
+
+        with patch("app.services.sso_service.httpx.AsyncClient") as mock_client_cls:
+            mock_client = AsyncMock()
+            mock_client.post.return_value = mock_resp
+            mock_ctx = mock_client_cls.return_value
+            mock_ctx.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_ctx.__aexit__ = AsyncMock(return_value=False)
+
+            await service.exchange_code_for_tokens(
+                code="auth-code",
+                code_verifier="verifier-123",
+                redirect_uri="http://localhost:3000/auth/callback/microsoft",
+            )
+
+        sent = mock_client.post.call_args.kwargs["data"]
+        # No offline_access: PMO keeps no Microsoft refresh token
+        assert sent["scope"] == "openid email profile"
 
     async def test_exchange_non_200_raises_authentication_error(self) -> None:
         mock_session = AsyncMock()
@@ -473,6 +497,19 @@ class TestAuthenticateSSO:
 
         assert result is user
 
+    async def test_sign_in_stores_no_microsoft_token(self) -> None:
+        service = SSOService(AsyncMock())
+        user = User(email="user@co.com", full_name="User", role="ps", is_active=True)
+        claims = {"oid": "oid-full", "email": "user@co.com", "acct": 0}
+
+        with self._patched(service, claims, cast("MagicMock", user)):
+            await self._sign_in(service)
+
+        assert not hasattr(user, "ms_access_token")
+        assert not {"ms_access_token", "ms_refresh_token", "ms_token_expires_at"} & {
+            c.name for c in User.__table__.columns
+        }
+
     async def test_guest_is_refused_before_any_lookup(self) -> None:
         service = SSOService(AsyncMock())
         claims = {"oid": "guest", "email": "g@partner.com", "acct": 1}
@@ -505,8 +542,6 @@ class TestAuthenticateSSO:
             await self._sign_in(service)
 
         assert "Sign-in refused: no access (via=sso account=x@co.com" in caplog.text
-        # Refused before the Microsoft tokens are stored on the row
-        assert user.ms_access_token != "ms-at"
 
     async def test_unknown_account_is_refused(self) -> None:
         service = SSOService(AsyncMock())

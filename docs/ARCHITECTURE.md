@@ -1,6 +1,6 @@
 # Architecture Overview
 
-> **Status**: Sprint 0 complete (2026-10-08). **Built**: the backend skeleton (see "Backend (as built)"), with migration 001 and sign-in for tenant members with a role, the frontend skeleton (see "Frontend (as built)"), local development with CI/CD (see "Local development and CI/CD (as built)"), and the staging infrastructure with PMO's Azure OpenAI and the Entra SSO app (see "Infrastructure (as built)"). Everything else is the planned design from `docs/PRD.md`; update each section as it is built.
+> **Status**: Sprint 1 in progress (Phase 1, 2026-10-08). **Built**: the backend skeleton (see "Backend (as built)"), with migrations 001–002 and sign-in for tenant members with a role, the frontend skeleton (see "Frontend (as built)"), local development with CI/CD (see "Local development and CI/CD (as built)"), and the staging infrastructure with PMO's Azure OpenAI and the Entra SSO app (see "Infrastructure (as built)"). Everything else is the planned design from `docs/PRD.md`; update each section as it is built.
 
 ## System Design
 PMO Intelligence has 3 inputs, 1 queue, 2 pipelines and 1 health model. Every input becomes a signal, and every placement gets one health reading.
@@ -34,9 +34,9 @@ FastAPI app in `backend/app/`, layered routes → services → repositories → 
 | Ownership lock | `app/services/processing_ownership.py` | Postgres advisory lock on an AUTOCOMMIT connection, 30 s heartbeat; takeover steps registered (`register_takeover_sweep` before start, `register_takeover_requeue` after) |
 | LLM factory | `app/ai/llm_factory.py` | Cached Azure OpenAI chat and embedding clients with a finite timeout (300 s) |
 | Cost tracker | `app/services/cost_tracker.py` | Pure cost functions for LLM, embedding and transcription calls |
-| Auth | `app/api/v1/auth.py`, `app/services/{auth,sso}_service.py` | Entra ID SSO (authorization code + PKCE, code exchanged by the backend); members of the tenant with a role only (see the role model); local password auth only when `LOCAL_AUTH_ENABLED` (dev and CI), under the same role rule |
+| Auth | `app/api/v1/auth.py`, `app/services/{auth,sso}_service.py` | Entra ID SSO (authorization code + PKCE, code exchanged by the backend; identity scopes only, no Microsoft token kept); members of the tenant with a role only (see the role model); local password auth only when `LOCAL_AUTH_ENABLED` (dev and CI), under the same role rule |
 | Role grants | `app/services/user_roles.py`, `app/cli/user_role.py` | Grant, change or remove a role by email, or list users; run as a one-off ECS task with `make user-role` until the Admin "Users and roles" page exists |
-| Migrations | `alembic/versions/001_create_initial_schema.py` | Async Alembic; enables pgvector |
+| Migrations | `alembic/versions/001_create_initial_schema.py`, `002_drop_user_ms_tokens.py` | Async Alembic; 001 enables pgvector and builds the Sprint 0 schema; 002 drops the stored Microsoft tokens from `users` |
 | Admin commands | ECS task definition `<env>-admin-cli` (`infra/modules/environment/admin_cli.tf`) | The backend image with `DATABASE_URL`, run by `scripts/user-role.sh` in the backend's subnets and security group |
 | Database bootstrap | `app/cli/db_bootstrap.py` | One-off ECS task per deployed environment: creates the `pmo_app` login (random password), makes it owner of the database and `public` schema, creates `vector`, and writes `DATABASE_URL` into the app secret. Idempotent; `--rotate-password` rotates. Run with `make db-bootstrap ENV=<env>` |
 
@@ -186,7 +186,7 @@ The placement is the unit of health; the consultant, the client and the project 
 **Open before the first migration**: does a Teams group map to a placement or a project (a project group with two consultants needs the author's identity to attribute a message), and is the register owned here or imported from the PS team's system of record? These are BACKLOG questions 1 and 3.
 
 **Built in migration 001 (Sprint 0)**: `users`, `refresh_tokens`, `consultants`, `clients`, `projects`, `placements`, `processing_jobs`, `processing_costs`, `access_log`, plus the `vector` extension. Differences from the draft above:
-- `users`: no `branch`/`access_level` (UK only); `role` is nullable.
+- `users`: no `branch`/`access_level` (UK only); `role` is nullable. Migration 002 (Sprint 1) drops `ms_access_token`, `ms_refresh_token` and `ms_token_expires_at`: sign-in keeps no Microsoft token, because Teams is read with the Graph app's own credential.
 - `processing_jobs` is generic: `kind`, `subject_id` (no foreign key; the subject's table depends on `kind`), `status`, `stage`, `started_at`, `completed_at`, `error_message`, `retry_count`.
 - `processing_costs.session_id` and `message_id` have no foreign keys yet; they are added when `sessions` and `messages` arrive.
 - `access_log` carries `created_at`/`updated_at` as well as `at`; its index is on (`placement_id`, `at`).

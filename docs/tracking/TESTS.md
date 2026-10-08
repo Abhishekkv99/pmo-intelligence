@@ -1,15 +1,15 @@
 # Test Tracking
 
 ## Summary
-Counts are taken from the test run output, never estimated (last run 2026-10-08, after sign-in was limited to tenant members with a role: every layer, e2e against the compose stack on ports 8100/3100).
+Counts are taken from the test run output, never estimated. Last run 2026-10-08 (Sprint 1 Phase 1, after the Microsoft tokens were dropped): backend unit and integration, frontend unit. e2e was last run at the Sprint 0 close the same day (compose stack on ports 8100/3100); this change does not touch the local sign-in it uses.
 
 | Layer | Count |
 |-------|-------|
-| Unit (backend) | 289 |
-| Integration (backend, testcontainers pgvector) | 47 |
+| Unit (backend) | 291 |
+| Integration (backend, testcontainers pgvector) | 48 |
 | Frontend unit (Vitest) | 88 |
 | Frontend e2e (Playwright, against the compose stack) | 9 (1 setup + 8) |
-| **Total run** | **433** |
+| **Total** | **436** |
 
 ## How to run
 - Backend unit: `cd backend && uv run pytest tests/unit`
@@ -42,7 +42,7 @@ Counts are taken from the test run output, never estimated (last run 2026-10-08,
 | `test_refresh_tokens.py` | 15 | Refresh token storage, rotation, revocation; refresh refused, every token revoked and a WARNING logged for no role, a disabled account or a missing user |
 | `test_security_middleware.py` | 10 | Security headers, CORS lockdown |
 | `test_sso_endpoints.py` | 9 | SSO config and callback routes; a refused sign-in answers 403 with the reason and sets no cookie |
-| `test_sso_service.py` | 35 | Token exchange, id_token validation, tenant allowlist; guests refused by `acct` (missing claim refused); user found by oid, then email (linked, name taken); no row for an unknown account; bootstrap admin created as `pmo_manager`; full flow refuses no role, disabled or unknown before storing Microsoft tokens |
+| `test_sso_service.py` | 37 | Token exchange (identity scopes only, no `offline_access`), id_token validation, tenant allowlist; guests refused by `acct` (missing claim refused); user found by oid, then email (linked, name taken); no row for an unknown account; bootstrap admin created as `pmo_manager`; full flow refuses no role, disabled or unknown; sign-in stores no Microsoft token |
 | `test_user_role_cli.py` | 9 | Role CLI arguments: grant, `none`, `--list`; bad arguments exit 2; a bad address exits 2 without a commit |
 
 ## Backend integration tests (`backend/tests/integration/`)
@@ -53,7 +53,7 @@ Counts are taken from the test run output, never estimated (last run 2026-10-08,
 | `test_db_bootstrap.py` | 5 | First run creates a non-superuser login that owns the database and `public` schema, can run DDL and use `vector`; a second run keeps the password; rotation invalidates the old password; `run` writes a `DATABASE_URL` that connects and leaves it alone on re-run; an existing login with no URL exits 1 until `--rotate-password` |
 | `test_db_command_timeout.py` | 1 | asyncpg command timeout |
 | `test_health.py` | 1 | Health endpoint |
-| `test_migrations.py` | 2 | `alembic upgrade head` on an empty DB, `alembic check` (no drift), downgrade and re-upgrade |
+| `test_migrations.py` | 3 | `alembic upgrade head` on an empty DB, `alembic check` (no drift), downgrade and re-upgrade; 002 drops the Microsoft token columns and its downgrade restores them |
 | `test_placement_scope.py` | 10 | Who can read a placement (each role); denial identical to a missing row; `access_log` rows only for permitted logged reads |
 | `test_processing_ownership.py` | 6 | Advisory lock acquire, hold, heartbeat, release |
 | `test_sign_in_access.py` | 8 | A role granted by email is linked at the first SSO sign-in; an unknown account leaves no row; change, list, remove-nothing and bad-address cases; removing a role revokes every refresh token; refresh refused once the role is gone; refresh works while it is held |
@@ -73,7 +73,7 @@ Counts are taken from the test run output, never estimated (last run 2026-10-08,
 | `components/layout/ThemeToggle.test.tsx` | 4 | Light, dark and system options |
 | `components/providers/AuthProvider.test.tsx` | 6 | Session restore with role; no-role user stays; signed-in user leaves `/login` for `/`; signed-out visitor stays on `/login`; expiry sends to `/login` |
 | `hooks/useProcessingStatus.test.ts` | 3 | No request when disabled; 5 s / 30 s polling; busy flag |
-| `hooks/useSSOLogin.test.ts` | 3 | Authority from the server; single-tenant authority; config failure |
+| `hooks/useSSOLogin.test.ts` | 3 | Authority from the server and identity scopes only; single-tenant authority; config failure |
 | `hooks/useScrollRestore.test.ts` | 3 | Save and restore scroll position per key |
 | `lib/api.test.ts` | 6 | One refresh and retry on 401, no refresh loop, session expiry, refresh timeout, shared refresh, no refresh for auth endpoints |
 | `lib/pkce.test.ts` | 7 | Verifier and S256 challenge; verifier stored once and cleared |
