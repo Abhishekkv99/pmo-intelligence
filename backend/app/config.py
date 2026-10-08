@@ -34,6 +34,13 @@ class Settings(BaseSettings):
     # speaker diarization. Billed pro-rated to the second.
     assemblyai_cost_per_hour_usd: float = 0.21
     assemblyai_diarization_cost_per_hour_usd: float = 0.02
+    # Diarization hint: a PMO call is the consultant and a PMO person,
+    # sometimes an SME or tech lead too.
+    assemblyai_min_speakers: int = 2
+    assemblyai_max_speakers: int = 4
+    # A transcript still unfinished after this long fails the session.
+    assemblyai_timeout_seconds: int = 1800
+    assemblyai_poll_interval_seconds: float = 5.0
 
     # Azure OpenAI (signal extraction, summaries, embeddings)
     azure_openai_api_key: str = ""
@@ -63,6 +70,9 @@ class Settings(BaseSettings):
         ".m4a",
         ".ogg",
     ]
+    # Downloading a recording from a URL; max_upload_size_mb caps it too.
+    url_download_timeout_seconds: int = 1800
+    url_download_max_redirects: int = 5
 
     # Processing queue: how many pipeline jobs run at once
     processing_concurrency: int = 1

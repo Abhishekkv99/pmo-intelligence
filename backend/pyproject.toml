@@ -69,5 +69,16 @@ warn_unused_configs = true
 
 # Neither ships type information (no py.typed); used by the db bootstrap CLI
 [[tool.mypy.overrides]]
-module = ["aioboto3", "aioboto3.*", "asyncpg", "asyncpg.*"]
+module = [
+    "aioboto3",
+    "aioboto3.*",
+    "aiofiles",
+    "aiofiles.*",
+    "assemblyai",
+    "assemblyai.*",
+    "asyncpg",
+    "asyncpg.*",
+    "botocore",
+    "botocore.*",
+]
 ignore_missing_imports = true

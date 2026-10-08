@@ -1,15 +1,15 @@
 # Test Tracking
 
 ## Summary
-Counts are taken from the test run output, never estimated. Last run 2026-10-08 (Sprint 1 Phase 3, migration 003): backend unit and integration; frontend unit and e2e from the Phase 2 run (no frontend change since); e2e against the compose stack on ports 8100/3100.
+Counts are taken from the test run output, never estimated. Last run 2026-10-08 (Sprint 1 Phase 3, ingestion services): backend unit (integration from the migration 003 run, no database change since); frontend unit and e2e from the Phase 2 run (no frontend change since); e2e against the compose stack on ports 8100/3100.
 
 | Layer | Count |
 |-------|-------|
-| Unit (backend) | 355 |
+| Unit (backend) | 468 |
 | Integration (backend, testcontainers pgvector) | 100 |
 | Frontend unit (Vitest) | 113 |
 | Frontend e2e (Playwright, against the compose stack) | 12 (1 setup + 11) |
-| **Total** | **580** |
+| **Total** | **693** |
 
 ## How to run
 - Backend unit: `cd backend && uv run pytest tests/unit`
@@ -22,6 +22,7 @@ Counts are taken from the test run output, never estimated. Last run 2026-10-08 
 ## Backend unit tests (`backend/tests/unit/`)
 | File | Tests | Covers |
 |------|-------|--------|
+| `test_assemblyai_client.py` | 6 | Polls a submitted transcript until completed and returns utterances in ms; the EU base URL, key, models and the 2–4 speaker range come from settings; a failed transcript, one still running at the timeout, and a request failure (SDK or network) are `TranscriptionError` |
 | `test_access_rule.py` | 14 | `may_use_app` (active and a known role), `assert_may_sign_in` (403, WARNING), `get_current_user` refuses a removed role or disabled account with 401 and a WARNING |
 | `test_auth_endpoints.py` | 15 | Register, login, refresh, logout, `/me` (role in the response) |
 | `test_auth_schemas.py` | 11 | Auth request/response schemas; `role` required but nullable |
@@ -36,7 +37,9 @@ Counts are taken from the test run output, never estimated. Last run 2026-10-08 
 | `test_entitlements.py` | 35 | Global vs scoped roles, fail-closed for no role or unknown roles, 404-on-denial, role gate, bootstrap elevation rules |
 | `test_health.py` | 1 | Health endpoint |
 | `test_llm_factory.py` | 11 | Cached Azure OpenAI clients with timeout |
+| `test_media_files.py` | 30 | Each allowed extension's signature matches and another type's does not; extension check names the allowed list; clean file names (spaces, path parts, `..`, 200 chars, empty); the stream passes a matching file unchanged, checks a signature split over 1-byte chunks or shorter than the window, releases no byte of a wrong file, stops at the cap as bytes arrive, refuses an empty file |
 | `test_memory.py` | 11 | RSS probe and tracemalloc diagnostics |
+| `test_multipart_upload.py` | 7 | Copied: small chunks buffered into 8 MiB parts, a short stream as one part, a custom part size, an empty stream, a failed part and cancellation abort the upload, a part size under S3's 5 MiB floor refused |
 | `test_processing_ownership.py` | 8 | Takeover order (sweeps, start, re-queues), retry, non-fatal steps, heartbeat loss |
 | `test_processing_queue.py` | 27 | Priorities (chat < session < backlog), dedup, dispatch order, workers, stragglers, runner registry |
 | `test_processing_status_api.py` | 11 | Queue status route; manager/admin only |
@@ -46,6 +49,11 @@ Counts are taken from the test run output, never estimated. Last run 2026-10-08 
 | `test_security_middleware.py` | 10 | Security headers, CORS lockdown |
 | `test_sso_endpoints.py` | 9 | SSO config and callback routes; a refused sign-in answers 403 with the reason and sets no cookie |
 | `test_sso_service.py` | 37 | Token exchange (identity scopes only, no `offline_access`), id_token validation, tenant allowlist; guests refused by `acct` (missing claim refused); user found by oid, then email (linked, name taken); no row for an unknown account; bootstrap admin created as `pmo_manager`; full flow refuses no role, disabled or unknown; sign-in stores no Microsoft token |
+| `test_storage_local.py` | 9 | Copied: local storage upload, stream, download, delete, exists, path |
+| `test_storage_s3.py` | 12 | Copied, against a mocked client: put, multipart stream without joining, an empty stream stored as an empty object, a failed part aborts, get, delete, exists (found, 404, other errors re-raised), presigned URL, endpoint override |
+| `test_upload_service.py` | 7 | Session media key; missing name, other type and an over-cap declared size refused; a recording is stored under the session; a renamed file and more bytes than declared past the cap are refused and leave nothing |
+| `test_url_download_service.py` | 12 | Pre-check by HEAD, or a one-byte ranged GET when HEAD is refused (total from Content-Range); over-cap size, sign-in required and an unsupported type refused; extension from the content type; an internal address refused before any request; download streamed into the session key; a web page instead of a recording, an over-cap body and a redirect to an internal address refused and nothing kept; an error status is a download error |
+| `test_url_guard.py` | 30 | Internal addresses (private, loopback, link-local and metadata, CGNAT, unspecified, multicast, IPv6 loopback, link-local and ULA, IPv4-mapped) refused, public ones allowed; only https; a host with any internal address refused; internal IP literals refused without a lookup; unresolvable host refused; the request goes to the checked IPv4 or IPv6 address with Host and SNI set to the name; a redirect to an internal host or to http refused; a public redirect pinned again; too many redirects refused |
 | `test_user_role_cli.py` | 9 | Role CLI arguments: grant, `none`, `--list`; bad arguments exit 2; a bad address exits 2 without a commit |
 
 ## Backend integration tests (`backend/tests/integration/`)
