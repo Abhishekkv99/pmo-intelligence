@@ -92,7 +92,8 @@
 - [ ] `API.md` (register, import, users), `ARCHITECTURE.md` (register as built, Admin tabs, `> Status:`), `FEATURES.md`, `TESTS.md`, `CHANGELOG.md`, `ROADMAP.md` (tick "Placement register"), `DEPLOYMENT.md` (`make user-role` stays as a fallback)
 
 **Commit checkpoints**
-- [ ] `feat: add the placement register with csv import` (deviation: also brings `GET /users`, which the people pickers need)
+- [x] `feat: add the placement register with csv import` (dc7c5ab; deviation: also brings `GET /users`, which the people pickers need)
+- [ ] (Discovered 2026-10-08) `fix: commit before the response is sent`: the request session (`get_db`, copied from Interview Intelligence) committed after the response, FastAPI's default for a yield dependency, so a list read straight after a save could miss the row (seen as flaky register e2e runs) and a failed commit still answered success. `DbSession = Annotated[AsyncSession, Depends(get_db, scope="function")]` at all 25 sites; `tests/unit/test_db_session_scope.py` (fails with the old scope); e2e 11/11 twice (user decision 2026-10-08)
 - [ ] `feat: add the users and roles admin page`
 
 ### Phase 3: Sessions and ingestion (folder scanner, upload, URL, transcription)
@@ -221,19 +222,19 @@
 
 >>> CURRENT PHASE: Phase 2 — Placement register, CSV import, Users and roles (in progress)
 
-## Session State (last updated: 2026-10-08 20:45)
+## Session State (last updated: 2026-10-08 22:10)
 - **Sprint**: 1 — Register and Sessions (PRD Phase 1)
 - **Current phase**: Phase 2 — Placement register, CSV import, Users and roles (in progress)
-- **Phase progress**: register, import and their tests done (commit pending); the Users and roles part not started
-- **Last completed task**: placement register and CSV import, backend and Admin pages, with tests; e2e 11/11 on the compose stack (8100/3100)
-- **Next task**: commit the register; then `api/v1/users.py` role changes (grant by email, change, remove; last-pmo_manager guard) and the Users and roles tab
-- **Last commit**: 1e7e2f8 "feat: configure transcription for the eu endpoint" (pushed); `feat: add the placement register with csv import` follows
-- **Uncommitted changes**: none after the register commit
+- **Phase progress**: register committed (dc7c5ab); commit-before-response fix ready to commit; the Users and roles work is written and tested but stashed (`git stash list`: "users-and-roles wip") until the fix is committed
+- **Last completed task**: fix for commits after the response (`DbSession`), with tests; e2e 11/11 twice
+- **Next task**: commit the fix; `git stash pop`; switch the new users routes to `DbSession`; rerun tests and e2e (12 with `admin-users.spec.ts`); commit `feat: add the users and roles admin page`
+- **Last commit**: dc7c5ab "feat: add the placement register with csv import" (not pushed; 1e7e2f8 is the last pushed)
+- **Uncommitted changes**: none after the fix commit, apart from the stash
 - **Blockers**: none yet (see Blockers and Dependencies)
-- **Tests passing**: 325 unit + 78 integration (backend) + 108 frontend unit + 11 e2e = 522 (2026-10-08 20:40); ruff, mypy, eslint, typecheck, Prettier clean; `next build` green
+- **Tests passing**: 351 unit + 78 integration (backend) + 108 frontend unit + 11 e2e = 548 (2026-10-08 22:05); ruff, mypy clean
 - **Files created this session**: Phase 2: `backend/app/db/repositories/{consultant,client,project,placement}_repo.py`, `backend/app/schemas/{register,users}.py`, `backend/app/services/{register_service,register_import}.py`, `backend/app/api/v1/{register,users}.py`, `backend/tests/unit/test_register_import_file.py`, `backend/tests/integration/test_register_{api,import}.py`, `frontend/src/components/admin/register/*`, `frontend/src/components/common/DataTable{,.test}.tsx`, `frontend/src/hooks/{useRegister,useUsers}.ts`, `frontend/src/hooks/useRegister.test.ts`, `frontend/src/lib/register{,.test}.ts`, `frontend/src/types/register.ts`, `frontend/tests/e2e/admin-register.spec.ts`
 - **Files modified this session**: Phase 2: `backend/app/api/router.py`, `backend/app/main.py` (CORS PATCH), `backend/app/db/repositories/user_repo.py`, `backend/app/services/user_roles.py` (id on `UserSummary`), `frontend/src/components/admin/AdminView{,.test}.tsx`, `frontend/src/app/admin/page.tsx`, `frontend/src/lib/{api,api.test,constants}.ts`; docs `API`, `ARCHITECTURE`, `planning/{CURRENT-SPRINT,ROADMAP}`, `tracking/{CHANGELOG,FEATURES,TESTS}`
-- **Key decisions this session**: CSV blanks keep; people are users with any role; no delete; Placements-first layout (Decisions Log)
+- **Key decisions this session**: CSV blanks keep; people are users with any role; no delete; Placements-first layout; commit before the response (Decisions Log). **Audit note (Rule C)**: the request session from Interview Intelligence committed after the response, FastAPI's documented default for yield dependencies; found only because a register e2e read its write back at once. Cause: copied infrastructure code was not checked against the framework's current semantics. Rule to add: a yield dependency that commits or releases a resource the response depends on is declared with `scope="function"`, and a test walks every route to check it
 - **Recovery instructions**:
   - Read this file first, then `docs/handover/sprint-00-handover.md`.
   - **Copying from Interview Intelligence**: code comes from `E:\E Projects\Interview Intelligence Platform`. Fix its known gaps on copy (see Research Findings).
@@ -260,4 +261,5 @@
 | No delete in Sprint 1: placements end by status, consultants leave by status | User decision 2026-10-08; foreign keys are RESTRICT and history will hang off these rows. Alternative offered: delete when unreferenced |
 | Register tab opens on Placements, with sub-tabs for Consultants, Clients and Projects; the Admin tab is in the URL | User decision 2026-10-08. Alternatives offered: four equal sub-tabs; separate pages |
 | `GET /users` ships with the register commit; changing roles stays with the Users and roles commit | The register's people pickers need the user list |
+| The request session commits before the response: `DbSession` with `scope="function"` on every route and guard | User decision 2026-10-08, after flaky e2e runs traced to commits after the response. Alternatives offered: an explicit commit in every write route; retries in the e2e tests |
 | AssemblyAI model names and prices are configuration | Plan approval 2026-10-08; the docs give two spellings for the current model and the prices differ from the tracker's |

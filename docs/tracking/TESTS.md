@@ -1,15 +1,15 @@
 # Test Tracking
 
 ## Summary
-Counts are taken from the test run output, never estimated. Last run 2026-10-08 (Sprint 1 Phase 2, after the placement register): every layer; e2e against the compose stack on ports 8100/3100.
+Counts are taken from the test run output, never estimated. Last run 2026-10-08 (Sprint 1 Phase 2, after the commit-before-response fix): every layer; e2e against the compose stack on ports 8100/3100.
 
 | Layer | Count |
 |-------|-------|
-| Unit (backend) | 325 |
+| Unit (backend) | 351 |
 | Integration (backend, testcontainers pgvector) | 78 |
 | Frontend unit (Vitest) | 108 |
 | Frontend e2e (Playwright, against the compose stack) | 11 (1 setup + 10) |
-| **Total** | **522** |
+| **Total** | **548** |
 
 ## How to run
 - Backend unit: `cd backend && uv run pytest tests/unit`
@@ -31,6 +31,7 @@ Counts are taken from the test run output, never estimated. Last run 2026-10-08 
 | `test_cost_tracker.py` | 9 | LLM, embedding and transcription cost calculation; AssemblyAI rate plus diarization from settings |
 | `test_db_bootstrap.py` | 11 | Bootstrap config from the environment (defaults, overrides, every missing name listed); URL encoding of credentials; random passwords; secret merge keeps other keys; placeholder detection; exit code 2 without settings |
 | `test_db_session.py` | 1 | Engine command timeout |
+| `test_db_session_scope.py` | 26 | Every route's session is function-scoped, so it commits before the response (one case per route); a failed commit answers 500, not success |
 | `test_entitlement_coverage.py` | 35 | Every `/api/v1` route carries a guard or is listed public or self-scoped; placement-id routes carry a placement-scope guard |
 | `test_entitlements.py` | 35 | Global vs scoped roles, fail-closed for no role or unknown roles, 404-on-denial, role gate, bootstrap elevation rules |
 | `test_health.py` | 1 | Health endpoint |

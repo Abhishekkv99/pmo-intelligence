@@ -1,9 +1,8 @@
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Request, Response
 from fastapi.responses import JSONResponse
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
-from app.dependencies import get_current_user, get_db
+from app.dependencies import DbSession, get_current_user
 from app.models.user import User
 from app.rate_limiter import limiter
 from app.schemas.auth import (
@@ -71,7 +70,7 @@ def _require_local_auth() -> None:
 async def register(
     request: Request,
     data: UserRegister,
-    db: AsyncSession = Depends(get_db),
+    db: DbSession,
 ) -> UserResponse:
     """Register a new user account. Unavailable when local auth is disabled."""
     _require_local_auth()
@@ -86,7 +85,7 @@ async def login(
     request: Request,
     response: Response,
     data: UserLogin,
-    db: AsyncSession = Depends(get_db),
+    db: DbSession,
 ) -> TokenResponse:
     """Authenticate, receive a short-lived access token, and set a refresh cookie.
 
@@ -112,7 +111,7 @@ async def login(
 async def refresh(
     request: Request,
     response: Response,
-    db: AsyncSession = Depends(get_db),
+    db: DbSession,
     refresh_token: str | None = Cookie(None),
 ) -> TokenResponse | JSONResponse:
     """Rotate the refresh token and issue a new access token."""
@@ -155,8 +154,8 @@ async def refresh(
 @router.post("/logout", response_model=LogoutResponse)
 async def logout(
     response: Response,
+    db: DbSession,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
 ) -> LogoutResponse:
     """Revoke all refresh tokens for the current user and clear the cookie."""
     service = AuthService(db)
@@ -195,7 +194,7 @@ async def sso_microsoft_callback(
     request: Request,
     response: Response,
     data: SSOCallbackRequest,
-    db: AsyncSession = Depends(get_db),
+    db: DbSession,
 ) -> TokenResponse:
     """Exchange Microsoft SSO authorization code for app tokens."""
     sso_service = SSOService(db)

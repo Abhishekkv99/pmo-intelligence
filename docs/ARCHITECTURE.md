@@ -28,6 +28,7 @@ FastAPI app in `backend/app/`, layered routes → services → repositories → 
 | Settings | `app/config.py` | `pydantic-settings`, env vars or `.env`; transcription on AssemblyAI's EU endpoint (`ASSEMBLYAI_BASE_URL`) with `ASSEMBLYAI_SPEECH_MODELS` `["universal-3-5-pro", "universal-2"]`; `APP_DEBUG` (SQL echo) is off unless set, and compose and `.env.example` turn it on for development |
 | Routes | `app/api/v1/{health,auth,processing,register,users}.py` | See `docs/API.md` |
 | Placement register | `app/services/register_service.py`, `app/services/register_import.py`, `app/db/repositories/{consultant,client,project,placement}_repo.py` | Create and edit consultants, clients, projects and placements; CSV import. Rules below |
+| Request session | `app/dependencies.py` (`DbSession`) | One session per request, committed **before** the response is sent (`Depends(get_db, scope="function")`), so a client never sees a success for an uncommitted write; every route and guard takes it through this alias, and a unit test checks every route |
 | Entitlement | `app/utils/entitlements.py`, `app/dependencies.py` | Role model below; guards `require_roles`, `require_placement_scope`, `require_logged_placement_scope` |
 | Enumerations | `app/models/enums.py` | `Role`, `GLOBAL_ROLES`, `ConsultantStatus`, `ExtensionStatus`, `PlacementStatus`, `JobStatus`; stored as strings with CHECK constraints |
 | Models | `app/models/` | `user`, `refresh_token`, `register` (consultants, clients, projects, placements), `access_log`, `processing_job`, `processing_cost` |

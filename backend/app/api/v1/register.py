@@ -8,10 +8,9 @@ may read it, anyone else gets the same 404 as for a missing placement.
 import uuid
 
 from fastapi import APIRouter, Depends, Query, Request, UploadFile
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.repositories.placement_repo import PlacementRow
-from app.dependencies import PlacementScope, get_db, require_roles
+from app.dependencies import DbSession, PlacementScope, require_roles
 from app.models.enums import ExtensionStatus, PlacementStatus, Role
 from app.models.register import Client, Consultant
 from app.models.user import User
@@ -49,7 +48,7 @@ EDITORS = [Depends(require_roles(Role.PMO_MANAGER, Role.ADMIN))]
 @router.get(
     "/consultants", response_model=list[ConsultantResponse], dependencies=EDITORS
 )
-async def list_consultants(db: AsyncSession = Depends(get_db)) -> list[Consultant]:
+async def list_consultants(db: DbSession) -> list[Consultant]:
     return await RegisterService(db).list_consultants()
 
 
@@ -59,9 +58,7 @@ async def list_consultants(db: AsyncSession = Depends(get_db)) -> list[Consultan
     response_model=ConsultantResponse,
     dependencies=EDITORS,
 )
-async def create_consultant(
-    body: ConsultantCreate, db: AsyncSession = Depends(get_db)
-) -> Consultant:
+async def create_consultant(body: ConsultantCreate, db: DbSession) -> Consultant:
     return await RegisterService(db).create_consultant(body)
 
 
@@ -73,7 +70,7 @@ async def create_consultant(
 async def update_consultant(
     consultant_id: uuid.UUID,
     body: ConsultantUpdate,
-    db: AsyncSession = Depends(get_db),
+    db: DbSession,
 ) -> Consultant:
     return await RegisterService(db).update_consultant(consultant_id, body)
 
@@ -82,16 +79,14 @@ async def update_consultant(
 
 
 @router.get("/clients", response_model=list[ClientResponse], dependencies=EDITORS)
-async def list_clients(db: AsyncSession = Depends(get_db)) -> list[Client]:
+async def list_clients(db: DbSession) -> list[Client]:
     return await RegisterService(db).list_clients()
 
 
 @router.post(
     "/clients", status_code=201, response_model=ClientResponse, dependencies=EDITORS
 )
-async def create_client(
-    body: ClientCreate, db: AsyncSession = Depends(get_db)
-) -> Client:
+async def create_client(body: ClientCreate, db: DbSession) -> Client:
     return await RegisterService(db).create_client(body)
 
 
@@ -99,7 +94,7 @@ async def create_client(
     "/clients/{client_id}", response_model=ClientResponse, dependencies=EDITORS
 )
 async def update_client(
-    client_id: uuid.UUID, body: ClientUpdate, db: AsyncSession = Depends(get_db)
+    client_id: uuid.UUID, body: ClientUpdate, db: DbSession
 ) -> Client:
     return await RegisterService(db).update_client(client_id, body)
 
@@ -108,16 +103,14 @@ async def update_client(
 
 
 @router.get("/projects", response_model=list[ProjectResponse], dependencies=EDITORS)
-async def list_projects(db: AsyncSession = Depends(get_db)) -> list[ProjectResponse]:
+async def list_projects(db: DbSession) -> list[ProjectResponse]:
     return [_project(row) for row in await RegisterService(db).list_projects()]
 
 
 @router.post(
     "/projects", status_code=201, response_model=ProjectResponse, dependencies=EDITORS
 )
-async def create_project(
-    body: ProjectCreate, db: AsyncSession = Depends(get_db)
-) -> ProjectResponse:
+async def create_project(body: ProjectCreate, db: DbSession) -> ProjectResponse:
     service = RegisterService(db)
     project = await service.create_project(body)
     return _project(await service.project_row(project))
@@ -127,7 +120,7 @@ async def create_project(
     "/projects/{project_id}", response_model=ProjectResponse, dependencies=EDITORS
 )
 async def update_project(
-    project_id: uuid.UUID, body: ProjectUpdate, db: AsyncSession = Depends(get_db)
+    project_id: uuid.UUID, body: ProjectUpdate, db: DbSession
 ) -> ProjectResponse:
     service = RegisterService(db)
     project = await service.update_project(project_id, body)
@@ -139,7 +132,7 @@ async def update_project(
 
 @router.get("/placements", response_model=list[PlacementResponse], dependencies=EDITORS)
 async def list_placements(
-    db: AsyncSession = Depends(get_db),
+    db: DbSession,
 ) -> list[PlacementResponse]:
     return [_placement(row) for row in await RegisterService(db).list_placements()]
 
@@ -150,18 +143,14 @@ async def list_placements(
     response_model=PlacementResponse,
     dependencies=EDITORS,
 )
-async def create_placement(
-    body: PlacementCreate, db: AsyncSession = Depends(get_db)
-) -> PlacementResponse:
+async def create_placement(body: PlacementCreate, db: DbSession) -> PlacementResponse:
     service = RegisterService(db)
     placement = await service.create_placement(body)
     return _placement(await service.placement_row(placement.id))
 
 
 @router.get("/placements/{placement_id}", response_model=PlacementResponse)
-async def get_placement(
-    placement: PlacementScope, db: AsyncSession = Depends(get_db)
-) -> PlacementResponse:
+async def get_placement(placement: PlacementScope, db: DbSession) -> PlacementResponse:
     return _placement(await RegisterService(db).placement_row(placement.id))
 
 
@@ -173,7 +162,7 @@ async def get_placement(
 async def update_placement(
     placement: PlacementScope,
     body: PlacementUpdate,
-    db: AsyncSession = Depends(get_db),
+    db: DbSession,
 ) -> PlacementResponse:
     service = RegisterService(db)
     await service.update_placement(placement, body)
@@ -188,10 +177,10 @@ async def update_placement(
 async def import_register(
     request: Request,
     file: UploadFile,
+    db: DbSession,
     dry_run: bool = Query(
         True, description="Preview only; set false to write (Confirm)"
     ),
-    db: AsyncSession = Depends(get_db),
 ) -> ImportResult:
     """Import placements from a CSV. Always 200: ``applied`` says if it wrote.
 

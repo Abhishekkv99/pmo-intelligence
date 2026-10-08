@@ -48,10 +48,18 @@ async def get_db() -> AsyncGenerator[AsyncSession]:
             raise
 
 
+# The request's session. scope="function" commits before the response is sent:
+# FastAPI's default for a yield dependency ends it after the response, so a 201
+# could reach the browser before its row was committed (a list read straight
+# after a save then missed it), and a failed commit still answered success.
+# Every route and guard takes the session through this alias.
+DbSession = Annotated[AsyncSession, Depends(get_db, scope="function")]
+
+
 async def get_current_user(
     request: Request,
+    db: DbSession,
     token: str = Depends(oauth2_scheme),
-    db: AsyncSession = Depends(get_db),
 ) -> User:
     """Validate JWT token and return the current user."""
     user_id: uuid.UUID = AuthService.decode_access_token(token)
@@ -126,7 +134,7 @@ async def _load_scoped_placement(
 @_guard
 async def require_placement_scope(
     placement_id: uuid.UUID,
-    db: AsyncSession = Depends(get_db),
+    db: DbSession,
     current_user: User = Depends(get_current_user),
 ) -> Placement:
     """404 unless the placement exists and the caller may read it."""
@@ -137,7 +145,7 @@ async def require_placement_scope(
 async def require_logged_placement_scope(
     request: Request,
     placement_id: uuid.UUID,
-    db: AsyncSession = Depends(get_db),
+    db: DbSession,
     current_user: User = Depends(get_current_user),
 ) -> Placement:
     """``require_placement_scope`` plus an ``access_log`` row for the read.

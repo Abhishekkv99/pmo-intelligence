@@ -8,6 +8,7 @@ All notable changes to this project will be documented in this file.
 - Sign-in no longer stores users' Microsoft access and refresh tokens, and asks Microsoft for identity scopes only (`openid email profile`, no `offline_access`). Migration 002 drops `users.ms_access_token`, `ms_refresh_token` and `ms_token_expires_at`; the unused `refresh_microsoft_token` is removed.
 
 ### Fixed
+- Writes are committed before the response is sent. The request session ended after the response (FastAPI's default for a yield dependency), so a 201 could reach the browser before its row was committed: a list read straight after a save sometimes missed the new row, and a failed commit would still have answered success. Every route now takes its session as `DbSession` (`scope="function"`).
 - `APP_DEBUG` now defaults to off, so a backend container that does not set it (the migration container, a one-off ECS task) no longer echoes every SQL statement into its logs. Compose and `.env.example` turn it on for development.
 
 ### Added
