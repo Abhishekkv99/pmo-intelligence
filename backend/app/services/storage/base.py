@@ -34,3 +34,10 @@ class StorageBackend(ABC):
     async def get_url(self, file_key: str, expires_in: int = 3600) -> str:
         """Get a URL/path to access the file."""
         ...
+
+    @abstractmethod
+    async def copy_from_s3(
+        self, source_bucket: str, source_key: str, file_key: str
+    ) -> str:
+        """Copy an object from another S3 bucket into this storage; returns the key."""
+        ...

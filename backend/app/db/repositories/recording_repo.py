@@ -22,6 +22,18 @@ class RecordingRepository:
         result = await self.session.execute(select(SourceRecording.object_key))
         return set(result.scalars())
 
+    async def get_recording(
+        self, recording_id: uuid.UUID
+    ) -> tuple[SourceRecording, RecordingFolder] | None:
+        """A recording with its folder."""
+        result = await self.session.execute(
+            select(SourceRecording, RecordingFolder)
+            .join(RecordingFolder, SourceRecording.folder_id == RecordingFolder.id)
+            .where(SourceRecording.id == recording_id)
+        )
+        row = result.one_or_none()
+        return None if row is None else (row[0], row[1])
+
     def add(self, row: RecordingFolder | SourceRecording) -> None:
         self.session.add(row)
 

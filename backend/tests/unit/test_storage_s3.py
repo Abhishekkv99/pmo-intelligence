@@ -200,6 +200,30 @@ class TestS3StorageBackendGetUrl:
         )
 
 
+class TestS3StorageBackendCopy:
+    async def test_copy_from_another_bucket_is_server_side(self) -> None:
+        backend = _make_backend()
+        mock_client, mock_ctx = _mock_s3_client()
+
+        with patch.object(backend._session, "client", return_value=mock_ctx):
+            result = await backend.copy_from_s3(
+                "source-bucket",
+                "recordings/pmo/room/Recording.webm",
+                "sessions/s/r.webm",
+            )
+
+        assert result == "sessions/s/r.webm"
+        mock_client.copy_object.assert_awaited_once_with(
+            Bucket=BUCKET,
+            Key="sessions/s/r.webm",
+            CopySource={
+                "Bucket": "source-bucket",
+                "Key": "recordings/pmo/room/Recording.webm",
+            },
+        )
+        mock_client.get_object.assert_not_awaited()
+
+
 class TestS3StorageBackendConfig:
     def test_client_kwargs_without_endpoint(self) -> None:
         backend = _make_backend(endpoint_url=None)

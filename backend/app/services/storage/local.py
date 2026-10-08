@@ -1,8 +1,10 @@
 from collections.abc import AsyncIterator
 from pathlib import Path
 
+import aioboto3
 import aiofiles
 
+from app.config import settings
 from app.services.storage.base import StorageBackend
 
 CHUNK_SIZE = 8192
@@ -50,3 +52,18 @@ class LocalStorageBackend(StorageBackend):
 
     async def get_url(self, file_key: str, expires_in: int = 3600) -> str:
         return str(self._resolve_path(file_key))
+
+    async def copy_from_s3(
+        self, source_bucket: str, source_key: str, file_key: str
+    ) -> str:
+        """Stream the object down into a local file (development only)."""
+        session = aioboto3.Session()
+        async with session.client("s3", region_name=settings.aws_region) as s3:
+            response = await s3.get_object(Bucket=source_bucket, Key=source_key)
+
+            async def chunks() -> AsyncIterator[bytes]:
+                while chunk := await response["Body"].read(1024 * 1024):
+                    yield chunk
+
+            await self.upload_stream(file_key, chunks())
+        return file_key

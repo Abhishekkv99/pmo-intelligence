@@ -71,10 +71,12 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
         PeriodicRecordingsScan,
         register_recordings_scan,
     )
+    from app.services.session_service import register_session_processing
 
-    # Runners and takeover sweeps are registered before the takeover starts,
-    # so the first owner already sweeps scans a previous task left running.
+    # Runners and takeover steps are registered before the takeover starts,
+    # so the first owner already recovers what a previous task left running.
     register_recordings_scan()
+    register_session_processing()
 
     processing_queue = get_processing_queue()
     processing_ownership = ProcessingOwnership(engine)

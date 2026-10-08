@@ -98,3 +98,20 @@ class S3StorageBackend(StorageBackend):
                 ExpiresIn=expires_in,
             )
         return url
+
+    async def copy_from_s3(
+        self, source_bucket: str, source_key: str, file_key: str
+    ) -> str:
+        """Server-side copy: the bytes never pass through this process.
+
+        Works across accounts when the source bucket grants this role
+        ``s3:GetObject`` (the PMO recordings bucket policy does). A single
+        CopyObject handles objects up to 5 GB; recordings are about 125 MiB.
+        """
+        async with self._session.client("s3", **self._client_kwargs()) as s3:
+            await s3.copy_object(
+                Bucket=self.bucket_name,
+                Key=file_key,
+                CopySource={"Bucket": source_bucket, "Key": source_key},
+            )
+        return file_key

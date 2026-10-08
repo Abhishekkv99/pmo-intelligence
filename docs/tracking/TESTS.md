@@ -1,15 +1,15 @@
 # Test Tracking
 
 ## Summary
-Counts are taken from the test run output, never estimated. Last run 2026-10-08 (Sprint 1 Phase 3, recordings scanner): backend unit and integration; frontend unit and e2e from the Phase 2 run (no frontend change since); e2e against the compose stack on ports 8100/3100.
+Counts are taken from the test run output, never estimated. Last run 2026-10-09 (Sprint 1 Phase 3, session service): backend unit and integration; frontend unit and e2e from the Phase 2 run (no frontend change since); e2e against the compose stack on ports 8100/3100.
 
 | Layer | Count |
 |-------|-------|
-| Unit (backend) | 502 |
-| Integration (backend, testcontainers pgvector) | 109 |
+| Unit (backend) | 503 |
+| Integration (backend, testcontainers pgvector) | 130 |
 | Frontend unit (Vitest) | 113 |
 | Frontend e2e (Playwright, against the compose stack) | 12 (1 setup + 11) |
-| **Total** | **736** |
+| **Total** | **758** |
 
 ## How to run
 - Backend unit: `cd backend && uv run pytest tests/unit`
@@ -53,7 +53,7 @@ Counts are taken from the test run output, never estimated. Last run 2026-10-08 
 | `test_sso_endpoints.py` | 9 | SSO config and callback routes; a refused sign-in answers 403 with the reason and sets no cookie |
 | `test_sso_service.py` | 37 | Token exchange (identity scopes only, no `offline_access`), id_token validation, tenant allowlist; guests refused by `acct` (missing claim refused); user found by oid, then email (linked, name taken); no row for an unknown account; bootstrap admin created as `pmo_manager`; full flow refuses no role, disabled or unknown; sign-in stores no Microsoft token |
 | `test_storage_local.py` | 9 | Copied: local storage upload, stream, download, delete, exists, path |
-| `test_storage_s3.py` | 12 | Copied, against a mocked client: put, multipart stream without joining, an empty stream stored as an empty object, a failed part aborts, get, delete, exists (found, 404, other errors re-raised), presigned URL, endpoint override |
+| `test_storage_s3.py` | 13 | Copied, against a mocked client: put, multipart stream without joining, an empty stream stored as an empty object, a failed part aborts, get, delete, exists (found, 404, other errors re-raised), presigned URL, endpoint override; added: a copy from another bucket is a server-side `CopyObject` |
 | `test_upload_service.py` | 7 | Session media key; missing name, other type and an over-cap declared size refused; a recording is stored under the session; a renamed file and more bytes than declared past the cap are refused and leave nothing |
 | `test_url_download_service.py` | 12 | Pre-check by HEAD, or a one-byte ranged GET when HEAD is refused (total from Content-Range); over-cap size, sign-in required and an unsupported type refused; extension from the content type; an internal address refused before any request; download streamed into the session key; a web page instead of a recording, an over-cap body and a redirect to an internal address refused and nothing kept; an error status is a download error |
 | `test_url_guard.py` | 30 | Internal addresses (private, loopback, link-local and metadata, CGNAT, unspecified, multicast, IPv6 loopback, link-local and ULA, IPv4-mapped) refused, public ones allowed; only https; a host with any internal address refused; internal IP literals refused without a lookup; unresolvable host refused; the request goes to the checked IPv4 or IPv6 address with Host and SNI set to the name; a redirect to an internal host or to http refused; a public redirect pinned again; too many redirects refused |
@@ -73,6 +73,7 @@ Counts are taken from the test run output, never estimated. Last run 2026-10-08 
 | `test_register_import.py` | 10 | CSV import: a dry run previews and writes nothing; Confirm writes and a re-import is unchanged (rows reuse what earlier rows created); any row error writes nothing; filled cells overwrite, empty cells keep; a consultant entered by name gains the email; two consultants with one name need an email; people must be users with a role, a different role warns; not a `.csv` is 422; scoped roles cannot import |
 | `test_placement_scope.py` | 10 | Who can read a placement (each role); denial identical to a missing row; `access_log` rows only for permitted logged reads |
 | `test_processing_ownership.py` | 6 | Advisory lock acquire, hold, heartbeat, release |
+| `test_session_service.py` | 21 | From a recording: the placement covering the UK call date (a 23:30 UTC call is the next day), an ended placement still owns its old calls, none or several covering ask for a choice (409 with the choices), a chosen placement of the consultant is used and another consultant's refused, a folder without a decided consultant refused, a recording processed once, a file without a time held at its S3 time, an unknown recording 404. Upload stored under the new session; URL checked and left for the job; `held_at` without a zone and an unknown placement refused. The job: a recording copied server side, transcribed through the media URL, transcript, duration and cost ($0.23/h) stored, job completed; a URL downloaded by the job; an upload transcribed without fetching; a transcription failure fails the session and the job with the reason; a session not waiting is left alone. Takeover: mid-run sessions and their jobs failed, waiting sessions queued again |
 | `test_session_schema.py` | 10 | A new session is `uploaded` with no kind, no rejected quotes and no node errors; a new folder is unmatched with no candidates; one session per recording and one transcript per session; kind, source, status and match status outside their sets refused; a session's cost rows outlive it (key set to null); a cost for an unknown session refused |
 | `test_sign_in_access.py` | 8 | A role granted by email is linked at the first SSO sign-in; an unknown account leaves no row; change, list, remove-nothing and bad-address cases; removing a role revokes every refresh token; refresh refused once the role is gone; refresh works while it is held |
 | `test_users_api.py` | 11 | Granting creates a user by email or changes an existing role; not an email is 422; removing a role ends the sessions; unknown id 404; the last active PMO manager keeps the role (a disabled one does not count), handing over first works, and the service the CLI uses refuses too; scoped roles cannot change roles (403) |

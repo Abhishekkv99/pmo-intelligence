@@ -70,3 +70,13 @@ class PlacementRepository(BaseRepository[Placement]):
         )
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
+
+    async def list_for_consultant(self, consultant_id: uuid.UUID) -> list[Placement]:
+        """Every placement of a consultant, newest start first."""
+        stmt = (
+            select(Placement)
+            .where(Placement.consultant_id == consultant_id)
+            .order_by(Placement.start_date.desc())
+        )
+        result = await self.session.execute(stmt)
+        return list(result.scalars().all())
