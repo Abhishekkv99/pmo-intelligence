@@ -28,6 +28,8 @@ resource "aws_ecs_task_definition" "admin_cli" {
 
       environment = [
         { name = "APP_ENV", value = var.environment },
+        # The settings default to debug, which echoes every SQL statement
+        { name = "APP_DEBUG", value = "false" },
       ]
 
       secrets = [

@@ -27,4 +27,5 @@ From the PRD, "Decisions needed before Sprint 1". Each one changes the data mode
 ## Low Priority
 
 ## Tech Debt
+- [ ] Set `APP_DEBUG=false` on the backend's `migration` container (`infra/modules/environment/ecs.tf`), or make `app_debug` default to false in `backend/app/config.py`; today migrations echo SQL in the migration log group (found 2026-10-08 on the admin-cli task, which is fixed). Replaces the backend task definition, so it redeploys the backend
 - [ ] Make the backend tests pass mypy strict (`uv run mypy app tests`: 57 errors in 8 test files, e.g. `tests/unit/test_llm_factory.py`), then widen `make lint` and CI to `app tests`
