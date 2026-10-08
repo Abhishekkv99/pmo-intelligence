@@ -2,7 +2,7 @@
 
 PMO Intelligence runs in its own AWS account, **ITC Sandbox PD Intelligence (`260172548683`)**, in **eu-west-2**. Nothing on AWS is shared with Interview Intelligence. The only link outside the account is one NS record in the `itcapp.ai` zone that delegates `pmo-intelligence-staging.itcapp.ai` to PMO's hosted zone.
 
-> Status: Sprint 0, Phase 4 in progress. Applied on 2026-10-07: the state bucket (`infra/bootstrap/`), the shared stack (`infra/shared/`, 23 resources) and staging (`infra/environments/staging/`, 52 resources including the hosted zone). The NS delegation is in place, and `https://pmo-intelligence-staging.itcapp.ai` serves a valid certificate. The GitHub variables are set; the database bootstrap has run (`pmo_app`); the backend (deployed by CI) and the frontend (first image pushed by hand, later ones by CI) are healthy: `/api/v1/health` answers 200. PMO's Azure OpenAI (`infra/azure/`) is applied, and its endpoint, deployment names and key are in the staging secret. Still to do: a PMO-only AssemblyAI key, the Entra values (product Phase 5) and the credential-expiry reminders.
+> Status: Sprint 0, Phase 4 in progress. Applied on 2026-10-07: the state bucket (`infra/bootstrap/`), the shared stack (`infra/shared/`, 23 resources) and staging (`infra/environments/staging/`, 52 resources including the hosted zone). The NS delegation is in place, and `https://pmo-intelligence-staging.itcapp.ai` serves a valid certificate. The GitHub variables are set; the database bootstrap has run (`pmo_app`); the backend (deployed by CI) and the frontend (first image pushed by hand, later ones by CI) are healthy: `/api/v1/health` answers 200. PMO's Azure OpenAI (`infra/azure/`) is applied, and its endpoint, deployment names and key are in the staging secret, with PMO's own AssemblyAI key (2026-10-08). The credential-expiry reminders are applied in `infra/shared/`, the email subscription is confirmed, and a test email was delivered. Still to do: the Entra values in the staging secret (Sprint 0 Phase 5).
 
 ## Access
 Sign in with AWS IAM Identity Center (SSO) through the `pmo-intelligence` profile:
@@ -136,7 +136,19 @@ terraform output github_variables
 
 **After the first apply**:
 1. **GitHub variables.** Set the six repository variables from `github_variables` (Settings > Secrets and variables > Actions > Variables). From then on, a push to `develop` that passes CI deploys to staging.
-2. **App secret.** Replace the `CHANGE_ME` values in `pmo-intelligence/staging/app` (Azure OpenAI, AssemblyAI, Entra) with `aws secretsmanager put-secret-value`. Values never go in chat or in git; Terraform ignores later changes to the secret's value. `DATABASE_URL` is written by the database bootstrap (section 4).
+2. **App secret.** Replace the `CHANGE_ME` values in `pmo-intelligence/staging/app` with `aws secretsmanager put-secret-value`. Values never go in chat or in git; Terraform ignores later changes to the secret's value. The keys (`app_secret_keys` in `infra/modules/environment/secrets.tf`):
+
+   | Key | Set by | Value |
+   |-----|--------|-------|
+   | `DATABASE_URL` | Database bootstrap (section 4) | The `pmo_app` connection URL |
+   | `SECRET_KEY` | Terraform (random, 64 characters) | Signs access tokens |
+   | `ASSEMBLYAI_API_KEY` | By hand | PMO's own AssemblyAI key |
+   | `AZURE_OPENAI_API_KEY`, `AZURE_OPENAI_ENDPOINT` | By hand | From `infra/azure/` (section 5) |
+   | `AZURE_OPENAI_DEPLOYMENT`, `AZURE_EMBEDDING_DEPLOYMENT` | By hand | `<model>-<env>` deployment names (section 5) |
+   | `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET`, `AZURE_TENANT_ID` | By hand | The Entra SSO app registration |
+   | `AZURE_ALLOWED_TENANT_IDS` | By hand, optional | Comma-separated tenant ids allowed to sign in besides the home tenant (`AZURE_TENANT_ID`, always allowed); empty by default |
+
+   To change one key and keep the others, read the secret, change that key in the JSON, and write the whole object back. A running task reads the secret only at start, so redeploy the backend afterwards.
 3. **Images.** The services run the `staging-latest` tag. Until one exists, ECS keeps retrying the task. CI deploys only the side that changed since the previous commit, so the first image of an unchanged side is pushed by hand. On Windows, `docker login` to ECR fails with the credential store ("The stub received bad data"), so use a temporary `DOCKER_CONFIG` whose `config.json` holds an `auths` entry for the registry, base64 of `AWS:<aws ecr get-login-password>`.
 
 **Protection**: the RDS instance (deletion protection, final snapshot), the media bucket, the app secret and the hosted zone carry `prevent_destroy`. Recreating the zone would change its name servers and break the delegation. Everything else can be destroyed and recreated.
@@ -216,4 +228,16 @@ Credentials that expire are listed in `credential_expiries` in `infra/shared/var
 - Credentials with no expiry need no entry: the Azure OpenAI and AssemblyAI keys, the RDS master password (rotated by RDS), the ACM certificate (renewed by ACM), and deploys (OIDC, no stored key).
 
 ## Rollback
+- **A bad app deploy**: every deploy pushes `sha-<full commit sha>` next to `staging-latest`, and the services always run `staging-latest`. Point the tag back at a good image, then fix `develop`:
+  ```bash
+  export AWS_PROFILE=pmo-intelligence AWS_REGION=eu-west-2
+  repo=pmo-intelligence-backend                      # or pmo-intelligence-frontend
+  good=sha-<commit of the last good deploy>
+  manifest="$(aws ecr batch-get-image --repository-name "$repo" --image-ids imageTag="$good" \
+    --query 'images[0].imageManifest' --output text)"
+  aws ecr put-image --repository-name "$repo" --image-tag staging-latest --image-manifest "$manifest"
+  aws ecs update-service --cluster pmo-intelligence --service pmo-intelligence-staging-backend --force-new-deployment   # or -frontend
+  ```
+  Then `git revert` the bad commit on `develop` and push, so the next CI deploy does not bring it back.
+- **Migrations do not roll back with the image.** The backend's `migration` container runs `alembic upgrade head` before the app starts. An older image does not know a revision added after it, so its migration container fails and the backend never starts. If the bad deploy added a migration, first run `alembic downgrade <last good revision>` with the *newer* image: a one-off task from the backend task definition, overriding the `migration` container's command, in the same subnets and security group the database bootstrap uses (section 4). Once the `migration` container has exited 0, stop the task (`aws ecs stop-task`), because the `backend` container then starts and would keep running outside the service. Then retag.
 - **State**: every state write is a new object version. To restore one, copy an earlier version of `<stack>/terraform.tfstate` over the current one (`aws s3api list-object-versions`, then `aws s3api copy-object` with `--copy-source <bucket>/<key>?versionId=<id>`). Versions older than 90 days are gone.

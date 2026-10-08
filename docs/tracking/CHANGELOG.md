@@ -31,7 +31,7 @@ All notable changes to this project will be documented in this file.
 - CI on GitHub Actions: path-filtered backend and frontend checks, end-to-end tests against the compose stack, and a staging deploy from `develop` that runs only after the checks pass (skipped until the deploy variables are set).
 - README with prerequisites, quick start and common commands.
 - Terraform state bucket in the PMO sandbox account (`infra/bootstrap/`): versioned, encrypted, public access blocked, TLS-only; state locking with native S3 lock files.
-- Deployment guide (`docs/DEPLOYMENT.md`): account access through SSO, tooling, bootstrap order, state rollback.
+- Deployment guide (`docs/DEPLOYMENT.md`): account access through SSO, tooling, bootstrap order, the app secret's keys, the database bootstrap, Azure OpenAI, credential expiry reminders, and rollback of an app deploy (image retag, migrations) and of Terraform state.
 - Terraform for the shared stack (VPC, ECR, ECS cluster, GitHub OIDC deploy role, deny-deletion policy) and a reusable environment module, applied for staging at `pmo-intelligence-staging.itcapp.ai`: HTTPS load balancer, PostgreSQL 16, app secret, media bucket, SES identity and ECS services.
 - Database bootstrap (`app/cli/db_bootstrap.py`, `make db-bootstrap ENV=staging`): a one-off ECS task that creates the `pmo_app` login, gives it the database, enables pgvector and writes `DATABASE_URL` into the app secret; idempotent, with optional password rotation.
 - Terraform for PMO's own Azure OpenAI (`infra/azure/`): resource group and resource in Sweden Central with Data Zone Standard deployments of `gpt-5.4-mini` and `text-embedding-3-small` for staging.
