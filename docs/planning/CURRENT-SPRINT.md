@@ -94,15 +94,15 @@
 **Commit checkpoints**
 - [x] `feat: add the placement register with csv import` (dc7c5ab; deviation: also brings `GET /users`, which the people pickers need)
 - [x] (Discovered 2026-10-08) `fix: commit before the response is sent` (12da342): the request session (`get_db`, copied from Interview Intelligence) committed after the response, FastAPI's default for a yield dependency, so a list read straight after a save could miss the row (seen as flaky register e2e runs) and a failed commit still answered success. `DbSession = Annotated[AsyncSession, Depends(get_db, scope="function")]` at all 25 sites; `tests/unit/test_db_session_scope.py` (fails with the old scope); e2e 11/11 twice (user decision 2026-10-08)
-- [ ] `feat: add the users and roles admin page`
+- [x] `feat: add the users and roles admin page` (887f3b7; pushed with dc7c5ab and 12da342)
 
 ### Phase 3: Sessions and ingestion (folder scanner, upload, URL, transcription)
 **Code work**
-- [ ] Migration `003_create_sessions_and_recordings.py`:
+- [x] Migration `003_create_sessions_and_recordings.py` (models in `app/models/session.py`; user decisions 2026-10-08: match status `matched / chosen / needs_choice / unmatched`; the session links to its recording in one direction only, so `source_recordings` has no `session_id`; `sessions.kind` nullable until classified; `sessions.source_url` and `original_filename` added; the cost key is `ON DELETE SET NULL`. Deviation: `SessionKind`, `SessionSource`, `SessionStatus` and `FolderMatchStatus` land here, not in Phase 4, because the CHECK constraints need them; tests `test_session_schema.py` (10) and a 003 case in `test_migrations.py`):
   - `sessions`, as in the ARCHITECTURE data model, plus `source_recording_id`, `kind_overridden_by_user_id`, `quotes_rejected` and `node_errors` (JSONB)
   - `session_transcripts`
   - `recording_folders`: `folder_key` (unique), `display_name`, `folder_date`, `consultant_id` (nullable), `match_status`, `candidate_consultant_ids` (JSONB), `last_seen_at`
-  - `source_recordings`: `folder_id`, `object_key` (unique), `size_bytes`, `last_modified`, `recorded_at`, `session_id` (nullable)
+  - `source_recordings`: `folder_id`, `object_key` (unique), `size_bytes`, `last_modified`, `recorded_at` (no `session_id`: decided 2026-10-08)
   - a foreign key from `processing_costs.session_id`
 - [ ] Copy and adapt from Interview Intelligence:
   - `services/storage/` (base, local, s3, multipart)
@@ -141,6 +141,7 @@
 - [ ] `ARCHITECTURE.md` (ingestion and data model as built, `> Status:`), `API.md`, `DEPLOYMENT.md` (bucket policy JSON and command, env vars, `> Status:` from `terraform state list`), `.env.example`, `FEATURES.md`, `TESTS.md`, `CHANGELOG.md`, `ROADMAP.md` (tick "Session ingestion")
 
 **Commit checkpoints**
+- [x] (Deviation, user decision 2026-10-08) `feat: add the session and recordings tables`: migration 003, models, tests and docs on their own, committed locally and pushed with the scanner commit
 - [ ] `feat: add sessions and the recordings scanner`
 - [ ] `feat: add session upload and url ingestion`
 - [ ] `feat: grant the backend read on the pmo recordings prefix` (Terraform, after apply)
@@ -157,7 +158,7 @@
   - `prompts/`: cite the enumerations constant.
   - `graph.py`: `attribute_roles → classify → summarise → [issues, relationship_engagement, client_signals, actions] → emit_signals`.
   - `attribute_roles` is given the register's names. `issues` and `actions` are given the placement's open items, so a repeated issue or a closing action names the earlier one. `emit_signals` is deterministic.
-- [ ] Enumerations in `app/models/enums.py`: `SessionKind`, `SessionSource`, `SessionStatus`, `SpeakerRole`, `Dimension`, `Polarity`, `SourceKind`, `IssueStatus`, `ActionStatus`, `FolderMatchStatus`
+- [ ] Enumerations in `app/models/enums.py` (`SessionKind`, `SessionSource`, `SessionStatus`, `FolderMatchStatus` already added with migration 003): `SpeakerRole`, `Dimension`, `Polarity`, `SourceKind`, `IssueStatus`, `ActionStatus`, `FolderMatchStatus`
 - [ ] `services/quote_check.py`: normalise the quote (NFKC, casefold, quotes and dashes unified, whitespace collapsed), require it to be a substring of the transcript, then locate its utterance for `occurred_at` and `offset_ms`. Rejections are counted and never stored.
 - [ ] Persistence:
   - On `session_transcripts`: the summary, `session_class` and `speaker_roles`.
@@ -220,21 +221,21 @@
 - Register data for the consultants in the gate calls: a CSV from the PS team's spreadsheet.
 - Three consultants told in advance that their calls will be analysed, and the PMO manager available for the review.
 
->>> CURRENT PHASE: Phase 2 — Placement register, CSV import, Users and roles (in progress)
+>>> CURRENT PHASE: Phase 3 — Sessions and ingestion (in progress)
 
-## Session State (last updated: 2026-10-08 23:00)
+## Session State (last updated: 2026-10-08 22:30)
 - **Sprint**: 1 — Register and Sessions (PRD Phase 1)
-- **Current phase**: Phase 2 — Placement register, CSV import, Users and roles (in progress)
-- **Phase progress**: every Phase 2 task done; the users commit closes the phase
-- **Last completed task**: Users and roles (routes, last-manager guard in the service, tab), with tests; e2e 12/12 twice on a cold backend
-- **Next task**: commit `feat: add the users and roles admin page`, push the Phase 2 commits, watch CI; then Phase 3 (sessions and ingestion) when the user says so
-- **Last commit**: 12da342 "fix: commit before the response is sent" (dc7c5ab and 12da342 not pushed; 1e7e2f8 is the last pushed)
-- **Uncommitted changes**: none after the users commit
+- **Current phase**: Phase 3 — Sessions and ingestion (in progress)
+- **Phase progress**: 1 of 10 code tasks (migration 003 done, not committed)
+- **Last completed task**: migration 003 with its models (`app/models/session.py`), enumerations, the `processing_costs.session_id` key and tests; `alembic upgrade`, `check` and `downgrade` clean on the local database (now at 003)
+- **Next task**: copy and adapt from Interview Intelligence: `services/storage/`, the AssemblyAI client (EU base URL, configured models, `speaker_options`, timeout), `upload_service.py` (byte cap, magic bytes), `url_download_service.py` (SSRF guard)
+- **Last commit**: (pending) "feat: add the session and recordings tables" (local, not pushed; 887f3b7 is the last pushed, CI run 37806960839)
+- **Uncommitted changes**: none (just committed; push it with `feat: add sessions and the recordings scanner`)
 - **Blockers**: none yet (see Blockers and Dependencies)
-- **Tests passing**: 355 unit + 89 integration (backend) + 113 frontend unit + 12 e2e = 569 (2026-10-08 22:55); ruff, mypy, eslint, typecheck, Prettier clean; `next build` green
-- **Files created this session**: Phase 2: `backend/app/db/repositories/{consultant,client,project,placement}_repo.py`, `backend/app/schemas/{register,users}.py`, `backend/app/services/{register_service,register_import}.py`, `backend/app/api/v1/{register,users}.py`, `backend/tests/unit/test_register_import_file.py`, `backend/tests/integration/test_register_{api,import}.py`, `frontend/src/components/admin/register/*`, `frontend/src/components/common/DataTable{,.test}.tsx`, `frontend/src/hooks/{useRegister,useUsers}.ts`, `frontend/src/hooks/useRegister.test.ts`, `frontend/src/lib/register{,.test}.ts`, `frontend/src/types/register.ts`, `frontend/tests/e2e/admin-register.spec.ts`
-- **Files modified this session**: Phase 2: `backend/app/api/router.py`, `backend/app/main.py` (CORS PATCH), `backend/app/db/repositories/user_repo.py`, `backend/app/services/user_roles.py` (id on `UserSummary`), `frontend/src/components/admin/AdminView{,.test}.tsx`, `frontend/src/app/admin/page.tsx`, `frontend/src/lib/{api,api.test,constants}.ts`; docs `API`, `ARCHITECTURE`, `planning/{CURRENT-SPRINT,ROADMAP}`, `tracking/{CHANGELOG,FEATURES,TESTS}`
-- **Key decisions this session**: CSV blanks keep; people are users with any role; no delete; Placements-first layout; commit before the response (Decisions Log). **Audit note (Rule C)**: the request session from Interview Intelligence committed after the response, FastAPI's documented default for yield dependencies; found only because a register e2e read its write back at once. Cause: copied infrastructure code was not checked against the framework's current semantics. Rule to add: a yield dependency that commits or releases a resource the response depends on is declared with `scope="function"`, and a test walks every route to check it. **Audit note (Rule C)**: two e2e flakes in this phase had test-side causes. The first import after a container restart is slow (cold backend), and back-to-back local runs exhaust the import's 10/minute limit, because every worker signs in as the one e2e user. Fixed with a 15 s allowance on the import steps. Rule to add: an e2e step that waits on a server-side job gets the cold-start allowance; when an e2e failure looks random, read the backend log for its status codes (429, 5xx) before changing the test
+- **Tests passing**: 355 unit + 100 integration (backend) + 113 frontend unit + 12 e2e = 580 (backend run 2026-10-08 22:15; frontend counts from the Phase 2 run, no frontend change since); ruff, mypy clean
+- **Files created this session**: Phase 3: `backend/alembic/versions/003_create_sessions_and_recordings.py`, `backend/app/models/session.py`, `backend/tests/integration/test_session_schema.py`. Phase 2: `backend/app/db/repositories/{consultant,client,project,placement}_repo.py`, `backend/app/schemas/{register,users}.py`, `backend/app/services/{register_service,register_import}.py`, `backend/app/api/v1/{register,users}.py`, `backend/tests/unit/test_register_import_file.py`, `backend/tests/integration/test_register_{api,import}.py`, `frontend/src/components/admin/register/*`, `frontend/src/components/common/DataTable{,.test}.tsx`, `frontend/src/hooks/{useRegister,useUsers}.ts`, `frontend/src/hooks/useRegister.test.ts`, `frontend/src/lib/register{,.test}.ts`, `frontend/src/types/register.ts`, `frontend/tests/e2e/admin-register.spec.ts`
+- **Files modified this session**: Phase 3: `backend/app/models/{enums,processing_cost,__init__}.py`, `backend/tests/integration/test_migrations.py`; docs `ARCHITECTURE`, `tracking/{TESTS,CHANGELOG}`, `planning/CURRENT-SPRINT`. Phase 2: `backend/app/api/router.py`, `backend/app/main.py` (CORS PATCH), `backend/app/db/repositories/user_repo.py`, `backend/app/services/user_roles.py` (id on `UserSummary`), `frontend/src/components/admin/AdminView{,.test}.tsx`, `frontend/src/app/admin/page.tsx`, `frontend/src/lib/{api,api.test,constants}.ts`; docs `API`, `ARCHITECTURE`, `planning/{CURRENT-SPRINT,ROADMAP}`, `tracking/{CHANGELOG,FEATURES,TESTS}`
+- **Key decisions this session**: Phase 3: folder match status `matched / chosen / needs_choice / unmatched`; session → recording link one way (`sessions.source_recording_id`, unique); `sessions.kind` nullable; `source_url` and `original_filename` on sessions; migration 003 committed on its own (Decisions Log). Phase 2: CSV blanks keep; people are users with any role; no delete; Placements-first layout; commit before the response (Decisions Log). **Audit note (Rule C)**: the request session from Interview Intelligence committed after the response, FastAPI's documented default for yield dependencies; found only because a register e2e read its write back at once. Cause: copied infrastructure code was not checked against the framework's current semantics. Rule to add: a yield dependency that commits or releases a resource the response depends on is declared with `scope="function"`, and a test walks every route to check it. **Audit note (Rule C)**: two e2e flakes in this phase had test-side causes. The first import after a container restart is slow (cold backend), and back-to-back local runs exhaust the import's 10/minute limit, because every worker signs in as the one e2e user. Fixed with a 15 s allowance on the import steps. Rule to add: an e2e step that waits on a server-side job gets the cold-start allowance; when an e2e failure looks random, read the backend log for its status codes (429, 5xx) before changing the test
 - **Recovery instructions**:
   - Read this file first, then `docs/handover/sprint-00-handover.md`.
   - **Copying from Interview Intelligence**: code comes from `E:\E Projects\Interview Intelligence Platform`. Fix its known gaps on copy (see Research Findings).
@@ -264,4 +265,9 @@
 | The request session commits before the response: `DbSession` with `scope="function"` on every route and guard | User decision 2026-10-08, after flaky e2e runs traced to commits after the response. Alternatives offered: an explicit commit in every write route; retries in the e2e tests |
 | The last-PMO-manager guard is in `UserRoleService`, so the page and `make user-role` both refuse | User decision 2026-10-08; recovery still works by granting `pmo_manager` to someone, and through the bootstrap list. Alternative offered: page only |
 | Both global roles (`pmo_manager`, `admin`) manage users, the `pmo_manager` role included | User decision 2026-10-08; the PRD gives both user and access admin. Alternatives offered: admins cannot touch managers; PMO manager only |
+| Folder match status has four values: `matched` (automatic), `chosen` (a person picked), `needs_choice`, `unmatched`; the scanner re-matches only the last two | User decision 2026-10-08; a person's choice is never overwritten by the 15-minute scan. Alternatives offered: three values plus `consultant_chosen_by_user_id`; four values plus that column |
+| A session links to its recording through `sessions.source_recording_id` (unique) only | User decision 2026-10-08; no circular foreign key, no two columns to keep in step, one session per recording enforced by the database. Alternative offered: both directions, as first planned |
+| `sessions.kind` is NULL until the classify node or a person sets it | User decision 2026-10-08; an unclassified call is shown as such rather than as `other`. Alternative offered: default `other` |
+| Sessions keep `source_url` (URL sessions) and `original_filename` (uploads and scanned files) | User decision 2026-10-08; every session keeps its source reference (PRD, Inputs). Alternatives offered: URL only; nothing beyond `recording_key` |
+| `processing_costs.session_id` → `sessions` is `ON DELETE SET NULL` | Matches `processing_job_id`; cost history outlives a session the retention job may later delete |
 | AssemblyAI model names and prices are configuration | Plan approval 2026-10-08; the docs give two spellings for the current model and the prices differ from the tracker's |

@@ -11,14 +11,17 @@ class ProcessingCost(Base, UUIDMixin, TimestampMixin):
     """The cost of one external call (LLM, embedding, transcription).
 
     Keyed by ``session_id`` or ``message_id`` so chat runs are costed too.
-    Both are nullable and carry no foreign key yet: the ``sessions`` and
-    ``messages`` tables arrive in later migrations, which add the keys.
+    Both are nullable. ``message_id`` carries no foreign key yet: the
+    ``messages`` table arrives in a later migration, which adds the key.
     """
 
     __tablename__ = "processing_costs"
 
     session_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), nullable=True, index=True
+        UUID(as_uuid=True),
+        ForeignKey("sessions.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
     )
     message_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), nullable=True, index=True

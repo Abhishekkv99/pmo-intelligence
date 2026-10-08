@@ -1,15 +1,15 @@
 # Test Tracking
 
 ## Summary
-Counts are taken from the test run output, never estimated. Last run 2026-10-08 (Sprint 1 Phase 2, after Users and roles): every layer; e2e against the compose stack on ports 8100/3100.
+Counts are taken from the test run output, never estimated. Last run 2026-10-08 (Sprint 1 Phase 3, migration 003): backend unit and integration; frontend unit and e2e from the Phase 2 run (no frontend change since); e2e against the compose stack on ports 8100/3100.
 
 | Layer | Count |
 |-------|-------|
 | Unit (backend) | 355 |
-| Integration (backend, testcontainers pgvector) | 89 |
+| Integration (backend, testcontainers pgvector) | 100 |
 | Frontend unit (Vitest) | 113 |
 | Frontend e2e (Playwright, against the compose stack) | 12 (1 setup + 11) |
-| **Total** | **569** |
+| **Total** | **580** |
 
 ## How to run
 - Backend unit: `cd backend && uv run pytest tests/unit`
@@ -56,11 +56,12 @@ Counts are taken from the test run output, never estimated. Last run 2026-10-08 
 | `test_db_bootstrap.py` | 5 | First run creates a non-superuser login that owns the database and `public` schema, can run DDL and use `vector`; a second run keeps the password; rotation invalidates the old password; `run` writes a `DATABASE_URL` that connects and leaves it alone on re-run; an existing login with no URL exits 1 until `--rotate-password` |
 | `test_db_command_timeout.py` | 1 | asyncpg command timeout |
 | `test_health.py` | 1 | Health endpoint |
-| `test_migrations.py` | 3 | `alembic upgrade head` on an empty DB, `alembic check` (no drift), downgrade and re-upgrade; 002 drops the Microsoft token columns and its downgrade restores them |
+| `test_migrations.py` | 4 | `alembic upgrade head` on an empty DB, `alembic check` (no drift), downgrade and re-upgrade; 002 drops the Microsoft token columns and its downgrade restores them; 003 adds the session and recordings tables and the `processing_costs.session_id` key, and its downgrade removes them |
 | `test_register_api.py` | 20 | Register routes: a manager builds a placement; names tidied; uniqueness (client name, consultant email, project per client, placement key) answers 409; end before start, inactive or role-less people and unknown references answer 422; required fields cannot be cleared; partial PATCH with null clearing; ending a placement; a PS reads only their own placement by id (404 otherwise) and cannot list or edit (403); the user list has no secrets |
 | `test_register_import.py` | 10 | CSV import: a dry run previews and writes nothing; Confirm writes and a re-import is unchanged (rows reuse what earlier rows created); any row error writes nothing; filled cells overwrite, empty cells keep; a consultant entered by name gains the email; two consultants with one name need an email; people must be users with a role, a different role warns; not a `.csv` is 422; scoped roles cannot import |
 | `test_placement_scope.py` | 10 | Who can read a placement (each role); denial identical to a missing row; `access_log` rows only for permitted logged reads |
 | `test_processing_ownership.py` | 6 | Advisory lock acquire, hold, heartbeat, release |
+| `test_session_schema.py` | 10 | A new session is `uploaded` with no kind, no rejected quotes and no node errors; a new folder is unmatched with no candidates; one session per recording and one transcript per session; kind, source, status and match status outside their sets refused; a session's cost rows outlive it (key set to null); a cost for an unknown session refused |
 | `test_sign_in_access.py` | 8 | A role granted by email is linked at the first SSO sign-in; an unknown account leaves no row; change, list, remove-nothing and bad-address cases; removing a role revokes every refresh token; refresh refused once the role is gone; refresh works while it is held |
 | `test_users_api.py` | 11 | Granting creates a user by email or changes an existing role; not an email is 422; removing a role ends the sessions; unknown id 404; the last active PMO manager keeps the role (a disabled one does not count), handing over first works, and the service the CLI uses refuses too; scoped roles cannot change roles (403) |
 

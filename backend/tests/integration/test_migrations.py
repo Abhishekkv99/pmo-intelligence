@@ -27,8 +27,19 @@ EXPECTED_TABLES = {
     "processing_costs",
     "processing_jobs",
     "projects",
+    "recording_folders",
     "refresh_tokens",
+    "session_transcripts",
+    "sessions",
+    "source_recordings",
     "users",
+}
+
+SESSION_TABLES = {
+    "recording_folders",
+    "session_transcripts",
+    "sessions",
+    "source_recordings",
 }
 
 
@@ -85,6 +96,22 @@ async def _user_columns(url: str) -> set[str]:
         await check.dispose()
 
 
+async def _cost_session_foreign_keys(url: str) -> int:
+    check = create_async_engine(url)
+    try:
+        async with check.connect() as conn:
+            count = await conn.scalar(
+                text(
+                    "SELECT count(*) FROM information_schema.table_constraints "
+                    "WHERE table_name = 'processing_costs' "
+                    "AND constraint_name = 'processing_costs_session_id_fkey'"
+                )
+            )
+            return int(count or 0)
+    finally:
+        await check.dispose()
+
+
 MS_TOKEN_COLUMNS = {"ms_access_token", "ms_refresh_token", "ms_token_expires_at"}
 
 
@@ -124,3 +151,19 @@ class TestMigrations:
 
         assert _alembic(fresh_database_url, "downgrade", "001").returncode == 0
         assert MS_TOKEN_COLUMNS.issubset(await _user_columns(fresh_database_url))
+
+    async def test_003_adds_the_session_tables_and_the_cost_key_and_removes_them(
+        self, fresh_database_url: str
+    ) -> None:
+        assert _alembic(fresh_database_url, "upgrade", "002").returncode == 0
+        assert not SESSION_TABLES & await _tables(fresh_database_url)
+
+        upgrade = _alembic(fresh_database_url, "upgrade", "003")
+        assert upgrade.returncode == 0, upgrade.stderr
+        assert SESSION_TABLES.issubset(await _tables(fresh_database_url))
+        assert await _cost_session_foreign_keys(fresh_database_url) == 1
+
+        downgrade = _alembic(fresh_database_url, "downgrade", "002")
+        assert downgrade.returncode == 0, downgrade.stderr
+        assert not SESSION_TABLES & await _tables(fresh_database_url)
+        assert await _cost_session_foreign_keys(fresh_database_url) == 0

@@ -51,6 +51,49 @@ class JobStatus(enum.StrEnum):
     FAILED = "failed"
 
 
+class SessionKind(enum.StrEnum):
+    """What a recorded PMO call was; set by the pipeline, correctable by a person."""
+
+    ONBOARDING = "onboarding"
+    TECHNICAL = "technical"
+    CHECK_IN = "check_in"
+    ESCALATION = "escalation"
+    OTHER = "other"
+
+
+class SessionSource(enum.StrEnum):
+    """Where a session's recording came from."""
+
+    S3 = "s3"
+    UPLOAD = "upload"
+    URL = "url"
+    GRAPH = "graph"
+
+
+class SessionStatus(enum.StrEnum):
+    """uploaded → transcribing → transcribed → analyzing → completed / failed."""
+
+    UPLOADED = "uploaded"
+    TRANSCRIBING = "transcribing"
+    TRANSCRIBED = "transcribed"
+    ANALYZING = "analyzing"
+    COMPLETED = "completed"
+    FAILED = "failed"
+
+
+class FolderMatchStatus(enum.StrEnum):
+    """How a recordings folder was tied to a consultant.
+
+    The scanner re-matches only ``needs_choice`` and ``unmatched`` folders; a
+    folder a person ``chosen`` is never overwritten.
+    """
+
+    MATCHED = "matched"
+    CHOSEN = "chosen"
+    NEEDS_CHOICE = "needs_choice"
+    UNMATCHED = "unmatched"
+
+
 def check_in(column: str, values: type[enum.StrEnum]) -> str:
     """SQL for a CHECK constraint limiting ``column`` to ``values``."""
     allowed = ", ".join(f"'{member.value}'" for member in values)

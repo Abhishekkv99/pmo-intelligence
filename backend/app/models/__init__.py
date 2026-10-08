@@ -4,6 +4,12 @@ from app.models.processing_cost import ProcessingCost
 from app.models.processing_job import ProcessingJob
 from app.models.refresh_token import RefreshToken
 from app.models.register import Client, Consultant, Placement, Project
+from app.models.session import (
+    RecordingFolder,
+    Session,
+    SessionTranscript,
+    SourceRecording,
+)
 from app.models.user import User
 
 __all__ = [
@@ -15,6 +21,10 @@ __all__ = [
     "ProcessingCost",
     "ProcessingJob",
     "Project",
+    "RecordingFolder",
     "RefreshToken",
+    "Session",
+    "SessionTranscript",
+    "SourceRecording",
     "User",
 ]
