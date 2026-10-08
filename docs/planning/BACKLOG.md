@@ -17,16 +17,18 @@ From the PRD, "Decisions needed before Sprint 1". Each one changes the data mode
 | 10 | Name and hostname | Repo, Entra app registration, Route 53 record, ECR repositories | pmo-intelligence, pmo.itcapp.ai and pmo-staging.itcapp.ai | **2026-10-06: `pmo-intelligence.itcapp.ai` and `pmo-intelligence-staging.itcapp.ai` (`pmo.itcapp.ai` is taken); repo `Abhishekkv99/pmo-intelligence`** |
 
 ## High Priority
-- [ ] Send `docs/integrations/TEAMS-GRAPH-SETUP.md` to the tenant admin and get the items in its section 5 back (longest external lead time) (partly done 2026-10-08: the Teams app is approved and published, 1.0.0; still open: the chat RSC state, below)
+- [ ] Send `docs/integrations/TEAMS-GRAPH-SETUP.md` to the tenant admin and get the items in its "Results to record" table back (longest external lead time) (partly done 2026-10-08: the Teams app is approved and published, 1.0.0; still open: the chat RSC state, below)
 - [ ] Narrow the Teams app "PMO Intelligence" availability from everyone (org-wide default, including guests and external users) to the PMO team: Teams admin center > Manage apps > PMO Intelligence > Users and groups > Edit availability. Any user can otherwise add it to any chat they are in, which grants it read access there (user decision 2026-10-08; admin action)
 - [ ] Before Phase 3 (Teams chat): a Teams or Global admin confirms the chat RSC state (`Get-MgBetaChatRscConfiguration`), then run step A5: add the app to a test group chat and run `scripts/teams/verify_chat_access.py`
 - [ ] Decide on GitHub Pro for branch protection on `main`/`develop` (not available on free private repos)
 - [x] (2026-10-07: NS record added by Abhishek in the `itcapp.ai` zone, account Information Tech Consultants Ltd `430006376054`, change `C0084749LVM3KJ0NJ7XG` INSYNC; verified at the parent's name servers, 8.8.8.8 and 1.1.1.1) Find who manages the `itcapp.ai` DNS zone (not in the sandbox account `260172548683`) and have them add the NS record delegating `pmo-intelligence-staging.itcapp.ai` to the sandbox zone (blocks the staging certificate and SSO). Name servers (zone created 2026-10-07): `ns-1004.awsdns-61.net`, `ns-1450.awsdns-53.org`, `ns-1905.awsdns-46.co.uk`, `ns-4.awsdns-00.com`
 
 ## Medium Priority
+- [ ] Stop storing users' Microsoft access and refresh tokens at sign-in (`SSOService.authenticate_sso`) and drop `users.ms_access_token`, `ms_refresh_token`, `ms_token_expires_at` in a migration; copied from Interview Intelligence, unused in PMO (`refresh_microsoft_token` has no callers), and PMO reads Teams with its own app credential (Sprint 0 handover, known issues)
 - [x] (2026-10-08, set by Abhishek) Create a PMO-only AssemblyAI API key and set `ASSEMBLYAI_API_KEY` in `pmo-intelligence/staging/app` (needed before the session pipeline in Sprint 1; keeps PMO's transcription cost separate from Interview Intelligence)
 
 ## Low Priority
+- [ ] A manual CI redeploy trigger (`workflow_dispatch` with a backend/frontend choice) so an unchanged side can be rebuilt by CI instead of by hand (Sprint 0 handover)
 
 ## Tech Debt
 - [ ] Set `APP_DEBUG=false` on the backend's `migration` container (`infra/modules/environment/ecs.tf`), or make `app_debug` default to false in `backend/app/config.py`; today migrations echo SQL in the migration log group (found 2026-10-08 on the admin-cli task, which is fixed). Replaces the backend task definition, so it redeploys the backend

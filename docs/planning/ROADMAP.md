@@ -3,11 +3,11 @@
 Six phases, each one or two sprints, each ending with a staging sign-off by the PMO manager before the next starts.
 
 ## Milestone 0: Bootstrap (Sprint 0)
-- [ ] Project skeleton and tooling (stack copied from Interview Intelligence: queue, ownership lock, LLM factory, auth, CI, Docker, Terraform)
-- [ ] SSO sign-in with roles
-- [ ] Empty dashboard deployed to staging
-- [ ] Graph app registration created and the Teams permission request submitted
-- **Exit gate**: staging URL signs in; CI green; the permission request has a ticket number
+- [x] Project skeleton and tooling (stack copied from Interview Intelligence: queue, ownership lock, LLM factory, auth, CI, Docker, Terraform)
+- [x] SSO sign-in with roles (single tenant, members of the tenant with a role only; roles granted with `make user-role`)
+- [x] Empty dashboard deployed to staging (`https://pmo-intelligence-staging.itcapp.ai`)
+- [x] Graph app registration created and the Teams permission request submitted (the Teams app was approved and published, 1.0.0)
+- **Exit gate**: staging URL signs in; CI green; the permission request has a ticket number. **Met 2026-10-08**: SSO sign-in on staging, CI green on `develop`, and the Teams app approved without a ticket number (see the Sprint 0 handover)
 
 ## Milestone 1: Register and Sessions
 - [ ] Placement register (admin pages, CSV import)

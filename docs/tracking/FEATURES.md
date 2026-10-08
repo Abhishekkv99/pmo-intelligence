@@ -20,4 +20,11 @@
 | Role-aware navigation (Admin for `pmo_manager` and `admin` only) | `frontend/src/lib/roles.ts`, `frontend/src/components/layout/Sidebar.tsx` | Done |
 | Risk board, Actions and Settings pages | `frontend/src/app/page.tsx`, `frontend/src/app/actions/page.tsx`, `frontend/src/app/settings/page.tsx` | Placeholders (empty states) |
 | Admin page with the processing queue | `frontend/src/components/admin/AdminView.tsx`, `frontend/src/components/admin/ProcessingStatusPanel.tsx` | Done |
+| Local stack: Docker Compose (PostgreSQL 16 + pgvector, backend, frontend) with health checks and configurable host ports; Makefile targets | `docker-compose.yml`, `backend/Dockerfile`, `frontend/Dockerfile`, `Makefile`, `.env.example` | Done |
+| CI: path-filtered backend and frontend checks, e2e on the compose stack; staging deploy after the checks pass | `.github/workflows/ci.yml` | Done |
+| Infrastructure as code: state bucket, shared stack (VPC, ECR, ECS cluster, GitHub OIDC deploy role) and the staging environment (ALB, RDS, secret, bucket, SES, ECS) | `infra/bootstrap/`, `infra/shared/`, `infra/modules/environment/`, `infra/environments/staging/` | Done (staging applied; production at product Phase 5) |
+| Database bootstrap as a one-off ECS task (`pmo_app` login, pgvector, `DATABASE_URL` into the secret) | `backend/app/cli/db_bootstrap.py`, `scripts/db-bootstrap.sh`, `infra/modules/environment/db_bootstrap.tf` | Done (run on staging) |
+| PMO's own Azure OpenAI (Sweden Central, Data Zone Standard: gpt-5.4-mini and text-embedding-3-small for staging) | `infra/azure/` | Done (applied) |
+| Credential expiry reminders (email 30, 14 and 3 days before) | `infra/shared/expiry_reminders.tf`, `infra/shared/variables.tf` | Done (Teams Graph certificate, Entra SSO staging secret) |
+| Entra SSO app registration: single tenant, Web redirect URIs, `acct` claim, per-environment secret into the app secret | `scripts/entra/Register-SsoApp.ps1` | Done (staging) |
 | Frontend tooling: Prettier, typecheck and format scripts, pnpm 12 pin | `frontend/package.json`, `frontend/.prettierrc.json`, `frontend/eslint.config.mjs` | Done |

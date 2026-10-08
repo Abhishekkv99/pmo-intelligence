@@ -62,6 +62,8 @@ The compose backend reads only the environment set on its service in `docker-com
 | `make test-e2e` | Playwright end-to-end tests against the running stack (on `PMO_WEB_PORT`/`PMO_API_PORT`) |
 | `make lint` | ruff, ruff format check, mypy strict; eslint, typecheck, Prettier check |
 | `make format` | Format the backend (ruff) and the frontend (Prettier) |
+| `make db-bootstrap ENV=staging` | One-off database bootstrap in a deployed environment (see `docs/DEPLOYMENT.md`) |
+| `make user-role ENV=staging EMAIL=... ROLE=...` | Grant a role (`ROLE=none` removes it; `ARGS=--list` lists users) in a deployed environment (see `docs/DEPLOYMENT.md`) |
 
 ## CI and deployment
 Every push and pull request to `main` or `develop` runs `.github/workflows/ci.yml`:

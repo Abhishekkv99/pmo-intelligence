@@ -1,6 +1,6 @@
 # Architecture Overview
 
-> **Status**: Sprint 0 in progress. **Built**: the backend skeleton (see "Backend (as built)"), with migration 001, the frontend skeleton (see "Frontend (as built)"), local development with CI/CD (see "Local development and CI/CD (as built)"), and the staging infrastructure (see "Infrastructure (as built)"). Everything else is the planned design from `docs/PRD.md`; update each section as it is built.
+> **Status**: Sprint 0 complete (2026-10-08). **Built**: the backend skeleton (see "Backend (as built)"), with migration 001 and sign-in for tenant members with a role, the frontend skeleton (see "Frontend (as built)"), local development with CI/CD (see "Local development and CI/CD (as built)"), and the staging infrastructure with PMO's Azure OpenAI and the Entra SSO app (see "Infrastructure (as built)"). Everything else is the planned design from `docs/PRD.md`; update each section as it is built.
 
 ## System Design
 PMO Intelligence has 3 inputs, 1 queue, 2 pipelines and 1 health model. Every input becomes a signal, and every placement gets one health reading.
