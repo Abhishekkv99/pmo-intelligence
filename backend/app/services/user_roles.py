@@ -1,10 +1,14 @@
-"""Granting and removing roles, until the Admin "Users and roles" page exists.
+"""Granting and removing roles: the Admin "Users and roles" page and the CLI.
 
 A role is what lets a person sign in at all (``app.utils.entitlements``), so
 granting one to an address that has never signed in creates the user by email.
 The first SSO sign-in finds that row by email and links the Entra account to
 it (``SSOService.find_user_for_sign_in``). Removing a role ends every session
 the user holds.
+
+The last active PMO manager keeps the role: removing or changing it would
+leave nobody able to manage users from the page. Granting pmo_manager to
+someone else first is the way to hand over.
 """
 
 import logging
@@ -31,6 +35,10 @@ class UserSummary:
     role: str | None
     is_active: bool
     signed_in_with_microsoft: bool
+
+
+class RoleChangeRefusedError(ValueError):
+    """A valid request the current users refuse (the last PMO manager)."""
 
 
 class UserRoleService:
@@ -68,6 +76,15 @@ class UserRoleService:
         old_role = user.role
         if old_role == new_role:
             return f"{email}: already {new_role or 'without a role'}, nothing changed"
+        if (
+            old_role == Role.PMO_MANAGER.value
+            and user.is_active
+            and await self.user_repo.count_active_with_role(Role.PMO_MANAGER) <= 1
+        ):
+            raise RoleChangeRefusedError(
+                f"{email} is the last active PMO manager; make someone else a "
+                "PMO manager first"
+            )
         user.role = new_role
         await self.session.flush()
         logger.info(

@@ -7,6 +7,7 @@ import { z } from "zod";
 import { saveRecord } from "@/hooks/useRegister";
 import { assignableUsers } from "@/hooks/useUsers";
 import { API_ROUTES } from "@/lib/constants";
+import { roleLabel } from "@/lib/roles";
 import {
   EXTENSION_STATUSES,
   PLACEMENT_STATUSES,
@@ -62,7 +63,7 @@ interface PlacementDialogProps {
 export function personOptions(users: UserListItem[]) {
   return assignableUsers(users).map((u) => ({
     value: u.id,
-    label: `${u.full_name} (${u.role ? humanize(u.role) : "no role"})`,
+    label: `${u.full_name} (${roleLabel(u.role)})`,
   }));
 }
 

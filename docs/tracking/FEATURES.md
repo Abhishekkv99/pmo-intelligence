@@ -37,5 +37,6 @@
 | Manual staging redeploy of one side (`workflow_dispatch`, `target` backend / frontend / both; checks first) | `.github/workflows/ci.yml` | Done (first manual run 2026-10-08, run 37770017665: frontend only, backend left alone) |
 | Placement register: create and edit consultants, clients, projects and placements on the Admin page (placements first, with status filter and search); uniqueness, date and people rules; no delete | `backend/app/services/register_service.py`, `backend/app/api/v1/register.py`, `frontend/src/components/admin/register/` | Done |
 | Register CSV import: preview (dry run), then Confirm all-or-nothing; filled cells overwrite, empty cells keep; people by email (existing users with a role); template download | `backend/app/services/register_import.py`, `frontend/src/components/admin/register/ImportTab.tsx` | Done |
-| Admin tabs (Register, Import, Processing) with the tab in the URL; the queue polls only on its tab | `frontend/src/components/admin/AdminView.tsx` | Done |
-| User list for the admin pages and the people pickers (`GET /users`) | `backend/app/api/v1/users.py` | Done (roles are still changed with `make user-role`) |
+| Admin tabs (Register, Import, Users and roles, Processing) with the tab in the URL; the queue polls only on its tab | `frontend/src/components/admin/AdminView.tsx` | Done |
+| Users and roles tab: list users, give access by email and role, change or remove a role; the last active PMO manager keeps the role (page and CLI) | `backend/app/api/v1/users.py`, `backend/app/services/user_roles.py`, `frontend/src/components/admin/users/UsersTab.tsx` | Done (`make user-role` stays as the fallback) |
+| Writes committed before the response is sent (`DbSession`) | `backend/app/dependencies.py` | Done |

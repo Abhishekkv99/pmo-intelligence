@@ -5,6 +5,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.repositories.base import BaseRepository
+from app.models.enums import Role
 from app.models.user import User
 
 
@@ -44,6 +45,15 @@ class UserRepository(BaseRepository[User]):
         stmt = select(User).where(User.entra_oid == entra_oid)
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
+
+    async def count_active_with_role(self, role: Role) -> int:
+        stmt = (
+            select(func.count())
+            .select_from(User)
+            .where(User.role == role.value, User.is_active.is_(True))
+        )
+        result = await self.session.execute(stmt)
+        return result.scalar_one()
 
     async def list_by_email(self) -> list[User]:
         """Every user, ordered by email. Tens of rows, so no paging."""

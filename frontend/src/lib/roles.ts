@@ -19,3 +19,16 @@ export const GLOBAL_ROLES: readonly Role[] = ["pmo_manager", "admin"];
 export function hasGlobalRole(role: Role | null | undefined): boolean {
   return role != null && GLOBAL_ROLES.includes(role);
 }
+
+/** How each role is named in the UI. */
+export const ROLE_LABELS: Record<Role, string> = {
+  pmo_manager: "PMO manager",
+  sme: "PMO SME",
+  tech_lead: "Tech lead",
+  ps: "Placement specialist",
+  admin: "Admin",
+};
+
+export function roleLabel(role: Role | null | undefined): string {
+  return role ? ROLE_LABELS[role] : "No role";
+}

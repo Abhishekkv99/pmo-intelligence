@@ -75,12 +75,16 @@ test.describe("Admin register", () => {
     });
     await page.getByRole("button", { name: "Preview" }).click();
 
+    // The first import after a container restart is slow (a cold backend),
+    // so the import steps get the allowance auth.setup.ts gives the first page.
     const summary = page.getByTestId("import-summary");
-    await expect(summary).toContainText("Preview, nothing written yet.");
+    await expect(summary).toContainText("Preview, nothing written yet.", {
+      timeout: 15_000,
+    });
     await expect(summary).toContainText("1 new");
 
     await page.getByRole("button", { name: "Confirm import" }).click();
-    await expect(summary).toContainText("Imported.");
+    await expect(summary).toContainText("Imported.", { timeout: 15_000 });
 
     await page.getByRole("tab", { name: "Register" }).click();
     await page.getByLabel("Search placements").fill(consultant);

@@ -7,11 +7,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { hasGlobalRole } from "@/lib/roles";
 import { ImportTab } from "./register/ImportTab";
 import { RegisterTab } from "./register/RegisterTab";
+import { UsersTab } from "./users/UsersTab";
 import { ProcessingStatusPanel } from "./ProcessingStatusPanel";
 
 export const ADMIN_TABS = [
   { value: "register", label: "Register" },
   { value: "import", label: "Import" },
+  { value: "users", label: "Users and roles" },
   { value: "processing", label: "Processing" },
 ] as const;
 
@@ -54,6 +56,9 @@ export function AdminView() {
           </TabsContent>
           <TabsContent value="import">
             <ImportTab />
+          </TabsContent>
+          <TabsContent value="users">
+            <UsersTab />
           </TabsContent>
           <TabsContent value="processing">
             <ProcessingStatusPanel enabled={tab === "processing"} />

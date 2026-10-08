@@ -37,7 +37,7 @@ FastAPI app in `backend/app/`, layered routes → services → repositories → 
 | LLM factory | `app/ai/llm_factory.py` | Cached Azure OpenAI chat and embedding clients with a finite timeout (300 s) |
 | Cost tracker | `app/services/cost_tracker.py` | Pure cost functions for LLM, embedding and transcription calls; AssemblyAI's hourly rate and diarization add-on are settings |
 | Auth | `app/api/v1/auth.py`, `app/services/{auth,sso}_service.py` | Entra ID SSO (authorization code + PKCE, code exchanged by the backend; identity scopes only, no Microsoft token kept); members of the tenant with a role only (see the role model); local password auth only when `LOCAL_AUTH_ENABLED` (dev and CI), under the same role rule |
-| Role grants | `app/services/user_roles.py`, `app/cli/user_role.py` | Grant, change or remove a role by email, or list users; run as a one-off ECS task with `make user-role` until the Admin "Users and roles" page exists |
+| Role grants | `app/services/user_roles.py`, `app/cli/user_role.py` | Grant, change or remove a role by email, or list users: the Admin "Users and roles" tab (`app/api/v1/users.py`) and, as a fallback, a one-off ECS task with `make user-role`. Both refuse to remove or change the role of the last active `pmo_manager` |
 | Migrations | `alembic/versions/001_create_initial_schema.py`, `002_drop_user_ms_tokens.py` | Async Alembic; 001 enables pgvector and builds the Sprint 0 schema; 002 drops the stored Microsoft tokens from `users` |
 | Admin commands | ECS task definition `<env>-admin-cli` (`infra/modules/environment/admin_cli.tf`) | The backend image with `DATABASE_URL`, run by `scripts/user-role.sh` in the backend's subnets and security group |
 | Database bootstrap | `app/cli/db_bootstrap.py` | One-off ECS task per deployed environment: creates the `pmo_app` login (random password), makes it owner of the database and `public` schema, creates `vector`, and writes `DATABASE_URL` into the app secret. Idempotent; `--rotate-password` rotates. Run with `make db-bootstrap ENV=<env>` |
@@ -59,7 +59,7 @@ FastAPI app in `backend/app/`, layered routes → services → repositories → 
   - A removed role or a disabled account ends access: refresh revokes every refresh token of the user, and each request re-checks the role, so an open page stops within the 15-minute access-token life.
   - Every refusal logs a WARNING (sign-in, refresh, request).
 - `NULL` reads nothing either, should a row without a role ever reach the scope check.
-- Roles are granted with `make user-role ENV=<env> EMAIL=... ROLE=...` (`ROLE=none` removes one, `ARGS=--list` lists users).
+- Roles are granted, changed and removed by a `pmo_manager` or `admin` on the Admin page ("Users and roles"), or with `make user-role ENV=<env> EMAIL=... ROLE=...` (`ROLE=none` removes one, `ARGS=--list` lists users) when nobody who can open the page can sign in. Granting a role to a new address creates the user; the last active `pmo_manager` keeps the role (409 on the page, exit 2 from the CLI).
 - A denied by-id read answers 404, identical to a missing row, and logs a WARNING with user id and role.
 - `BOOTSTRAP_ADMIN_EMAILS` raises listed users to `pmo_manager` at startup and at first sign-in (elevate-only).
 
@@ -70,11 +70,12 @@ Next.js 16.3.8 App Router app in `frontend/`, TypeScript strict, React 19.2, sha
 |------|------|-------|
 | Root layout | `src/app/layout.tsx` | Theme (light/dark/system), `AuthProvider`, `SWRProvider`, toasts; metadata from `APP_NAME` and `APP_TAGLINE` |
 | Shell | `src/components/layout/{MainLayout,Sidebar,Header,ThemeToggle}.tsx` | Sidebar: Risk board, Actions, Admin (global roles only), Settings; header: app name, theme toggle, user menu with sign-out |
-| Pages | `src/app/page.tsx` (Risk board), `actions/`, `admin/`, `settings/`, `login/`, `auth/callback/microsoft/` | Risk board, Actions and Settings are empty-state placeholders; Admin has the register, the import and the processing queue |
-| Admin | `src/components/admin/AdminView.tsx` | Tabs Register, Import, Processing; the tab is in the URL (`?tab=`), and the page wraps the view in `Suspense` for `useSearchParams`. Other roles see a no-access message and no tabs, and nothing is requested |
+| Pages | `src/app/page.tsx` (Risk board), `actions/`, `admin/`, `settings/`, `login/`, `auth/callback/microsoft/` | Risk board, Actions and Settings are empty-state placeholders; Admin has the register, the import, users and roles, and the processing queue |
+| Admin | `src/components/admin/AdminView.tsx` | Tabs Register, Import, Users and roles, Processing; the tab is in the URL (`?tab=`), and the page wraps the view in `Suspense` for `useSearchParams`. Other roles see a no-access message and no tabs, and nothing is requested |
 | Register | `src/components/admin/register/` (`PlacementsTable`, `ConsultantsTable`, `ClientsTable`, `ProjectsTable`, their dialogs, `RecordDialog`, `fields`), `src/hooks/useRegister.ts`, `src/hooks/useUsers.ts`, `src/lib/register.ts` | Opens on Placements (status filter, search), with sub-tabs for Consultants, Clients and Projects; create and edit in dialogs (react-hook-form + zod); a failed save shows the API's message. `lib/register.ts` mirrors the register enumerations |
 | Import | `src/components/admin/register/ImportTab.tsx` | Choose a CSV, Preview (dry run), then Confirm, enabled only after a preview with no row errors; per-row outcome, changes, warnings and errors; a template download |
 | Processing | `src/components/admin/ProcessingStatusPanel.tsx`, `src/hooks/useProcessingStatus.ts` | Queue depth, running jobs by kind, backend memory; polls every 5 s while busy, 30 s when idle, and only while its tab is open |
+| Users and roles | `src/components/admin/users/UsersTab.tsx`, `src/hooks/useUsers.ts`, `src/lib/roles.ts` (`ROLE_LABELS`) | Every user with role, account state and whether they have signed in with Microsoft yet, you marked; give access by email and role; change or remove a role, with the API's message shown (sessions ended, the last PMO manager refused) |
 | Tables | `src/components/common/DataTable.tsx` | TanStack Table with sorting and a search box over every column, in the browser (the lists are small) |
 | Roles | `src/lib/roles.ts` | Mirrors `Role` and `GLOBAL_ROLES` from `backend/app/models/enums.py`; `hasGlobalRole()` |
 | Routes and API paths | `src/lib/constants.ts` | `ROUTES`, `API_ROUTES`, `APP_NAME`, `APP_TAGLINE` |

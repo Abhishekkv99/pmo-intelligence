@@ -253,8 +253,8 @@ The script is safe to re-run: it finds the app by exact name, adds redirect URIs
 - **Prod (product Phase 5)**: `-Environment prod -RedirectUris https://pmo-intelligence.itcapp.ai/auth/callback/microsoft`.
 - **Bootstrap admins**: `bootstrap_admin_emails` in each environment's git-ignored `terraform.tfvars` (copy `terraform.tfvars.example`); staging has `Abhishek.Verma@InformationTechConsultants.com`. Changing it replaces the backend task definition and redeploys.
 
-### 8. Granting roles (`make user-role`)
-Only an active member of the tenant whose user row holds a role can sign in. Guests are always refused. Until the Admin "Users and roles" page exists (Sprint 1), roles are set with a one-off ECS task, `<env>-admin-cli`: the backend image with the app's `DATABASE_URL`, run in the backend's subnets and security group.
+### 8. Granting roles (Admin page, or `make user-role`)
+Only an active member of the tenant whose user row holds a role can sign in. Guests are always refused. A PMO manager or admin grants, changes and removes roles on the Admin page, "Users and roles" tab. `make user-role` stays as the fallback for when nobody who can open that page can sign in (for example the first user of a new environment, beside the bootstrap list): a one-off ECS task, `<env>-admin-cli`, the backend image with the app's `DATABASE_URL`, run in the backend's subnets and security group.
 
 ```bash
 export AWS_PROFILE=pmo-intelligence
@@ -266,6 +266,7 @@ make user-role ENV=staging ARGS=--list                                          
 - **Roles**: `pmo_manager`, `sme`, `tech_lead`, `ps`, `admin` (`backend/app/models/enums.py`).
 - **A new person**: granting a role to an address that has never signed in creates the user by email. Their first Microsoft sign-in finds the row by email, links their Entra account and takes their name from the token. Use the address their token carries (their sign-in name, normally `first.last@informationtechconsultants.com`).
 - **Removing a role** ends every session the user has at once (their refresh tokens are revoked), and any page they have open stops working within 15 minutes. The row stays, without a role, so the role can be granted again.
+- **The last active PMO manager keeps the role**: the page and `make user-role` both refuse to remove or change it (the task exits 2 with the reason). Make someone else a PMO manager first.
 - **Bootstrap admins** (`bootstrap_admin_emails` in `terraform.tfvars`) are `pmo_manager` regardless: removing their role here lasts only until their next sign-in or the next deploy. Take them off the list as well.
 - **Who was refused**: every refused sign-in is a WARNING in the backend log group, `Sign-in refused: ...`, with the account it was for.
 - `scripts/user-role.sh` reads the cluster, task definition, subnets and security group from the environment's Terraform outputs, accepts only a plain email address and a known role, waits for the task, prints its own log stream and exits with the task's exit code.

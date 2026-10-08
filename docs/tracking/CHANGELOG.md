@@ -14,8 +14,8 @@ All notable changes to this project will be documented in this file.
 ### Added
 - Placement register on the Admin page: create and edit consultants, clients, projects and placements. It opens on Placements (status filter, search), with sub-tabs for the rest, and create and edit dialogs that show the API's reason when a save is refused. Clients are unique by normalised name, consultants by email, projects by (client, name) and placements by (consultant, project, start date). Named people must be active users with a role. Nothing is deleted.
 - Register CSV import (`POST /register/import`): one row per placement, previewed as a dry run and confirmed all or nothing. Filled cells overwrite and empty cells keep, so re-importing a sheet changes nothing. People are named by the email of an existing user with a role. The Import tab offers a template.
-- Admin tabs (Register, Import, Processing), with the tab in the URL; the processing queue polls only while its tab is open.
-- `GET /users`, the user list for global roles (the people pickers).
+- Admin tabs (Register, Import, Users and roles, Processing), with the tab in the URL; the processing queue polls only while its tab is open.
+- Users and roles tab on the Admin page (`GET /users`, `POST /users`, `PATCH /users/{user_id}`): give access by email and role (an address that has never signed in is added and linked at its first sign-in), change a role, or remove it, which ends the user's sessions. The last active PMO manager keeps the role, on the page (409) and in `make user-role`. Roles are shown by name ("PMO manager", "Placement specialist").
 - `PATCH` allowed by CORS, for local development.
 - Transcription settings: AssemblyAI's EU endpoint by default (`ASSEMBLYAI_BASE_URL`), `ASSEMBLYAI_SPEECH_MODELS` (Universal-3.5 Pro with a Universal-2 fallback), and its prices as settings. Transcription cost is now $0.21/hr plus $0.02/hr for diarization (was a fixed $0.15/hr).
 - Manual staging redeploy: run the CI workflow on `develop` with `target` set to backend, frontend or both; it runs that side's checks and e2e, then deploys.

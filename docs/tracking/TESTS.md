@@ -1,15 +1,15 @@
 # Test Tracking
 
 ## Summary
-Counts are taken from the test run output, never estimated. Last run 2026-10-08 (Sprint 1 Phase 2, after the commit-before-response fix): every layer; e2e against the compose stack on ports 8100/3100.
+Counts are taken from the test run output, never estimated. Last run 2026-10-08 (Sprint 1 Phase 2, after Users and roles): every layer; e2e against the compose stack on ports 8100/3100.
 
 | Layer | Count |
 |-------|-------|
-| Unit (backend) | 351 |
-| Integration (backend, testcontainers pgvector) | 78 |
-| Frontend unit (Vitest) | 108 |
-| Frontend e2e (Playwright, against the compose stack) | 11 (1 setup + 10) |
-| **Total** | **548** |
+| Unit (backend) | 355 |
+| Integration (backend, testcontainers pgvector) | 89 |
+| Frontend unit (Vitest) | 113 |
+| Frontend e2e (Playwright, against the compose stack) | 12 (1 setup + 11) |
+| **Total** | **569** |
 
 ## How to run
 - Backend unit: `cd backend && uv run pytest tests/unit`
@@ -31,8 +31,8 @@ Counts are taken from the test run output, never estimated. Last run 2026-10-08 
 | `test_cost_tracker.py` | 9 | LLM, embedding and transcription cost calculation; AssemblyAI rate plus diarization from settings |
 | `test_db_bootstrap.py` | 11 | Bootstrap config from the environment (defaults, overrides, every missing name listed); URL encoding of credentials; random passwords; secret merge keeps other keys; placeholder detection; exit code 2 without settings |
 | `test_db_session.py` | 1 | Engine command timeout |
-| `test_db_session_scope.py` | 26 | Every route's session is function-scoped, so it commits before the response (one case per route); a failed commit answers 500, not success |
-| `test_entitlement_coverage.py` | 35 | Every `/api/v1` route carries a guard or is listed public or self-scoped; placement-id routes carry a placement-scope guard |
+| `test_db_session_scope.py` | 28 | Every route's session is function-scoped, so it commits before the response (one case per route); a failed commit answers 500, not success |
+| `test_entitlement_coverage.py` | 37 | Every `/api/v1` route carries a guard or is listed public or self-scoped; placement-id routes carry a placement-scope guard |
 | `test_entitlements.py` | 35 | Global vs scoped roles, fail-closed for no role or unknown roles, 404-on-denial, role gate, bootstrap elevation rules |
 | `test_health.py` | 1 | Health endpoint |
 | `test_llm_factory.py` | 11 | Cached Azure OpenAI clients with timeout |
@@ -62,15 +62,17 @@ Counts are taken from the test run output, never estimated. Last run 2026-10-08 
 | `test_placement_scope.py` | 10 | Who can read a placement (each role); denial identical to a missing row; `access_log` rows only for permitted logged reads |
 | `test_processing_ownership.py` | 6 | Advisory lock acquire, hold, heartbeat, release |
 | `test_sign_in_access.py` | 8 | A role granted by email is linked at the first SSO sign-in; an unknown account leaves no row; change, list, remove-nothing and bad-address cases; removing a role revokes every refresh token; refresh refused once the role is gone; refresh works while it is held |
+| `test_users_api.py` | 11 | Granting creates a user by email or changes an existing role; not an email is 422; removing a role ends the sessions; unknown id 404; the last active PMO manager keeps the role (a disabled one does not count), handing over first works, and the service the CLI uses refuses too; scoped roles cannot change roles (403) |
 
 ## Frontend unit tests (`frontend/src/`)
 | File | Tests | Covers |
 |------|-------|--------|
 | `app/auth/callback/microsoft/page.test.tsx` | 8 | Error param, missing code, missing PKCE verifier, code exchange payload and redirect to `/`, exchange failure, a refused sign-in shows the backend's reason, a non-refusal keeps the generic message, back to login |
 | `app/layout.test.tsx` | 3 | Metadata name and tagline; toast region mounted; toasts shown |
-| `components/admin/AdminView.test.tsx` | 9 | Opens on the register for `pmo_manager` and `admin`; the tab in the URL opens (the queue polls only on its tab); choosing a tab writes `?tab=`; an unknown tab falls back; no tabs and the no-access message for `sme`, `tech_lead`, `ps` and no role |
+| `components/admin/AdminView.test.tsx` | 10 | Opens on the register for `pmo_manager` and `admin`; the tabs in order (Register, Import, Users and roles, Processing); the tab in the URL opens (the queue polls only on its tab); choosing a tab writes `?tab=`; an unknown tab falls back; no tabs and the no-access message for `sme`, `tech_lead`, `ps` and no role |
 | `components/admin/register/ImportTab.test.tsx` | 3 | Preview then Confirm of a clean file; Confirm stays disabled while a row has an error; a refused file shows the reason |
 | `components/admin/register/PlacementDialog.test.tsx` | 3 | End date before the start refused in the form; every field sent with empties as null; a failed save stays open with the API's message |
+| `components/admin/users/UsersTab.test.tsx` | 4 | Users listed with role, you marked, Microsoft sign-in state; the last PMO manager refusal shown and nothing refreshed; email and role required to give access; a change reports its message and refreshes |
 | `components/common/DataTable.test.tsx` | 3 | Search over every column; sort by header; empty and loading messages |
 | `components/admin/ProcessingStatusPanel.test.tsx` | 6 | Memory formatting; hidden when disabled; idle and busy queues; running jobs by kind, no links; memory diagnostics; request error |
 | `components/auth/LoginForm.test.tsx` | 7 | Microsoft button only; progress and error states; no password or sign-up |
@@ -93,5 +95,6 @@ Counts are taken from the test run output, never estimated. Last run 2026-10-08 
 | File | Tests | Covers |
 |------|-------|--------|
 | `auth.setup.ts` | 1 | Registers and signs in with local auth (the user is a bootstrap admin in `docker-compose.yml`, since sign-in needs a role), copies the refresh cookie, lands on the risk board, saves the storage state |
+| `admin-users.spec.ts` | 1 | A PMO manager gives a new address the PMO SME role (listed, not signed in yet), then removes it |
 | `admin-register.spec.ts` | 2 | A PMO manager adds a client in the dialog, and the same name again is refused with the reason; a CSV is previewed, confirmed, and its placement found on the register |
 | `auth.spec.ts` | 8 | Login page offers only Microsoft (no password, no sign-up); `/signup` redirects or 404s; signed-in user lands on the risk board, is sent from `/login` to `/`, opens Actions, sees the app name |

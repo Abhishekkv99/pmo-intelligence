@@ -90,9 +90,15 @@ PMO managers and admins edit the register; any other role gets `403 {"detail": "
 - **`ImportResult`**: `{dry_run, applied, summary: {rows, created, updated, unchanged, errors}, rows: [{row, outcome, consultant, client, project, changes, warnings, errors}]}`. `row` is the line number (the header is line 1); `outcome` is `create` (a new placement), `update`, `unchanged` or `error`.
 
 ### Users
-| Method | Path | Auth | Response |
-|--------|------|------|----------|
-| GET | `/users` | `pmo_manager`, `admin` | `[{id, email, full_name, role, is_active, signed_in_with_microsoft}]`, by email; no tokens, no Entra ids |
+| Method | Path | Auth | Request | Response |
+|--------|------|------|---------|----------|
+| GET | `/users` | `pmo_manager`, `admin` | — | `UserListItem[]`, by email; no tokens, no Entra ids |
+| POST | `/users` | `pmo_manager`, `admin` | `{email, role}` | `RoleChangeResult`; creates the user when the address has never signed in (linked at their first Microsoft sign-in); 422 for an invalid address |
+| PATCH | `/users/{user_id}` | `pmo_manager`, `admin` | `{role}`, a role or `null` to remove it | `RoleChangeResult`; removing a role revokes every refresh token of the user; 404 for an unknown id |
+
+- **`UserListItem`**: `{id, email, full_name, role, is_active, signed_in_with_microsoft}`.
+- **`RoleChangeResult`**: `{user: UserListItem, message}`; `message` says what changed in words (sessions ended, or that a bootstrap admin will be raised again at their next sign-in).
+- **The last active PMO manager keeps the role**: removing or changing it answers **409** `{"detail": "<email> is the last active PMO manager; make someone else a PMO manager first"}`. `make user-role` refuses the same change.
 
 ## Common Response Formats
 ### Error Response

@@ -26,6 +26,9 @@ vi.mock("./register/RegisterTab", () => ({
 vi.mock("./register/ImportTab", () => ({
   ImportTab: () => <div data-testid="import-tab" />,
 }));
+vi.mock("./users/UsersTab", () => ({
+  UsersTab: () => <div data-testid="users-tab" />,
+}));
 
 import { AdminView } from "./AdminView";
 
@@ -75,6 +78,18 @@ describe("AdminView", () => {
     expect(replace).toHaveBeenCalledWith("/admin?tab=import", {
       scroll: false,
     });
+  });
+
+  it("lists the tabs in order", () => {
+    signInAs("pmo_manager");
+    render(<AdminView />);
+
+    expect(screen.getAllByRole("tab").map((t) => t.textContent)).toEqual([
+      "Register",
+      "Import",
+      "Users and roles",
+      "Processing",
+    ]);
   });
 
   it("falls back to the register for an unknown tab", () => {
