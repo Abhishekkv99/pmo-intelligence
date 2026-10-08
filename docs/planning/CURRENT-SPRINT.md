@@ -1,244 +1,254 @@
-# Sprint 0: Bootstrap
+# Sprint 1: Register and Sessions
 
-**Status**: `complete` (2026-10-08; exit gate met; audit passed; handover `docs/handover/sprint-00-handover.md`)
-**Duration**: 2026-10-07 – 2026-10-20 (2 weeks)
-**Objective**: Bootstrap the repository: the stack copied from Interview Intelligence (queue, ownership lock, LLM factory, auth, CI, Docker, Terraform), SSO sign-in with roles, an empty dashboard deployed to staging, the Graph app registration created and the Teams permission request submitted.
-**Exit gate** (PRD Phase 0): the staging URL signs in with SSO; CI is green on `develop`; the Teams permission request has a ticket number.
-**Source repo**: `E:\E Projects\Interview Intelligence Platform` (develop @ 51e617b)
-**Branch**: all Sprint 0 work on `develop`; `main` stays at the docs commits until the first release.
+**Status**: `in-progress` (plan approved 2026-10-08)
+**Duration**: 2026-10-09 – 2026-10-22 (2 weeks)
+**Objective**: PRD Phase 1. The placement register (admin pages, CSV import), session ingestion from the PMO recordings folder, upload and URL, transcription, the session pipeline with verified signals, and the session page. Also four Sprint 0 backlog items: drop the stored Microsoft tokens, debug off by default, the Admin "Users and roles" page, and a manual CI redeploy.
+**Exit gate** (PRD Phase 1): three real recorded PMO calls processed end to end on staging, from consultants who were told beforehand that their call would be analysed; the PMO manager agrees the summary and signals are right.
+**Source repo for copied code**: `E:\E Projects\Interview Intelligence Platform` (develop)
+**Branch**: `develop`
+**Previous sprint**: Sprint 0 (Bootstrap), complete 2026-10-08; see `docs/handover/sprint-00-handover.md`. Its plan, session notes and Decisions Log are in git history (`5434bec`).
 
 ---
 
 ## Research Findings Summary
-- **Teams Graph access (2026-10-06)**: full detail and sources in `docs/integrations/TEAMS-GRAPH-SETUP.md`.
-  - Teams APIs have not been metered since 2025-08-25.
-  - The least-privileged app permission for reading chat messages is RSC `ChatMessage.Read.Chat`. Chat RSC defaults to `ManagedByMicrosoft`.
-  - Whether `Chat.Read.All` still needs protected-API approval is unconfirmed.
-  - Polling limits: `$top` max 50; `$filter` on `lastModifiedDateTime` needs a matching `$orderby`.
-- **GitHub**: branch protection and rulesets on private repos need GitHub Pro.
-- **Next.js**: 16.0.0–16.2.10 are affected by a middleware/proxy auth bypass (CVE-2026-64642) and eight other CVEs, fixed in 16.2.11 (2026-07-21). Interview Intelligence is on 16.1.6, so PMO upgrades to the latest 16.x at copy time.
-- **Terraform**: the S3 backend supports native state locking (`use_lockfile = true`). DynamoDB locking is deprecated. Bucket versioning is recommended.
-- **Sandbox account survey (2026-10-07, `pmo-intelligence` profile, read-only)**: account `260172548683` holds only the default VPC (`172.31.0.0/16`). No Route 53 zones (so no `itcapp.ai`), no IAM OIDC provider, and no RDS, ECS, ECR, ALB, ACM, S3, NAT, Elastic IP or CloudFormation stacks. Nothing to clash with; PMO creates everything.
-- **Entra redirect URIs** must be HTTPS except for `localhost`, so staging SSO needs a domain with a certificate.
-- **Interview Intelligence hazards** (from exploring the repo):
-  - **Local state**: `infra/` holds a live local `terraform.tfstate`, `terraform.tfvars` and `.terraform/`. Copy only `*.tf` and `terraform.tfvars.example`.
-  - **OIDC provider**: the GitHub OIDC provider already exists in the account, so use a data source.
-  - **Drift**: the ALBs and RDS were changed by hand. Look up shared resources live.
-  - **Shared ALB**: II's `/api/*` ALB rule has no host condition (priority 1), so sharing its ALB would route PMO's API to II.
-  - **No SQL path to RDS**: there is no ECS exec and RDS is private.
-  - **Coupling**: the queue, ownership lock, sweeps, `dependencies.py`, entitlements, processing models and integration conftest are coupled to interview and ingestion code.
-  - **mypy**: configured strict, but never run in CI.
-  - **Deploy**: the build-push workflow deploys even when CI fails.
-  - **Broken targets**: `make format` and `make seed` are broken.
+- **PMO recordings folder** (read-only survey 2026-10-08):
+  - Location: `s3://nextcloud-talk-recordings-itc/recordings/pmo/`, in the main ITC account `430006376054`, eu-west-2.
+  - Contents: 309 folders and 2,433 recordings (2,428 webm, 4 mp4), 304 GiB in all, about 125 MiB per recording, about 75 recordings a month lately.
+  - Encryption is SSE-S3 (no KMS grant needed). There is no bucket policy today.
+  - **A folder is a recurring Nextcloud Talk room** with one `Recording YYYY-MM-DD HH-MM-SS.webm` per call.
+  - Folder names follow `DD-MM-YY - <free text>#-#<ticket|ADHOC>#-#PMO#-#UK` (also with `#|#`). The free text mixes session tags (PMO support, PS, HC, FDC, PTP), stack codes (PRJ ITC DS), the consultant's name (first only, or full), the client and the placement dates. Some names show a mis-decoded dash (`�`), and one folder has an empty name.
+- **Same region**: PMO's S3 gateway endpoint (default policy) reaches a bucket in another account in eu-west-2, so a server-side `CopyObject` works. Interview Intelligence streams copies only because its buckets are in different regions.
+- **AssemblyAI**:
+  - **EU endpoint**: `aai.settings.base_url = "https://api.eu.assemblyai.com"`. Data stays in the EU, at the same price as the US endpoint.
+  - **`speech_models` is required.** The docs name the current model both `universal-3-pro` and `universal-3-5-pro`, so the value is configuration, confirmed by a smoke test.
+  - **Pricing**: $0.21/hr for Universal-3.5 Pro, plus $0.02/hr for diarization. The cost tracker currently has $0.15.
+  - **Diarization**: `speaker_labels`, plus `speakers_expected` or `speaker_options` (min and max).
+  - **Open**: whether the PMO key works on the EU endpoint. Phase 1 smoke test.
+- **LangGraph**:
+  - The lock has 1.0.8. Version 1.2 (2026-05) added `add_node(timeout=, error_handler=)`, for async nodes only; how errors behave in a parallel fan-out is not documented.
+  - Decision: stay on 1.0.x and enforce each node's timeout inside one shared node wrapper (`asyncio.timeout` plus try/except).
+- **Structured output**: `with_structured_output(Model, method="json_schema", include_raw=True)`, as Interview Intelligence uses, with token usage read from the raw message.
+- **Gaps in the copied Interview Intelligence code, to fix on copy**:
+  - No evidence-quote verification.
+  - No per-node timeout.
+  - Meeting node failures and costs are never persisted.
+  - URL download has no SSRF guard.
+  - Upload size is checked only from `file.size`.
+  - The scanner assumes one recording per folder.
+- **Uploads**: recordings run to about 125–250 MiB, so stream them through the backend in 1 MiB chunks with a running byte cap. The 500 MB limit is already configured, and presigned browser uploads are not needed at this size.
 
 ## User Decisions Made
 | Question | User Choice | Alternatives Offered |
 |----------|------------|---------------------|
-| Environments and database (#8) | Staging + prod. **Revised 2026-10-07: fully separate infrastructure from Interview Intelligence**: own VPC, VPC endpoints and RDS instance (was: own databases on II's shared RDS instance) | Staging only; own databases on the shared RDS instance; own RDS instance in the shared default VPC |
-| UK only or UK + US (#9) | UK only, no branch column | Model branch from day one |
-| Hostnames (#10) | `pmo-intelligence.itcapp.ai` (prod), `pmo-intelligence-staging.itcapp.ai` (staging) | `pmo.itcapp.ai` is taken; `placements.itcapp.ai`; `pmo-intel.itcapp.ai` |
-| Load balancer | Two new ALBs (staging and prod), as in Interview Intelligence | One new ALB for both; share II's ALB |
-| Terraform state | S3 remote backend with native locking | Local state like II |
-| SSO credential | Client secret, with its expiry recorded and reminded | Certificate credential |
-| SSO tenancy (2026-10-08) | Single tenant: the InformationTech home tenant only; `AZURE_ALLOWED_TENANT_IDS` empty | Multi-tenant plus allowlist, as Interview Intelligence and the PRD bootstrap checklist |
-| Sprint length | 2 weeks | 1 week; until the exit gate |
-| Frontend package manager | pnpm (as in II) | npm |
+| Recordings (BACKLOG #2) | S3 folder `s3://nextcloud-talk-recordings-itc/recordings/pmo/` (main ITC account) | Upload and URL first; Teams meeting recordings; nowhere yet |
+| System of record (#3) | Owned here: admin pages, plus a one-off CSV seed from the PS spreadsheet | Import and edit here too; external sync |
+| Sprint scope | All of Phase 1 in one sprint | Phase 1 plus the Users page; split over two sprints |
+| Transcription region | AssemblyAI EU endpoint | US endpoint (as Interview Intelligence) |
+| S3 access | A bucket policy on the source bucket, applied by hand with the CLI under the main-account login (JSON and command in DEPLOYMENT.md); PMO's Terraform adds the matching task-role permission | A read role in the main account; a Terraform root for the bucket policy |
+| Folder matching | A folder is matched to a consultant when its name contains their first or last name as a whole word (case- and accent-insensitive). A folder matching several consultants, or a consultant with several placements active on the date, needs a person to choose. Unmatched folders are not listed. **No auto-processing: a Process button per recording** | Triage inbox; naming convention; transcribe then match; list unmatched; substring match |
+| Session unit | One recording file is one session, held at its file-name timestamp; the placement is the one active on that date | One folder is one session (the largest file) |
+| Copy on Process | Server-side copy into PMO's media bucket (`sessions/<id>/`); AssemblyAI reads a presigned URL to the copy | Presign the source object |
+| Scan trigger and kind | Catalog-only scan every 15 minutes (configurable) plus "Scan now"; the pipeline's classify node sets the session kind, and a person can correct it | Button only; the user picks the kind |
+| SME scope (#5) | Decide at Sprint 2; Sprint 1 applies the existing placement-scope rule | PRD suggestion; SME sees everything in scope |
+| Signals | `signals`, `issues` and `actions` tables now; the embedding column now, filled in Sprint 2 | Embed now; analysis JSON only |
+| Consent for the gate calls (#6) | The three gate calls are from consultants told beforehand; who confirmed is recorded here. HR's notice still gates production | HR notice before the gate; internal staff calls |
+| Backlog pulled in | Drop the stored Microsoft tokens; debug off by default; Admin "Users and roles" page; manual CI redeploy trigger | — |
+| Permissions | `pmo_manager` and `admin`: register, CSV, users, scan, process, upload, URL. `sme`, `tech_lead`, `ps`: read the sessions of the placements naming them | Named roles may process; PMO manager only |
+| CSV import | One row per placement; a dry-run preview, then Confirm; an unknown people email is a row error (import never creates users) | Create users without a role; one file per entity |
+| Speaker roles | An LLM role-attribution node copied from Interview Intelligence, reframed for PMO roles, with the register's names as hints | AssemblyAI speaker identification |
+| Session page extras | Audio player with jump-to-moment; kind override; retry; node errors panel | — |
 
 ## Task Checklist
 
-### Phase 1: Backend skeleton
+### Phase 1: Backlog fixes and transcription smoke test
 **Code work**
-- [x] Copy the generic backend files as-is (pyproject/uv.lock, alembic env, db session and base repository, user and refresh-token models, LLM factory, cost tracker, exceptions, memory, security middleware, rate limiter, auth routes and services, health and processing-status routes)
-- [x] Rewrite `processing_queue.py` (generic core with an injected runner registry) and `processing_ownership.py` (injectable sweeps)
-- [x] Rewrite `dependencies.py`, `main.py` (lifespan: bootstrap admins, then `hold_processing`), `config.py` (PMO names) and `api/router.py`
-- [x] Role model: nullable `users.role` (`pmo_manager | sme | tech_lead | ps | admin`); bootstrap admins raised to `pmo_manager`; new SSO users get no role
-- [x] Scope foundation: `Principal`, `require_placement_scope` (404 plus a WARNING), `access_log` writer, route-coverage test
-- [x] Migration 001: vector extension plus users, refresh_tokens, consultants, clients, projects, placements, processing_jobs, processing_costs, access_log
-- [x] Prune dependencies (drop the unused second LLM SDK and the report/teams-matching libraries: fpdf2, weasyprint, rapidfuzz, markdown, xlsxwriter) and run `uv lock`
-- [x] Tests: adapt both conftests and the kept II tests; add entitlement, coverage, access-log and migration smoke tests; mypy strict passes
+- [ ] `backend/app/config.py`: `app_debug` defaults to `False`; compose and `.env.example` set `APP_DEBUG=true` for development
+- [ ] Stop storing users' Microsoft tokens at sign-in (`services/sso_service.py`), remove `refresh_microsoft_token`; migration `002_drop_user_ms_tokens.py` drops `ms_access_token`, `ms_refresh_token`, `ms_token_expires_at`; `User` model updated
+- [ ] `.github/workflows/ci.yml`: `workflow_dispatch` with a `target` choice (backend / frontend / both) that redeploys that side of staging from `develop`; every `uses:` ref verified with `gh api`
+- [ ] Settings: `assemblyai_base_url` (EU default), `assemblyai_speech_models`, AssemblyAI prices as configuration; `cost_tracker` reads them
+- [ ] Smoke test (not committed): the PMO key on the EU endpoint with a short public sample; record the key's region and the working `speech_models` value here
+- [ ] Tests: config default, SSO without token storage, migration 002 up and down, AssemblyAI cost
 
 **Doc updates (concurrent)**
-- [x] `docs/ARCHITECTURE.md`: backend layout, role model, migration 001 as built
-- [x] `docs/API.md`: health, auth, processing-status endpoints
-- [x] `docs/tracking/TESTS.md`, `FEATURES.md`, `CHANGELOG.md`
+- [ ] `ARCHITECTURE.md` (users table, `> Status:`), `DEPLOYMENT.md` (manual redeploy, `> Status:`), `README.md` (redeploy row), `TESTS.md`, `FEATURES.md`, `CHANGELOG.md`, `BACKLOG.md` (three items ticked)
 
-**Commit checkpoint**
-- [x] `feat: add backend skeleton with auth, role scope and migration 001` (5969dda; 274 tests, ruff and mypy green; tool-reference scan clean)
+**Commit checkpoints**
+- [ ] `fix: stop storing microsoft tokens at sign-in`
+- [ ] `fix: default debug off outside development`
+- [ ] `ci: add a manual staging redeploy`
 
-### Phase 2: Frontend skeleton
+### Phase 2: Placement register, CSV import, Users and roles
 **Code work**
-- [x] Copy the frontend (without `.next`, `node_modules` and the tsbuildinfo file); upgrade `next` and `eslint-config-next` to the latest 16.x (≥ 16.2.11) (16.3.8; pnpm 12 with `allowBuilds` in `pnpm-workspace.yaml`; unchanged copy: 466 unit tests pass, lint 0 errors, build compiles; type errors only in II interview tests, deleted next)
-- [x] Delete the interview, company, technology, meeting, search, dashboard, cost, daily-report, ingestion-admin and API-key code, plus the branch provider, switcher and lib (78 files left in `src`/`tests`; kept `ProcessingStatusPanel` for Admin and the generic helpers Pagination, DateRangeFilter, LoadingSpinner, useDebounce, useScrollRestore, `lib/download`; `score-utils` deleted)
-- [x] Prune `lib/constants.ts`; redirect after login to `/`; new sidebar nav (Risk board, Actions, Admin, Settings); `role` replaces `branch`/`access_level` (`lib/roles.ts` mirrors `Role`/`GLOBAL_ROLES`; Admin link for global roles only, others get a no-access message; queue panel shows generic job kinds, no links)
-- [x] Empty dashboard: Risk board placeholder at `/`, Actions placeholder (`app/page.tsx`, `app/actions/page.tsx`; done with the task above because the old home page linked to the removed dashboard route)
-- [x] Rebrand (app name, metadata, login copy, e2e heading) (`APP_NAME` "PMO Intelligence", `APP_TAGLINE` "Live health for every consultant placement" in `lib/constants.ts`, used by metadata and the login page)
-- [x] Add Prettier, `format` and `typecheck` scripts, the `packageManager` field and `engines`; drop unused dependencies (Prettier 3.9.9 defaults + `eslint-config-prettier`, one format pass over all files incl. `ui/`; `format`, `format:check`, `typecheck` scripts; `packageManager` `pnpm@12.6.0`, engines node >=22, pnpm >=12; dropped date-fns, react-markdown, remark-gfm, @tailwindcss/typography)
-- [x] Tests: keep the generic unit tests, rewrite the Sidebar, AuthProvider, layout and callback tests; e2e auth only (86 unit tests in 17 files; new `roles`, `AdminView` tests; generic tests' sample data made PMO; e2e: setup lands on the risk board, 8 role-agnostic auth specs, listed with `playwright test --list` but not run: no local stack until Phase 3)
+- [ ] Repositories: `consultant_repo`, `client_repo`, `project_repo`, `placement_repo` (on `db/repositories/base.py`)
+- [ ] `services/register_service.py`: CRUD, client `normalized_name`, validation (end after start, enumerations)
+- [ ] `services/register_import.py`: CSV → per-row result (create / update / error); dry run; Confirm all-or-nothing in one transaction. Columns `consultant_full_name, consultant_email, client_name, project_name, client_manager_name, tech_lead_email, ps_email, sme_email, start_date, expected_end_date, extension_status, rate_band`. Dedup: clients on normalized name; consultants on email (else full name); projects on (client, name); placements on (consultant, project, start_date). Dates ISO or `DD/MM/YYYY`; UTF-8 with or without BOM; 1 MB, 1,000 rows at most
+- [ ] Routes `api/v1/register.py` (global roles): list, create, update consultants, clients, projects, placements; `GET /placements/{placement_id}` with `require_placement_scope`; `POST /register/import?dry_run=`
+- [ ] Routes `api/v1/users.py` (global roles): list, grant by email, change or remove a role, through `services/user_roles.py`; refuse to remove or change the last active `pmo_manager` (your own included)
+- [ ] Frontend: Admin as tabs (Register, Import, Users and roles, Recordings, Processing); TanStack tables, create/edit dialogs (react-hook-form + zod); hooks `useRegister.ts`, `useUsers.ts`; `API_ROUTES` additions
+- [ ] Tests: service, import (dry run, row errors, dedup, date formats, BOM, size), routes and guards (coverage test), integration against Postgres, frontend components
 
 **Doc updates (concurrent)**
-- [x] `ARCHITECTURE.md`: frontend layout and auth flow
-- [x] `TESTS.md`, `FEATURES.md`, `CHANGELOG.md`
+- [ ] `API.md` (register, import, users), `ARCHITECTURE.md` (register as built, Admin tabs, `> Status:`), `FEATURES.md`, `TESTS.md`, `CHANGELOG.md`, `ROADMAP.md` (tick "Placement register"), `DEPLOYMENT.md` (`make user-role` stays as a fallback)
 
-**Commit checkpoint**
-- [x] `feat: add frontend skeleton with SSO sign-in and empty dashboard` (ef19b70 + 1db2a10; typecheck 0, 86 unit tests, lint clean, format:check clean, build green; e2e listed, not run until Phase 3)
+**Commit checkpoints**
+- [ ] `feat: add the placement register with csv import`
+- [ ] `feat: add the users and roles admin page`
 
-### Phase 3: Local dev and CI
+### Phase 3: Sessions and ingestion (folder scanner, upload, URL, transcription)
 **Code work**
-- [x] `docker-compose.yml`, `Makefile` (format fixed, mypy in lint, seed removed), `.env.example`, `.dockerignore` (compose db `pmo_intelligence`, ports as II, `docker compose config` valid; Makefile adds `test-e2e`, lint = ruff + `mypy app` / eslint + typecheck + format:check, both pass; `.env.example` lists only what `config.py` reads, copy to `backend/.env`; `backend/` and `frontend/` `.dockerignore`)
-- [x] Dockerfiles (backend without the WeasyPrint libraries) (backend: II's minus WeasyPrint, uv 0.9.18; frontend: pnpm 12.6.0, copies `pnpm-workspace.yaml`, `HOSTNAME=0.0.0.0` so the in-container health check reaches the server; `docker compose up --build` all healthy, `make migrate` applied 001, first e2e run 9/9 after fixing an ambiguous heading locator in `auth.spec.ts`)
-- [x] `ci.yml`: default token checkout, mypy, e2e with local auth (`.github/workflows/ci.yml`: latest action majors, uv 0.9.18, pnpm from `packageManager`, Node 22; backend ruff + `mypy app` + unit + integration; frontend eslint + typecheck + format:check + vitest + build; e2e on the compose stack; path filters; actionlint clean; first GitHub run on the phase push)
-- [x] Deploy workflow: ECR `pmo-intelligence-*`; deploys only after CI succeeds; `develop` deploys to staging (`deploy-staging` job in `ci.yml`: needs every CI job passed or skipped, push to `develop` only, redeploys the side that changed since the branch's previous commit, OIDC role and identifiers from repository variables, skipped while `vars.AWS_ROLE_ARN` is unset; `main` → prod added at product Phase 5; actionlint clean)
-- [x] (Discovered) Configurable host ports `PMO_API_PORT`/`PMO_WEB_PORT` (defaults 8000/3000) in compose, the Makefile and `make test-e2e`, so the stack runs beside another project's dev servers (e2e 9/9 on 8100/3100 with the other servers on 8000/3000)
+- [ ] Migration `003_create_sessions_and_recordings.py`:
+  - `sessions`, as in the ARCHITECTURE data model, plus `source_recording_id`, `kind_overridden_by_user_id`, `quotes_rejected` and `node_errors` (JSONB)
+  - `session_transcripts`
+  - `recording_folders`: `folder_key` (unique), `display_name`, `folder_date`, `consultant_id` (nullable), `match_status`, `candidate_consultant_ids` (JSONB), `last_seen_at`
+  - `source_recordings`: `folder_id`, `object_key` (unique), `size_bytes`, `last_modified`, `recorded_at`, `session_id` (nullable)
+  - a foreign key from `processing_costs.session_id`
+- [ ] Copy and adapt from Interview Intelligence:
+  - `services/storage/` (base, local, s3, multipart)
+  - `services/transcription/assemblyai_client.py`: EU base URL, configured models, `speaker_options`, a timeout around the thread call
+  - `upload_service.py`: running byte cap, extension plus magic-byte check, sanitised names
+  - `url_download_service.py`: SSRF guard (https only; refuse private, loopback, link-local and metadata addresses; re-check every redirect hop; byte cap)
+- [ ] `services/recordings/`:
+  - `folder_names.py`: date, suffix strip (`#-#…`, `#|#…`), `�` repair, folding
+  - `name_match.py`: whole word, first and last tokens of `full_name`
+  - `scanner.py`: list, upsert folders and recordings, re-match unmatched and needs-choice folders, never process; time limit and claim
+  - `periodic.py`: every `RECORDINGS_SCAN_INTERVAL_SECONDS` (900), run by the processing owner only
+- [ ] `services/session_service.py`:
+  - Create a session from a recording, an upload or a URL.
+  - Status chain `uploaded → transcribing → transcribed → analyzing → completed / failed`.
+  - Runner kind `session`: copy into PMO's bucket, transcribe, store the transcript and the AssemblyAI cost, then hand off to the pipeline (Phase 4).
+  - Takeover sweep: sessions stuck in flight are marked failed.
+  - Takeover requeue: waiting sessions are put back on the queue.
+- [ ] Routes:
+  - `api/v1/recordings.py` (global roles): list folders (matched, needs choice) with their recordings; `PUT /recording-folders/{folder_id}/consultant`; `POST /recordings/scan`; `POST /recordings/{recording_id}/process` (409 without `placement_id` when ambiguous).
+  - `api/v1/sessions.py`: `POST /sessions/upload`, `POST /sessions/url` (global roles; placement chosen in the form).
+- [ ] Settings `RECORDINGS_SOURCE_BUCKET`, `RECORDINGS_SOURCE_PREFIX`, `RECORDINGS_SCAN_ENABLED`, `RECORDINGS_SCAN_INTERVAL_SECONDS`, `RECORDINGS_TIMEZONE` (Europe/London; checked against one recording with a known call time)
+- [ ] Terraform (`infra/modules/environment/iam.tf`, `ecs.tf`, staging): task-role `s3:ListBucket` (condition `s3:prefix` `recordings/pmo/*`) and `s3:GetObject` on `nextcloud-talk-recordings-itc/recordings/pmo/*`; new env vars. Plan reviewed, applied on approval
+- [ ] External step (user, main-account login): check `get-bucket-policy` (expected: none), then `put-bucket-policy` with the reviewed Allow-only JSON for PMO's staging task role
+- [ ] Frontend:
+  - Admin > Recordings tab: the folders table, a needs-choice picker, the recordings in each folder with a Process button (the confirmation shows the estimated cost), "Scan now" and the last scan time.
+  - Upload and URL dialogs, from Interview Intelligence's `FileDropZone`, `UploadProgress` and `lib/upload.ts`.
+- [ ] Tests:
+  - Folder-name parser on the real name shapes.
+  - Name matching: whole word, accents, ambiguity.
+  - Scanner with mocked S3: new folders, new files in a matched room, nothing processed.
+  - SSRF guard, upload cap, and the AssemblyAI mock.
+  - Runner status chain and the sweeps.
+  - Integration: migration 003 and the process flow.
 
 **Doc updates (concurrent)**
-- [x] `README.md` (quick start), `ARCHITECTURE.md` (CI/CD), `CHANGELOG.md` (new `README.md`: prerequisites, quick start, commands, CI; `ARCHITECTURE.md` "Local development and CI/CD (as built)"; `CHANGELOG.md`; also `TESTS.md`: 369 from the 2026-10-07 run, e2e 9 against compose)
+- [ ] `ARCHITECTURE.md` (ingestion and data model as built, `> Status:`), `API.md`, `DEPLOYMENT.md` (bucket policy JSON and command, env vars, `> Status:` from `terraform state list`), `.env.example`, `FEATURES.md`, `TESTS.md`, `CHANGELOG.md`, `ROADMAP.md` (tick "Session ingestion")
 
-**Commit checkpoint**
-- [x] `chore: add docker compose, makefile and ci pipeline`; push; **CI green on `develop`** (deviation: the code went in as smaller commits 54f9ee1, ffecbab, 46ea4b7, 7329643, 5e2a851, f4ff059; phase commit cde4aec; first run 37577785017 failed at job setup on `setup-uv@v10`, fixed in 164e95a; run 37578107788 green: 241 unit + 33 integration + 86 frontend unit + 9 e2e, deploy skipped)
+**Commit checkpoints**
+- [ ] `feat: add sessions and the recordings scanner`
+- [ ] `feat: add session upload and url ingestion`
+- [ ] `feat: grant the backend read on the pmo recordings prefix` (Terraform, after apply)
 
-### Phase 4: Infrastructure as code (plan first, apply only with approval)
+### Phase 4: Session pipeline and signals
 **Code work**
-- [x] `infra/bootstrap/`: state bucket (versioned, encrypted, public access blocked) (applied 2026-10-07: `pmo-intelligence-tfstate-260172548683`, 7 resources, plus SSE-S3, TLS-only policy, 90-day noncurrent expiry, `prevent_destroy`; own state migrated to `bootstrap/terraform.tfstate`; plan clean)
-- [x] Main Terraform, adapted from II's `infra/*.tf`, (written 2026-10-07, 71778f2; shared applied: 23 resources, VPC `vpc-07b4916ad2aaa890c`; staging step 1 applied: hosted zone, name servers `ns-1004.awsdns-61.net`, `ns-1450.awsdns-53.org`, `ns-1905.awsdns-46.co.uk`, `ns-4.awsdns-00.com`; staging step 2 waits for the NS delegation) all in account `260172548683` with S3 backends (`use_lockfile`): `infra/shared/` (state `shared/`: VPC, subnets, S3 endpoint, ECR with lifecycle, ECS cluster, GitHub OIDC provider and deploy role, deny-deletion policy), `infra/modules/environment/` (ALB with HTTP→HTTPS redirect, target groups, security groups, RDS, app secret, log groups, task definitions, services, hosted zone, certificate, SES identity, media bucket, IAM roles) and `infra/environments/staging/` (state `staging/`); staging step 2 applied 2026-10-07: 51 resources, `https://pmo-intelligence-staging.itcapp.ai` serves the certificate, re-plan shows no changes
-- [x] DNS: public hosted zone `pmo-intelligence-staging.itcapp.ai` in the sandbox, its name servers as an output; ACM certificate validated in that zone; ALB alias record. External step: whoever manages `itcapp.ai` adds one NS record delegating that name (BACKLOG). Prod gets its own delegated zone at product Phase 5 (done: NS record added 2026-10-07 in account `430006376054`, verified)
-- [x] Network: own VPC in two AZs; public subnets for the ALBs and the ECS tasks (public IPv4 per task, inbound only from the ALB security group), private subnets with no internet route for RDS; internet gateway; S3 gateway endpoint; no NAT, no interface endpoints (done in `infra/shared/`)
-- [x] Own RDS PostgreSQL 16 instance for staging: `db.t4g.micro`, single-AZ, 20 GB gp3, private subnets, security group open only to the backend tasks; production gets its own instance at product Phase 5 (done: `pmo-intelligence-staging`, created in 9 min)
-- [x] Per product: ECS cluster, 2 ALBs, security groups, target groups, 2 ACM certificates, 2 DNS records (alias in the delegated zones), ECR, task definitions with migration init, services, log groups, 2 secrets, S3 bucket, IAM roles (OIDC role for `Abhishekkv99/pmo-intelligence`) (staging done via `infra/modules/environment/`; prod at product Phase 5)
-- [x] `scripts/db_bootstrap.py` (one-off ECS task): PMO databases on PMO's own instance, a `pmo_app` login role, the vector extension (written 2026-10-07 as `backend/app/cli/db_bootstrap.py` + `scripts/db-bootstrap.sh` + `make db-bootstrap`; Terraform task definition and roles in `infra/modules/environment/db_bootstrap.tf` planned: 7 to add; 11 unit + 5 integration tests pass; applied and run on staging 2026-10-07: `pmo_app` created, owns `pmo_intelligence`, `DATABASE_URL` written; backend redeployed, migration 001 ran as `pmo_app`)
-- [x] (Discovered 2026-10-08) Azure OpenAI for PMO as Terraform (`infra/azure/`): own resource group `rg-pmo-intelligence-swc` and resource `oai-pmo-intelligence-swc` (Sweden Central), Data Zone Standard deployments `gpt-5.4-mini-staging` and `text-embedding-3-small-staging` at 50K TPM (planned: 5 to add with the group-scoped policy exemption; first apply blocked twice: MFA claim, fixed with a device-code login with the claims challenge; then the resource-group creation policy, waiting for the policy owner's agreement to a 2-hour exemption); applied 2026-10-08 with the policy owner's agreement: 2-hour subscription waiver created, 5 resources applied, waiver deleted 3 minutes later; re-plan clean; endpoint, deployments and key piped into `pmo-intelligence/staging/app` (key never shown); smoke test: chat answered, embeddings 1536-dimension; backend redeployed and healthy
-- [x] Expiry reminders: SNS email topic plus EventBridge Scheduler (`credential_expiries`) (written 2026-10-08 in `infra/shared/expiry_reminders.tf`: 30/14/3 days before, 09:00 Europe/London, to Abhishek.Verma@InformationTechConsultants.com; Teams Graph certificate 2027-10-06 tracked; committed 1d14675 and applied 2026-10-08: 3 schedules enabled, subscription confirmed, 1 test email delivered (SNS metric); re-plan of `infra/shared/` shows no changes)
-- [x] `terraform plan` reviewed with the user; on explicit approval, apply the shared and staging resources (prod behind a variable, applied at Phase 5 of the product) (bootstrap, shared and staging plans reviewed and applied with approval 2026-10-07)
+- [ ] Migration `004_create_signals_issues_actions.py`:
+  - `signals`: index on (`placement_id`, `occurred_at`), `embedding vector(1536)` nullable, `offset_ms`.
+  - `issues` and `actions`.
+- [ ] `app/ai/session/`:
+  - `state.py`: `cost_records` and `node_errors` merged with `operator.add`.
+  - `node.py`: one wrapper per node that times it, costs it, applies `asyncio.timeout` from configuration, and turns any exception into a `node_errors` entry.
+  - `schemas.py`: the structured-output models.
+  - `prompts/`: cite the enumerations constant.
+  - `graph.py`: `attribute_roles → classify → summarise → [issues, relationship_engagement, client_signals, actions] → emit_signals`.
+  - `attribute_roles` is given the register's names. `issues` and `actions` are given the placement's open items, so a repeated issue or a closing action names the earlier one. `emit_signals` is deterministic.
+- [ ] Enumerations in `app/models/enums.py`: `SessionKind`, `SessionSource`, `SessionStatus`, `SpeakerRole`, `Dimension`, `Polarity`, `SourceKind`, `IssueStatus`, `ActionStatus`, `FolderMatchStatus`
+- [ ] `services/quote_check.py`: normalise the quote (NFKC, casefold, quotes and dashes unified, whitespace collapsed), require it to be a substring of the transcript, then locate its utterance for `occurred_at` and `offset_ms`. Rejections are counted and never stored.
+- [ ] Persistence:
+  - On `session_transcripts`: the summary, `session_class` and `speaker_roles`.
+  - The signals, issues and actions.
+  - A `processing_costs` row per node, and one for AssemblyAI.
+  - On the session: `node_errors` and `quotes_rejected`.
+- [ ] Tests:
+  - Each node with mocked responses, including the failure and timeout paths (non-fatal).
+  - Quote rejection and quote location.
+  - The graph end to end with mocks.
+  - An integration run from transcript to signals.
 
 **Doc updates (concurrent)**
-- [x] `ARCHITECTURE.md`: what PMO owns versus what it looks up, state backend, database isolation ("Infrastructure (as built)": nothing on AWS shared, the NS delegation the only outside link; state bucket and keys; staging's own RDS instance and `pmo_app`; Azure OpenAI and the reminders; checked 2026-10-08)
-- [x] New `docs/DEPLOYMENT.md`: bootstrap order, secret keys, DB bootstrap, rollback (access via SSO, tooling, sections 1–6 for every stack, app secret key table, app-deploy rollback by image retag plus `git revert` with the migration caveat (user decision 2026-10-08), state rollback)
-- [x] `CHANGELOG.md`
+- [ ] `ARCHITECTURE.md` (pipeline as built, enumerations, `> Status:`), `FEATURES.md`, `TESTS.md`, `CHANGELOG.md`
 
 **Commit checkpoint**
-- [x] `feat: add terraform for staging and prod with remote state` (before apply; a follow-up commit after apply) (deviation: the Terraform went in as smaller commits 36323b1, b0acf90, 71778f2, 62ac7a7, 2b28a77, 0445294, 53c6578, d50e186, 1d14675; phase close-out commit 4aeeaff `docs: complete the deployment guide for phase 4`, pushed)
+- [ ] `feat: add the session pipeline with verified signals`
 
-### Phase 5: SSO, staging deploy, audit and handover
+### Phase 5: Session page and sessions list
+**Code work**
+- [ ] Session guards: `require_session_scope` / `require_logged_session_scope` (session → placement → scope; 404 on denial; the logged variant writes `access_log`). The coverage test requires one of them on any `{session_id}` path, and `require_roles` on `{recording_id}`, `{folder_id}` and `{user_id}` paths (the guard lands with the first session route in Phase 3)
+- [ ] Backend `api/v1/sessions.py`:
+  - `GET /sessions`: the sessions in the user's scope, filtered by consultant and status.
+  - `GET /sessions/{session_id}` (logged): the session, with node errors for global roles.
+  - `GET /sessions/{session_id}/media-url`: a 15-minute presigned URL.
+  - `PATCH /sessions/{session_id}/kind` and `POST /sessions/{session_id}/retry` (global roles; retry resumes from the failed stage).
+- [ ] Frontend:
+  - `app/sessions/page.tsx`, with a "Sessions" sidebar entry.
+  - `app/sessions/[sessionId]/page.tsx`:
+    - Header: consultant, client, project, held at, kind (with override) and status. The page polls every 10 s while processing.
+    - Audio player: clicking a signal, issue, action or transcript line seeks to that moment.
+    - Summary, then the speaker-attributed transcript.
+    - Signals with their quotes, then issues, actions and cost.
+    - For global roles: the node errors panel and a retry button.
+  - Hooks `useSessions.ts` and `useSession.ts`.
+- [ ] Tests: guards and the access log, retry and override, components, e2e (a seeded completed session renders; the page polls while processing)
+
+**Doc updates (concurrent)**
+- [ ] `API.md`, `ARCHITECTURE.md` (frontend as built, `> Status:`), `FEATURES.md`, `TESTS.md`, `CHANGELOG.md`, `ROADMAP.md` (tick "Session pipeline and session page")
+
+**Commit checkpoint**
+- [ ] `feat: add the session page and sessions list`
+
+### Phase 6: Staging rollout, exit gate, audit and handover
 **Code work and setup**
-- [x] Entra SSO app "PMO Intelligence": single tenant (InformationTech home tenant; user decision 2026-10-08, was multi-tenant plus allowlist), redirect URIs (localhost and staging), client secret with its expiry recorded; `AZURE_ALLOWED_TENANT_IDS` stays empty (2026-10-08 with new `scripts/entra/Register-SsoApp.ps1`: app `ac99fe5f-a3bb-4299-afdc-0da9bdeab113`, Web redirects localhost 3000/3100 and staging, OpenID scopes, assignment required with Abhishek assigned (turned off the same day, see Decisions Log), secret `staging` to 2027-10-08 written into the staging secret; expiry added to `credential_expiries`, shared applied: 3 added)
-- [x] User populates the staging secret (values never in chat); `BOOTSTRAP_ADMIN_EMAILS` (Azure OpenAI values piped in and the AssemblyAI key set 2026-10-08; Entra values written by the script; `bootstrap_admin_emails` in the git-ignored staging `terraform.tfvars`, staging applied: task definition revision 2, backend stable, `/auth/sso/microsoft/config` serves the new app with the tenant authority)
-- [x] Run the DB bootstrap for staging; push to `develop`; CI, then deploy (bootstrap run 2026-10-07; backend deployed by CI; frontend rebuilt by hand 2026-10-08 after the baked API URL bug, audit note 11)
-- [x] Exit gate: sign in at the staging URL with SSO; record the Teams ticket number (**SSO sign-in passed 2026-10-08 07:21 UTC**: Abhishek signed in at https://pmo-intelligence-staging.itcapp.ai, provisioned and raised to `pmo_manager` by the bootstrap list, per the backend log; re-checked after the member-and-role deploy. **Teams: the app was approved and published (1.0.0, seen 2026-10-08) without a ticket number**, which meets the gate's intent (user decision 2026-10-08); availability to be narrowed and the A5 read test run before Phase 3, see BACKLOG)
-
-**(Discovered 2026-10-08) Sign-in for tenant members with a role only** (user decisions 2026-10-08; see Decisions Log)
-- [x] App registration: optional id-token claim `acct` (0 member, 1 guest) via `Register-SsoApp.ps1`, re-run on the app. **Must be live before the backend that checks it is deployed**, or every sign-in is refused (done 2026-10-08: added by re-running the script; the re-run first failed on a script bug, audit note 13, without changing anything)
-- [x] Backend, guests: `sso_service` refuses a token unless `acct` is 0 (missing claim refused: fail closed), before any user lookup; 403 "Guest accounts cannot sign in to PMO Intelligence"; WARNING with the account and reason (`assert_tenant_member` in `sso_service.py`)
-- [x] Backend, no role: sign-in finds the user by Entra oid, then by email; creates a row only for a bootstrap admin (`pmo_manager` at once); a user with no role, a disabled user, or an unknown email is refused with 403 "Your account has not been given access to PMO Intelligence. Ask a PMO manager.", WARNING logged, **no row created**. Local password login (dev and CI only) follows the same rule (`find_user_for_sign_in` + `assert_may_sign_in` in `entitlements.py`; `authenticate` for passwords)
-- [x] Backend, every request and refresh: `get_current_user` answers 401 for a user with no role; `/auth/refresh` refuses (401, cookie cleared, the user's refresh tokens revoked) a disabled or no-role user, so a revoked role ends access within the 15-minute access-token life (`get_current_user`, `validate_and_rotate_refresh_token`)
-- [x] Role CLI `backend/app/cli/user_role.py`: `--email <addr> --role <pmo_manager|sme|tech_lead|ps|admin|none>` creates the user by email if missing (name from the address until first sign-in, linked to Entra at first sign-in) or changes the role; `none` clears it and revokes the user's refresh tokens; `--list` prints email, role, active, last sign-in source. Run as a one-off ECS task: `scripts/user-role.sh` + `make user-role ENV=staging EMAIL=... ROLE=...` (`ARGS=--list`) (service `app/services/user_roles.py`; `--list` shows email, name, role, active, signed in with Microsoft or not yet; `scripts/user-role.sh` accepts only a plain address and a known role)
-- [x] Terraform: `<env>-admin-cli` task definition (backend image, `DATABASE_URL` from the app secret, the app's execution role, backend subnets and security group), its outputs; plan, then apply on approval. Needs the backend image with the CLI, so it runs after the CI deploy (written: `infra/modules/environment/admin_cli.tf`, log group `admin-cli`, outputs; staging applied 2026-10-08: 2 added)
-- [x] Frontend: the callback page shows the backend's refusal message instead of the generic failure
-- [x] e2e: compose gives the e2e user a role through `BOOTSTRAP_ADMIN_EMAILS`, since a no-role local login is now refused (9/9 on the compose stack, ports 8100/3100)
-- [x] Tests: guest (acct 1, missing), no-role refusal with no row created, bootstrap creation, disabled user, refresh and per-request refusal, CLI (create, change, revoke, list); integration for refresh and the CLI against Postgres; frontend callback message (backend 289 unit + 47 integration, frontend 88 unit, e2e 9; `make lint` clean)
-- [x] Rollout: (1) re-run the script for `acct` (done); (2)-(4) done 2026-10-08 (CI run 37748446898 green, admin-cli applied, `--list` shows one user); (5) Abhishek signed in again on the new build (200, no refusal in the log); (6) a no-role member's refusal not tried on staging (covered by unit, integration and e2e tests); (2) push, CI deploys the backend and frontend; (3) apply the admin-cli task definition; (4) `make user-role ... --list`; (5) sign in again; (6) a guest-free check: confirm a no-role member is refused (user picks a colleague or a test account)
-
-**Doc updates for the discovered work (concurrent)**
-- [x] `ARCHITECTURE.md` (role model, auth flow: members only, role required, CLI), `API.md` (callback 403s, refresh and per-request 401), `DEPLOYMENT.md` (section 7 `acct` claim; new section: granting roles), `TESTS.md`, `FEATURES.md`, `CHANGELOG.md`
-
-**Commit checkpoints for the discovered work**
-- [x] `fix: let tenant users consent to the sso app` (pending fixes from earlier today, before any new code)
-- [x] `feat: limit sign-in to tenant members with a role` (backend, frontend, tests, script, docs) (57b1385)
-- [x] `feat: add a one-off ecs task for granting roles` (Terraform, script, make target; after apply)
+- [ ] Deploy through CI; Phase 3 Terraform applied on approval; bucket policy applied by the user
+- [ ] First staging scan (catalog only); seed the register for the consultants concerned (CSV); resolve the needs-choice folders
+- [ ] Exit gate: process three calls from consultants who were told (names and date recorded here); the PMO manager reviews summaries and signals; fixes made
 
 **Doc updates (concurrent)**
-- [x] `SPRINT-AUDIT.md` (Rule C), `docs/handover/sprint-00-handover.md`, `BACKLOG.md`, `ROADMAP.md`, `TEAMS-GRAPH-SETUP.md` (audit passed 2026-10-08: 21 findings, 21 rules; handover written; open items in BACKLOG)
+- [ ] `docs/tracking/SPRINT-AUDIT.md` (Rule C), `docs/handover/sprint-01-handover.md`, `BACKLOG.md`, `ROADMAP.md`
 
-**Commit checkpoint**
-- [ ] `docs: complete sprint 0 audit and handover`
+**Commit checkpoints**
+- [ ] `docs: record the sprint 1 exit gate`
+- [ ] `docs: complete sprint 1 audit and handover`
 
->>> CURRENT PHASE: Sprint 0 complete — next: plan Sprint 1 with /sprint-start
+## Blockers and Dependencies
+- The PMO AssemblyAI key on the EU endpoint (Phase 1 smoke test). If the key is US-bound, an EU key is needed.
+- A bucket policy on `nextcloud-talk-recordings-itc`, applied with the user's main-account login, before the staging scan (Phase 3/6).
+- Register data for the consultants in the gate calls: a CSV from the PS team's spreadsheet.
+- Three consultants told in advance that their calls will be analysed, and the PMO manager available for the review.
 
-## Session State (last updated: 2026-10-08 15:04)
-- **Sprint**: 0 — Bootstrap
-- **Current phase**: Sprint 0 complete (Phases 1–5 done)
-- **Phase progress**: every task done; the final commit is the last step
-- **Last completed task**: sprint audit passed and the Sprint 0 handover written (`docs/handover/sprint-00-handover.md`); open items moved to BACKLOG
-- **Next task**: final commit `docs: complete sprint 0 audit and handover`; then Sprint 1 planning with /sprint-start (read the handover first; answer BACKLOG questions 2, 3, 5, 6, 7)
-- **Last commit**: 7ab4ba5 "docs: record the sprint 0 exit gate and the teams app approval" (pushed)
-- **Uncommitted changes**: `README.md`, `docs/ARCHITECTURE.md`, `docs/DEPLOYMENT.md`, `docs/planning/{BACKLOG,ROADMAP,CURRENT-SPRINT}.md`, `docs/tracking/{FEATURES,SPRINT-AUDIT}.md`, new `docs/handover/sprint-00-handover.md`
-- **Blockers**: Teams connector app pending tenant admin approval (external; affects only the exit-gate ticket item). Push: the repo is private under `Abhishekkv99`; the default git login and the active `gh` account (`abhishekitc`) cannot see it. User decision 2026-10-07: do not change the default git login or the active `gh` account; push with `Abhishekkv99`'s token for that one command only (`git -c credential.helper= -c credential.helper='!f() { echo username=x-access-token; echo "password=$(gh auth token --user Abhishekkv99)"; }; f' push origin develop`). AWS: run `aws sso login --profile pmo-intelligence` when the session expires
-- **Tests passing**: 289 unit + 47 integration (backend) + 88 frontend unit + 9 e2e = 433 (2026-10-08, re-run for the audit); `make lint` and `terraform fmt` clean
-- **Files created this session**: `docker-compose.yml`, `Makefile`, `.env.example`, `backend/.dockerignore`, `frontend/.dockerignore`, `backend/Dockerfile`, `.github/workflows/ci.yml`, `README.md`, `infra/bootstrap/{versions,variables,main,outputs}.tf`, `infra/bootstrap/.terraform.lock.hcl`, `infra/bootstrap/backend.tf`, `docs/DEPLOYMENT.md`
-- **Files modified this session**: `frontend/Dockerfile`, `frontend/tests/e2e/auth.spec.ts`, `docs/planning/CURRENT-SPRINT.md`, `docs/planning/BACKLOG.md`, `.gitignore` (recursive Terraform rules, lock file tracked)
-- **Key decisions this session**: make via winget; compose ports as II; lint gates as CI; one `.dockerignore` per build context; mypy over `app` only; uv 0.9.18 pinned (see Decisions Log)
-- **Audit notes (Rule C, for the sprint audit)**: (1) CI used `astral-sh/setup-uv@v10`, a tag that does not exist; the first run failed at job setup. Cause: assumed every action publishes a floating major tag. Rule to add: verify every `uses:` ref with `gh api repos/<owner>/<repo>/git/ref/tags/<tag>` before pushing a workflow. (2) The docs said docs-only pushes skip CI on `develop`; paths-filter compares a non-default-branch push with `main`. Cause: the II comment about `base` was read for the deploy filter only. Rule to add: state the comparison base whenever a doc describes path-filtered behaviour. (3) The e2e re-run failed when another project's dev servers held 8000/3000; fixed with configurable ports (4) The Terraform ignore rule matched only `tfplan`, so a saved plan named `tfplan-zone` (state data) showed as untracked; widened to `tfplan*` before any commit. Rule to add: name saved plans `tfplan*` and check `git status --untracked-files=all infra/` after every plan (5) The first deploy failed at OIDC sign-in: the role trusted `repo:Abhishekkv99/pmo-intelligence:ref:...`, but the repository issues GitHub's immutable subject `repo:Abhishekkv99@28754691/pmo-intelligence@1407046286:ref:...`. Cause: II's trust condition was copied without reading the repository's OIDC settings. Rule to add: read `gh api repos/<owner>/<repo>/actions/oidc/customization/sub` before writing a trust policy. (6) `docker login` to ECR fails with the Windows credential store ("The stub received bad data"); a temporary `DOCKER_CONFIG` holding the auth entry works (7) `make db-bootstrap` failed on Windows: make passed the script's path, which contains a space, unquoted to bash; the target now runs `bash scripts/db-bootstrap.sh`. Rule to add: Makefile targets call scripts through their interpreter (8) The Azure apply was blocked twice: Azure requires an MFA claim for writes (the Windows account broker signed in silently without one), then a subscription policy denies non-managed resource groups. Cause: the subscription's write requirements and policies were not read before planning. Rule to add: before an Azure plan, list `az policy assignment list` and test the login's MFA claim (9) `az policy exemption create --scope /subscriptions/...` failed with MissingSubscription: Git Bash rewrote the leading `/subscriptions/` into a Windows path. Rule to add: set `MSYS_NO_PATHCONV=1` for any CLI argument that starts with `/` (Azure scopes, CloudWatch log groups) (10) The Session State block was written at 02:45 before the reminders commit and apply and not refreshed after, so the next session read "last commit 2b28a77" and "next: commit and apply" for work already done. Cause: the block was updated ahead of the actions it described. Rule to add: refresh Session State after each commit, push and apply, never in advance of them (11) The first staging sign-in failed with "Failed to initiate SSO login": the hand-pushed first frontend image had `NEXT_PUBLIC_API_URL` baked as `C:/Program Files/Git/api/v1`, because Git Bash rewrote the `/api/v1` build argument; CI never rebuilt the frontend, so it went unnoticed until SSO was configured. Fixed 2026-10-08 by a rebuild with `MSYS_NO_PATHCONV=1` (pushed as `sha-835839d…` and `staging-latest`, live bundle verified). Cause: rule (9) was learned after the image was pushed and not applied back to earlier manual steps; the health check passes without the API URL. Rule to add: after any hand-built image, grep the built bundle for the API URL before pushing, and when a new tooling rule is learned, re-check earlier manual steps it affects (12) The second sign-in attempt hit "Need admin approval": the SSO app was created with assignment required, and Entra then demands admin consent whatever the user consent policy allows. The option was offered as a plain access choice without that consequence, and the follow-up wrongly said assignment could not cause the screen. Fixed 2026-10-08 by turning assignment off (owner action, no admin). Cause: the Entra side effects of an option were not checked in Microsoft's documentation before offering it. Rule to add: before offering an identity or tenant setting as an option, read Microsoft's page for it and state every side effect on sign-in and consent in the option text (13) Re-running `Register-SsoApp.ps1` to add `acct` failed: on Windows PowerShell 5.1 `ConvertFrom-Json` sends a JSON array down the pipeline as one object, so the exact-name filter matched both "PMO Intelligence" and "PMO Intelligence Graph" and joined their ids; the next `az ad app update` named no app and nothing changed. The first run passed only because no app existed yet. Fixed 2026-10-08 by wrapping `ConvertFrom-Json` in parentheses. Cause: the script was run once, on the empty case, and never against an existing app. Rule to add: run an idempotent script twice (create, then re-run) before relying on it, and wrap `ConvertFrom-Json` in parentheses before piping (14) The first `make user-role` on staging printed every SQL statement: `app_debug` defaults to true and the admin-cli task set only `APP_ENV`, copied from the migration container, which has the same gap. Fixed for admin-cli 2026-10-08 (`APP_DEBUG=false`, task definition revision 2); the migration container is in BACKLOG. Cause: a task definition was copied from a container whose environment was never compared with the backend's. Rule to add: every container that runs backend code sets `APP_DEBUG=false` outside development; prefer a production-safe default in `config.py` (15) The commit recording the exit gate was blocked by the pre-commit hook: the session state's next-task line named the local tooling folder. Fixed by rewording. Cause: the line was written about the audit's own mechanics in a committed file. Rule to add: committed docs refer to local rules only as "local rules", never by path
-- **Recovery instructions**: Phases 1–3 are committed and pushed; CI is green on `develop`. Local stack: `make dev-build`, `make migrate`, `make test-e2e` (add `PMO_API_PORT=8100 PMO_WEB_PORT=3100` to each when another project holds 8000/3000). make lives at `%LOCALAPPDATA%\Microsoft\WinGet\Packages\ezwinports.make_*\bin`. Push and `gh` calls use Abhishekkv99's token per command (see Blockers), never a default login change. Phase 4 starts with the open questions above; infra is fully separate from II (Decisions Log). Deleting files needs the user to run the command (the tool permission layer denies `rm`).
+>>> CURRENT PHASE: Phase 1 — Backlog fixes and transcription smoke test (not started)
+
+## Session State (last updated: 2026-10-08 16:15)
+- **Sprint**: 1 — Register and Sessions (PRD Phase 1)
+- **Current phase**: Phase 1 — Backlog fixes and transcription smoke test (not started)
+- **Phase progress**: 0 of 6 Phase 1 code tasks complete
+- **Last completed task**: Sprint 1 planned and approved; this plan written; BACKLOG questions #2 and #3 marked decided, #5 deferred, #6 noted
+- **Next task**: Phase 1, first item: `app_debug` defaults to `False`
+- **Last commit**: the planning commit `docs: plan sprint 1, register and sessions` (hash recorded after the commit)
+- **Uncommitted changes**: none after the planning commit
+- **Blockers**: none yet (see Blockers and Dependencies)
+- **Tests passing**: 289 unit + 47 integration (backend) + 88 frontend unit + 9 e2e = 433 (Sprint 0 close, 2026-10-08; nothing changed in code since)
+- **Files created this session**: none
+- **Files modified this session**: `docs/planning/CURRENT-SPRINT.md`, `docs/planning/BACKLOG.md`
+- **Key decisions this session**: see User Decisions Made and the Decisions Log above (recordings folder, one recording per session, no auto-processing, EU transcription, signals tables now)
+- **Recovery instructions**:
+  - Read this file first, then `docs/handover/sprint-00-handover.md`.
+  - **Copying from Interview Intelligence**: code comes from `E:\E Projects\Interview Intelligence Platform`. Fix its known gaps on copy (see Research Findings).
+  - **Local stack**: `make dev-build`, `make migrate`, `make test-e2e`. Add `PMO_API_PORT=8100 PMO_WEB_PORT=3100` when another project holds ports 8000/3000.
+  - **Push and `gh`**: use `Abhishekkv99`'s token per command, never a change to the default login: `git -c credential.helper= -c credential.helper='!f() { echo username=x-access-token; echo "password=$(gh auth token --user Abhishekkv99)"; }; f' push origin develop`.
+  - **AWS sign-in**: `aws sso login --profile pmo-intelligence`. The source recordings bucket is read with the default profile (main account `430006376054`), read-only, until the bucket policy is applied.
 
 ## Decisions Log
 | Decision | Rationale |
 |----------|-----------|
-| Python deps via uv, frontend via pnpm | Matches the Interview Intelligence repo (`backend/uv.lock`, `frontend/pnpm-lock.yaml`); npm was the first answer, corrected 2026-10-06 after checking the repo |
-| Dev/test/lint/format via Makefile targets (`make dev`, `make test`, `make lint`, `make format`) | Confirmed against the II Makefile; `format` and `seed` are broken there and fixed or removed here |
-| `docs/PRD.md` is a complete, verbatim conversion of the kickoff Project Starter document | The kickoff document is the core spec; nothing in it may be lost or paraphrased |
-| Sprint 0 = Phase 0 (Bootstrap) | Matches the PRD's phased delivery plan |
-| Local-only developer config is excluded via `.git/info/exclude`, not `.gitignore` | Keeps the committed ignore file to project concerns only |
-| Teams groups: one group chat per consultant (BACKLOG #1) | User decision; matches the PRD's suggested answer |
-| Teams permission route: RSC with `Chat.Read.All` fallback in parallel (BACKLOG #4) | User decision; RSC is least-privileged and visible to chat members |
-| GitHub repo `Abhishekkv99/pmo-intelligence`, private | User decision; same owner as Interview Intelligence |
-| UK only; all UK/US branch logic removed | User decision (#9) |
-| Roles replace branch entitlement; new SSO users have no role until assigned; bootstrap admins become `pmo_manager` | PRD roles and server-side scope; no access by default |
-| Dedicated `pmo_app` database role (application login, not the master user) | Least privilege for the app. Originally for the shared RDS instance (blast radius, #8); kept on PMO's own instance after the 2026-10-07 revision |
-| **Fully separate AWS infrastructure from Interview Intelligence** (supersedes the shared RDS instance and shared default VPC of #8) | User decision 2026-10-07. PMO owns its VPC, subnets, VPC endpoints, RDS instance, ECS cluster, ALBs, certificates, ECR, bucket, secrets, IAM roles and Terraform state. Shared only where AWS allows one per account or the domain is one: the `itcapp.ai` Route 53 zone (PMO adds its own records) and the GitHub OIDC provider (PMO gets its own role, scoped to its repo). No PMO resource or rule is attached to any II resource. Superseded the same day by the separate sandbox account (rows below): nothing on AWS is shared, the OIDC provider is PMO's own, and the only outside link is the NS record delegating the staging hostname |
-| **AWS account: ITC Sandbox PD Intelligence (`260172548683`), eu-west-2**, signed in with SSO through the local profile `pmo-intelligence` (`AdministratorAccess`, its own `sso-session` on the ITC Identity Center portal) | User decision 2026-10-07: infra is created and deployed in this sandbox account. Terraform and scripts run with `AWS_PROFILE=pmo-intelligence`; `aws sso login --profile pmo-intelligence` refreshes the session. The `itcapp.ai` zone and the GitHub OIDC provider assumed earlier must be re-checked in this account before Phase 4 is planned |
-| Network: ECS tasks in public subnets with a public IPv4 each, no NAT gateway; RDS in private subnets with no internet route | User decision 2026-10-07; the backend must reach Azure OpenAI, AssemblyAI and Entra outside AWS, so egress is needed either way; public IPs (~$3.65/month per task) cost far less than NAT (~$36/month + data). Task security groups admit only the ALB |
-| VPC endpoints: S3 gateway endpoint only | User decision 2026-10-07; free, keeps recording and image-layer traffic to S3 inside AWS; interface endpoints (~$8/month each per AZ) mainly pay off with NAT |
-| RDS: a staging-only `db.t4g.micro` (single-AZ, 20 GB gp3, PostgreSQL 16 with pgvector); production gets its own instance at product Phase 5, sized from real load | User decision 2026-10-07; full staging/prod isolation; supersedes the one-instance-for-both plan of #8 |
-| Terraform AWS provider `~> 6.0` (v6.67.0 current on 2026-10-07); `.terraform.lock.hcl` committed with linux and windows hashes | User decision 2026-10-07; new code, so no v5→v6 migration later; II's copied `*.tf` adjusted where v6 changed arguments. The lock file pins provider builds for everyone and CI, like `uv.lock` (II ignores it) |
-| State bucket `pmo-intelligence-tfstate-260172548683`: SSE-S3, versioning, public access blocked, TLS-only bucket policy, noncurrent versions expire after 90 days; native S3 locking (`use_lockfile`) | User decision 2026-10-07; the account id keeps the global name unique; SSE-S3 is free |
-| `infra/bootstrap/` applies with local state once, then migrates its own state into the bucket (key `bootstrap/terraform.tfstate`) | User decision 2026-10-07; no state left on one machine |
-| Terraform layout: `infra/shared/` + `infra/modules/environment/` + `infra/environments/staging/`, each root with its own state key | User decision 2026-10-07; no copy-paste between environments (II duplicates prod as `staging.tf`), and a staging apply cannot touch prod. Prod is one more small folder at product Phase 5. Supersedes "one `infra/` with prod behind a variable" |
-| RDS master password managed by RDS (`manage_master_user_password`), never in Terraform state; the app connects as `pmo_app`, whose URL the db bootstrap writes into the app secret | User decision 2026-10-07; II generates the password in Terraform and stores it in state and the app secret |
-| Deletion protection on data only: RDS (deletion protection, final snapshot, `prevent_destroy`), media bucket, app secret; ALB, services, security groups and logs stay freely replaceable | User decision 2026-10-07; II protects everything, which makes tearing down a sandbox staging slow |
-| Carried over from II: HTTP→HTTPS redirect (II forwards plain HTTP to the frontend), ECR lifecycle (untagged 7 days, last 10 tagged), deny-deletion IAM policy (output for attaching to IAM users or groups), SES domain identity now | User decision 2026-10-07 (all four extras) |
-| Names `pmo-intelligence-<env>-*`; where AWS caps names at 32 characters (target groups) `pmo-<env>-*`; ECR stays `pmo-intelligence-backend` / `-frontend` | User decision 2026-10-07; `pmo-intelligence-staging-frontend` would be 33 characters |
-| VPC `10.40.0.0/16`, /20 subnets: 2 public + 2 private across two AZs | User decision 2026-10-07; avoids the default `172.31.0.0/16` and II's `10.0.0.0/16`, so peering or a VPN to either stays possible |
-| Staging tasks as II staging: backend 0.25 vCPU / 1024 MiB, frontend 0.25 vCPU / 512 MiB, one task each, `PROCESSING_CONCURRENCY` 1 | User decision 2026-10-07; II raised the backend to 1024 MiB after OOM kills |
-| SES sending domain `pmo-intelligence-staging.itcapp.ai` (DKIM records in the delegated zone); the account starts in the SES sandbox until production access is requested | User decision 2026-10-07 |
-| Database bootstrap: `backend/app/cli/db_bootstrap.py` in the backend image, run as a one-off ECS task (`<env>-db-bootstrap` task definition with its own roles) by `make db-bootstrap ENV=staging` | User decision 2026-10-07; RDS is private with no bastion or ECS Exec, and the backend cannot start without `DATABASE_URL`. Supersedes the plan's repo-root `scripts/db_bootstrap.py`, which the backend build context (`backend/`) cannot include |
-| The bootstrap generates `pmo_app`'s password and writes `DATABASE_URL` into the app secret itself; only the bootstrap task's roles may read the RDS master secret and write the app secret | User decision 2026-10-07; no person sees the password, and the running app cannot rewrite its own secret |
-| Bootstrap re-runs are idempotent and keep the password; `--rotate-password` rotates it and rewrites the secret (then the backend needs a redeploy) | User decision 2026-10-07 |
-| `pmo_app` owns the database and its `public` schema (the migration init container runs DDL with the same URL); no superuser; the master user creates the `vector` extension | User decision 2026-10-07; a separate migration role was offered and declined |
-| **Azure OpenAI for PMO in its own resource group and resource**, not II's (`rg-interview-intelligence` / `interview-intelligence`, East US); AssemblyAI gets a PMO-only API key | User decision 2026-10-08; cost tracked per resource group, keys rotated or revoked without touching II, own RBAC and lifecycle. A separate resource does not separate quota: TPM quota is per subscription, region, model and deployment type |
-| Azure region Sweden Central with **Data Zone Standard** deployments | User decision 2026-10-08; prompts carrying workers' transcripts are processed only inside the EU data zone (UK adequacy). UK South offers `gpt-5.4-mini` only as Global Standard (processed in any region) or provisioned; East US would put the data in the US |
-| One Azure resource group and one Azure OpenAI resource for PMO; environments are separate **deployments** (`<model>-staging`, later `<model>-prod`) | User decision 2026-10-08; simplest to manage. Staging and prod share the resource's keys; offered alternatives were one RG per environment and one resource per environment |
-| Azure resources as Terraform in this repo (`infra/azure/`, azurerm provider, Azure CLI auth, state in the S3 state bucket) | User decision 2026-10-08; the same plan-review-apply flow as AWS |
-| Staging deployments: `gpt-5.4-mini` (2026-03-17) and `text-embedding-3-small` (1536 dimensions, matching `signals.embedding`), each with a small TPM capacity | User decision 2026-10-08 |
-| Azure resource-group policy: a time-boxed (2 h) subscription-wide exemption for the one creation, **only with the policy owner's agreement**, deleted right after; Terraform adds a permanent exemption scoped to `rg-pmo-intelligence-swc` alone | User decision 2026-10-08; the subscription's custom policy "Restrict RG Creation to Managed Service Patterns" denies creating or updating any non-managed resource group, Owners included. An exemption cannot target a group that does not exist yet. Alternatives offered: the admin creates the group (Terraform reads it), or an existing group for now |
-| App-deploy rollback documented as an ECR retag of a known-good `sha-<commit>` image to `staging-latest` plus a force-new-deployment, then a `git revert` on `develop`; a migration added by the bad deploy is downgraded first with the newer image | User decision 2026-10-08; the retag is minutes, the revert stops the next CI deploy reintroducing the change. Alternatives offered: revert only (a full CI run), retag only |
-| **SSO app registration is single tenant** (InformationTech home tenant), not the PRD checklist's "same multi-tenant and allowlist settings" as Interview Intelligence | User decision 2026-10-08; every PMO user is in the home tenant, and Entra then refuses other tenants' accounts itself rather than relying on the app's issuer check. No code change: with `AZURE_ALLOWED_TENANT_IDS` empty, `sso_service.sso_authority()` uses the home tenant id. Moving to multi-tenant later is configuration only (registration setting plus that variable) |
-| **Sign-in limited to tenant members with a role** (2026-10-08): guests refused by the id-token `acct` claim, fail closed; a member with no role (or no row) is refused and no row is created, except bootstrap admins; the role is checked at sign-in, on refresh and on every request; roles are granted by a one-off ECS CLI task now, the Admin "Users and roles" page in Sprint 1 | User decisions 2026-10-08 after 595 guest accounts were found beside 110 enabled members. Alternatives offered: leave as is; assignment required with admin consent; the `idp` claim instead of `acct`; record no-role users; enforce at sign-in only; build the Admin page now; bootstrap list only |
-| One SSO app registration "PMO Intelligence" for every environment, one client secret per environment (12 months), created by `scripts/entra/Register-SsoApp.ps1`, which writes the values straight into the app secret | User decision 2026-10-08. Alternatives offered: one app per environment; one-off az commands; the portal. 6 and 24 months offered for the secret |
-| ~~SSO assignment required: only users assigned to the enterprise app may sign in~~ **Reversed 2026-10-08: assignment not required**; any tenant account signs in with no role until a PMO manager assigns one | User decision 2026-10-08. Assignment required makes Entra demand admin consent even when the user consent policy allows the scopes, so the first sign-in hit "Need admin approval". This was not stated when the option was offered. Alternative offered: keep it and have a tenant admin grant admin consent. `Register-SsoApp.ps1` now takes `-RequireAssignment` (off by default) |
-| Redirect URIs are the Web platform (not SPA) for localhost 3000 and 3100 and staging | The backend redeems the code with the client secret; Entra refuses server-side redemption for SPA redirects. Ports: user decision 2026-10-08 |
-| Staging bootstrap admin: Abhishek.Verma@InformationTechConsultants.com, in the git-ignored `infra/environments/staging/terraform.tfvars` | User decision 2026-10-08 |
-| Sprint 0 exit gate, Teams item: met by the Teams app's approval and publication (1.0.0, seen 2026-10-08) rather than a ticket number, since none was issued | User decision 2026-10-08. The availability (everyone, including guests) is to be narrowed to the PMO team; the chat RSC check and the A5 read test move to Phase 3 preparation |
-| Credential expiry reminders: a `credential_expiries` map (name → expiry date) in `infra/shared/`; EventBridge Scheduler one-time schedules at 09:00 Europe/London 30, 14 and 3 days before each date publish to an SNS email topic for `Abhishek.Verma@InformationTechConsultants.com` | User decision 2026-10-08; a daily checker reading Entra through Graph was offered and declined (it would need its own Graph credential). Tracked now: the Teams Graph certificate (2027-10-06); the Entra SSO client secret is added when it is created in Phase 5 |
-| GitHub OIDC provider created by PMO's Terraform in the sandbox account | Survey 2026-10-07: none exists in `260172548683` (the II account's provider was the reason for a data source) |
-| **Staging hostname by subdomain delegation**: public zone `pmo-intelligence-staging.itcapp.ai` in the sandbox account; one NS record for it in the `itcapp.ai` zone, added by whoever manages that zone | User decision 2026-10-07; `itcapp.ai` is not in the sandbox account and Entra needs HTTPS outside `localhost`. Keeps the agreed hostname (#10) and leaves the certificate, its validation and the ALB record entirely in PMO's account. Prod uses its own delegated zone at product Phase 5 |
-| Deploy only after CI succeeds | II deploys even when CI fails |
-| CI checks out with the default `GITHUB_TOKEN` | A same-repo checkout needs no PAT, so there is no token expiry to track |
-| Prod infra defined but applied at the product's Phase 5 | Avoids idle prod ALB cost before the first release |
-| pnpm 12 (not II's pnpm 10) for `packageManager`, CI and Docker | User decision 2026-10-06; matches the local toolchain. pnpm 12 ignores the `pnpm` field in `package.json`, so build approvals live in `pnpm-workspace.yaml` `allowBuilds` (esbuild allowed; msw, unrs-resolver denied) |
-| Frontend deps: drop date-fns, react-markdown, remark-gfm, @tailwindcss/typography; keep zod, @hookform/resolvers, @tanstack/react-table | User decision 2026-10-06; nothing imports the dropped ones; forms (register) and TanStack tables (risk board) come next sprint |
-| Prettier 3 defaults over every file, `ui/` included, with `eslint-config-prettier` | User decision 2026-10-06; lets `format:check` gate CI |
-| `engines` node >=22, pnpm >=12; `packageManager` pnpm@12.6.0 | User decision 2026-10-06; Node 22 matches II's CI and Docker image; corepack needs an exact version |
-| Tagline "Live health for every consultant placement" | User decision 2026-10-06; from the PRD purpose line |
-| Admin link hidden from non-global roles; `/admin` shows them a no-access message and never requests the queue | User decision 2026-10-06; the backend answers 403 to them |
-| Admin page keeps II's `ProcessingStatusPanel` (pmo_manager/admin only); generic helpers kept, `score-utils` deleted | User decision 2026-10-06; the backend already serves `/processing/status`; the risk board and actions need the helpers; score-utils' 0.7/0.4 cutoffs conflict with the configured RAG thresholds |
-| Next.js 16.3.8 (latest 16.x on 2026-10-06), React kept at 19.2.3 | Clears the 16.0.0–16.2.10 CVEs; React 19.2.3 is within Next's peer range, so no React upgrade in Sprint 0 |
-| GNU make installed locally with `winget install ezwinports.make`; the Makefile stays POSIX (Git Bash locally, Ubuntu in CI) | User decision 2026-10-06; make was not on the Windows dev machine; one Makefile, no PowerShell twin |
-| Compose host ports as II: 5432 (db), 8000 (api), 3000 (web) | User decision 2026-10-06; matches the config defaults, the SSO redirect URI and Playwright; the two stacks cannot run at once |
-| API and web host ports configurable: `PMO_API_PORT` (default 8000) and `PMO_WEB_PORT` (default 3000), set in the Makefile and passed to compose and Playwright | User decision 2026-10-07, refines the row above; another project's dev servers held 8000/3000 and blocked the e2e run. Defaults are unchanged, so CI and the config defaults need nothing. In-container ports stay 8000/3000. The frontend image bakes the API URL, so a new API port needs `make dev-build` |
-| `make lint` frontend = eslint + typecheck + format:check; backend = ruff check + ruff format --check + `mypy app` | User decision 2026-10-06; the same gates CI runs. mypy covers `app` only: `app tests` has 57 errors in 8 test files (tech debt) |
-| uv pinned to exactly 0.9.18 in the backend Dockerfile (`ghcr.io/astral-sh/uv:0.9.18`) and in CI | User decision 2026-10-07; `uv.lock` is revision 3, written by local uv 0.9.18; II's `uv:0.6` predates that format. Bumped deliberately, like pnpm 12.6.0 |
-| CI uses the latest action majors: checkout v7, setup-node v7, upload-artifact v7, setup-uv v10, pnpm/action-setup v6, paths-filter v4 | User decision 2026-10-07; all on the node24 runtime (II's v4-era pins run on node20, being retired). setup-uv publishes no floating major tag, so it is pinned to the release `v10.2.0` (the first CI run failed at "Set up job" on `@v10`) |
-| CI e2e runs against the docker compose stack (images built in the job, migrations from the runner, then Playwright) | User decision 2026-10-07; same path as `make dev-build` + `make migrate` + `make test-e2e`, and it exercises the Dockerfiles (the HOSTNAME bug would have been caught) |
-| CI keeps II's path filters (backend, frontend; e2e on either, plus compose and the workflow) | User decision 2026-10-07. Skipped jobs still let CI succeed, so the deploy gate passes. Correction 2026-10-07: on a push to a branch other than `main`, paths-filter compares against `main`, not the previous commit, so on `develop` every change not yet on `main` counts and a docs-only push runs the full suite (run 37578611837). Docs-only pushes skip the jobs only once `main` has caught up. The deploy filter compares with the previous commit on the branch |
-| Deploy is a `deploy-staging` job inside `ci.yml` that needs every CI job (passed or skipped) and runs on push only | User decision 2026-10-07; same run and commit sha as the checks; only that job gets `id-token: write`. A separate `workflow_run` file would run from the default branch's copy and need the sha checked out by hand |
-| Only `develop` → staging is wired in Sprint 0; `main` → production is added when prod infra is applied (product Phase 5) | User decision 2026-10-07; a push to `main` cannot fail on ECS services that do not exist yet |
-| Deploy identifiers are repository variables (`vars.AWS_ROLE_ARN`, `AWS_REGION`, `ECR_REGISTRY`, `ECS_CLUSTER_NAME`, `ECS_STAGING_BACKEND_SERVICE`, `ECS_STAGING_FRONTEND_SERVICE`); no repository secrets | User decision 2026-10-07; none are secret with OIDC, and readable values make failures easy to diagnose. GitHub Environments would need GitHub Pro on a private repo. Values come from the Phase 4 Terraform outputs |
-| One `.dockerignore` per build context (`backend/`, `frontend/`), tests excluded from images | User decision 2026-10-06; compose builds from `./backend` and `./frontend`, so a root file would not apply |
+| One recording file is one session; a folder is a recurring Talk room matched to a consultant | Survey 2026-10-08: 309 folders hold 2,433 recordings; one session per folder would drop most calls |
+| No automatic processing of scanned recordings; Process is a button per recording | User decision 2026-10-08; 2,433 recordings are on the folder, and Interview Intelligence's first scan once queued about 3,800 folders for paid processing |
+| Name matching on the first and last tokens of `full_name`, whole word, case- and accent-insensitive; no new name columns | User decision 2026-10-08 (first or last name or both); whole-word matching keeps "Ann" from matching "Anna" |
+| Recording file-name timestamps read as Europe/London (`RECORDINGS_TIMEZONE`) | Plan approval 2026-10-08; checked in Phase 3 against one recording with a known call time |
+| Stay on LangGraph 1.0.x; timeouts enforced in one shared node wrapper | Plan approval 2026-10-08; 1.2's native node timeouts need async nodes, and their parallel fan-out behaviour is not documented |
+| Evidence quotes checked by a normalised substring match against the transcript; an unverified signal is never stored, only counted | PRD ("Keep the model honest") and the project rules; Interview Intelligence had no check |
+| By-id session routes use a session scope guard (session → placement → scope, 404); a session page view writes `access_log` | Server-side scope on every by-id route; session pages show a consultant's data |
+| The Users page refuses to remove or change the last active `pmo_manager` | Plan approval 2026-10-08; prevents a lockout that only `make user-role` could undo |
+| AssemblyAI model names and prices are configuration | Plan approval 2026-10-08; the docs give two spellings for the current model and the prices differ from the tracker's |
