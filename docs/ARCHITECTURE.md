@@ -25,7 +25,7 @@ FastAPI app in `backend/app/`, layered routes → services → repositories → 
 | Area | Path | Notes |
 |------|------|-------|
 | App and lifespan | `app/main.py` | Startup: bootstrap-admin grant, then the processing takeover in a background task. Shutdown: queue stop, then lock release. |
-| Settings | `app/config.py` | `pydantic-settings`, env vars or `.env`; `APP_DEBUG` (SQL echo) is off unless set, and compose and `.env.example` turn it on for development |
+| Settings | `app/config.py` | `pydantic-settings`, env vars or `.env`; transcription on AssemblyAI's EU endpoint (`ASSEMBLYAI_BASE_URL`) with `ASSEMBLYAI_SPEECH_MODELS` `["universal-3-5-pro", "universal-2"]`; `APP_DEBUG` (SQL echo) is off unless set, and compose and `.env.example` turn it on for development |
 | Routes | `app/api/v1/{health,auth,processing}.py` | See `docs/API.md` |
 | Entitlement | `app/utils/entitlements.py`, `app/dependencies.py` | Role model below; guards `require_roles`, `require_placement_scope`, `require_logged_placement_scope` |
 | Enumerations | `app/models/enums.py` | `Role`, `GLOBAL_ROLES`, `ConsultantStatus`, `ExtensionStatus`, `PlacementStatus`, `JobStatus`; stored as strings with CHECK constraints |
@@ -33,7 +33,7 @@ FastAPI app in `backend/app/`, layered routes → services → repositories → 
 | Processing queue | `app/services/processing_queue.py` | Priority queue, N workers; tiers `CHAT_PRIORITY` < `SESSION_PRIORITY` < `BACKLOG_PRIORITY`; dedup on `(kind, id)`; runners registered per kind (`register_runner`) |
 | Ownership lock | `app/services/processing_ownership.py` | Postgres advisory lock on an AUTOCOMMIT connection, 30 s heartbeat; takeover steps registered (`register_takeover_sweep` before start, `register_takeover_requeue` after) |
 | LLM factory | `app/ai/llm_factory.py` | Cached Azure OpenAI chat and embedding clients with a finite timeout (300 s) |
-| Cost tracker | `app/services/cost_tracker.py` | Pure cost functions for LLM, embedding and transcription calls |
+| Cost tracker | `app/services/cost_tracker.py` | Pure cost functions for LLM, embedding and transcription calls; AssemblyAI's hourly rate and diarization add-on are settings |
 | Auth | `app/api/v1/auth.py`, `app/services/{auth,sso}_service.py` | Entra ID SSO (authorization code + PKCE, code exchanged by the backend; identity scopes only, no Microsoft token kept); members of the tenant with a role only (see the role model); local password auth only when `LOCAL_AUTH_ENABLED` (dev and CI), under the same role rule |
 | Role grants | `app/services/user_roles.py`, `app/cli/user_role.py` | Grant, change or remove a role by email, or list users; run as a one-off ECS task with `make user-role` until the Admin "Users and roles" page exists |
 | Migrations | `alembic/versions/001_create_initial_schema.py`, `002_drop_user_ms_tokens.py` | Async Alembic; 001 enables pgvector and builds the Sprint 0 schema; 002 drops the stored Microsoft tokens from `users` |
@@ -145,7 +145,7 @@ AWS account **ITC Sandbox PD Intelligence (`260172548683`)**, eu-west-2. Nothing
 |-----------|-----------|----------------|--------------|
 | Backend | FastAPI, Python 3.12, SQLAlchemy 2.0 async, Alembic, Pydantic | Routes → services → repositories → models; scope check on every by-id route | Reuse the layering and the repo skeleton |
 | Database | PostgreSQL 16 + pgvector | Register, sessions, messages, signals (with embeddings), snapshots, flags, access log | Reuse; embeddings let a reviewer search "who else had this blocker" |
-| Transcription | AssemblyAI with speaker diarization; Teams' own transcript when a recording comes through Graph | Diarized utterances for the session pipeline | Reuse the shared AssemblyAI client |
+| Transcription | AssemblyAI with speaker diarization on the EU endpoint (`api.eu.assemblyai.com`, Universal-3.5 Pro with a Universal-2 fallback); Teams' own transcript when a recording comes through Graph | Diarized utterances for the session pipeline | Reuse the shared AssemblyAI client |
 | LLM | Azure OpenAI gpt-5.4-mini through the LLM factory, LangGraph graphs, structured output | Session and chat pipelines; every node non-fatal, timed, costed, with a timeout | Reuse the factory, the cost tracker, the timeout setting, the non-fatal node pattern |
 | Processing | One process-wide priority queue with N workers, a Postgres advisory lock so one task owns processing during a deploy, startup sweeps, a per-job session | Runs pipeline jobs; chat jobs ahead of session jobs | Reuse as is; it cost three hotfixes to get right |
 | Teams connector | Microsoft Graph: channel or chat messages, later meeting recordings and transcripts | Polls watched groups every 2–5 min with delta tokens (channels) or a last-modified watermark (chats) | New |

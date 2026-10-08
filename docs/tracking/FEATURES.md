@@ -14,6 +14,7 @@
 | Processing ownership lock with heartbeat and takeover registry | `backend/app/services/processing_ownership.py` | Done |
 | Processing status endpoint | `backend/app/api/v1/processing.py` | Done |
 | LLM factory and cost tracker | `backend/app/ai/llm_factory.py`, `backend/app/services/cost_tracker.py` | Done (not used yet) |
+| Transcription settings: AssemblyAI EU endpoint, speech models and prices as configuration (PMO key checked on the EU endpoint 2026-10-08) | `backend/app/config.py`, `backend/app/services/cost_tracker.py`, `.env.example` | Done (Sprint 1; the client arrives in Phase 3) |
 | Migration 001: users, register, processing, access log | `backend/alembic/versions/001_create_initial_schema.py` | Done |
 | Sign-in keeps no Microsoft token (identity scopes only; migration 002 drops the token columns) | `backend/app/services/sso_service.py`, `frontend/src/hooks/useSSOLogin.ts`, `backend/alembic/versions/002_drop_user_ms_tokens.py` | Done (Sprint 1) |
 | Teams Graph access setup (certificate, app registration, connector app package) | `scripts/teams/`, `teams-app/`, `docs/integrations/TEAMS-GRAPH-SETUP.md` | Done; pending admin approval |
@@ -23,7 +24,7 @@
 | Admin page with the processing queue | `frontend/src/components/admin/AdminView.tsx`, `frontend/src/components/admin/ProcessingStatusPanel.tsx` | Done |
 | Local stack: Docker Compose (PostgreSQL 16 + pgvector, backend, frontend) with health checks and configurable host ports; Makefile targets | `docker-compose.yml`, `backend/Dockerfile`, `frontend/Dockerfile`, `Makefile`, `.env.example` | Done |
 | CI: path-filtered backend and frontend checks, e2e on the compose stack; staging deploy after the checks pass | `.github/workflows/ci.yml` | Done |
-| Manual staging redeploy of one side (`workflow_dispatch`, `target` backend / frontend / both; checks first) | `.github/workflows/ci.yml` | Done (Sprint 1; first manual run pending) |
+| Manual staging redeploy of one side (`workflow_dispatch`, `target` backend / frontend / both; checks first) | `.github/workflows/ci.yml` | Done (Sprint 1; first manual run 2026-10-08, run 37770017665: frontend only, backend left alone) |
 | Infrastructure as code: state bucket, shared stack (VPC, ECR, ECS cluster, GitHub OIDC deploy role) and the staging environment (ALB, RDS, secret, bucket, SES, ECS) | `infra/bootstrap/`, `infra/shared/`, `infra/modules/environment/`, `infra/environments/staging/` | Done (staging applied; production at product Phase 5) |
 | Database bootstrap as a one-off ECS task (`pmo_app` login, pgvector, `DATABASE_URL` into the secret) | `backend/app/cli/db_bootstrap.py`, `scripts/db-bootstrap.sh`, `infra/modules/environment/db_bootstrap.tf` | Done (run on staging) |
 | PMO's own Azure OpenAI (Sweden Central, Data Zone Standard: gpt-5.4-mini and text-embedding-3-small for staging) | `infra/azure/` | Done (applied) |

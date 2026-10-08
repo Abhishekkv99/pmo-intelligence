@@ -24,8 +24,16 @@ class Settings(BaseSettings):
         "postgresql+asyncpg://postgres:postgres@localhost:5432/pmo_intelligence"
     )
 
-    # AssemblyAI (session transcription)
+    # AssemblyAI (session transcription). The EU endpoint keeps the audio and
+    # transcripts of workers' calls in the EU, at the US price. speech_models is
+    # required by the API: the first model that supports the language is used.
     assemblyai_api_key: str = ""
+    assemblyai_base_url: str = "https://api.eu.assemblyai.com"
+    assemblyai_speech_models: list[str] = ["universal-3-5-pro", "universal-2"]
+    # Rate card (2026-10-08): Universal-3.5 Pro $0.21/hr, plus $0.02/hr for
+    # speaker diarization. Billed pro-rated to the second.
+    assemblyai_cost_per_hour_usd: float = 0.21
+    assemblyai_diarization_cost_per_hour_usd: float = 0.02
 
     # Azure OpenAI (signal extraction, summaries, embeddings)
     azure_openai_api_key: str = ""

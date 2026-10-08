@@ -64,18 +64,19 @@
 **Code work**
 - [x] `backend/app/config.py`: `app_debug` defaults to `False`; compose and `.env.example` set `APP_DEBUG=true` for development (both already did; only the default changed; `tests/unit/test_config.py`)
 - [x] Stop storing users' Microsoft tokens at sign-in (`services/sso_service.py`), remove `refresh_microsoft_token`; migration `002_drop_user_ms_tokens.py` drops `ms_access_token`, `ms_refresh_token`, `ms_token_expires_at`; `User` model updated (also: sign-in asks for `openid email profile` only, no `offline_access`, backend and `useSSOLogin.ts`; the app registration keeps the scope, unused; user decision 2026-10-08)
-- [x] `.github/workflows/ci.yml`: `workflow_dispatch` with a `target` choice (backend / frontend / both) that redeploys that side of staging from `develop`; every `uses:` ref verified with `gh api` (no new refs; actionlint clean via Docker; runs that side's checks and e2e first, user decision 2026-10-08; fails on any branch but `develop`; first manual run after the push)
-- [ ] Settings: `assemblyai_base_url` (EU default), `assemblyai_speech_models`, AssemblyAI prices as configuration; `cost_tracker` reads them
-- [ ] Smoke test (not committed): the PMO key on the EU endpoint with a short public sample; record the key's region and the working `speech_models` value here
-- [ ] Tests: config default, SSO without token storage, migration 002 up and down, AssemblyAI cost
+- [x] `.github/workflows/ci.yml`: `workflow_dispatch` with a `target` choice (backend / frontend / both) that redeploys that side of staging from `develop`; every `uses:` ref verified with `gh api` (no new refs; actionlint clean via Docker; runs that side's checks and e2e first, user decision 2026-10-08; fails on any branch but `develop`; first manual run 2026-10-08, run 37770017665: frontend CI and e2e passed, backend CI skipped, only the frontend built and deployed)
+- [x] Settings: `assemblyai_base_url` (EU default), `assemblyai_speech_models`, AssemblyAI prices as configuration; `cost_tracker` reads them (`["universal-3-5-pro", "universal-2"]`, $0.21/hr + $0.02/hr diarization; `.env.example` updated; staging uses the defaults, no infra change)
+- [x] Smoke test (not committed): the PMO key on the EU endpoint with a short public sample; record the key's region and the working `speech_models` value here (2026-10-08: **the PMO key works on `api.eu.assemblyai.com`**; a 282 s two-speaker sample transcribed with `speaker_labels`, speakers A and B, with each of `universal-3-pro`, `universal-3-5-pro` and `["universal-3-pro", "universal-2"]`; the two Pro ids are distinct models (874 vs 870 words). The rate card lists only `universal-3-5-pro` and `universal-2`)
+- [x] Tests: config default, SSO without token storage, migration 002 up and down, AssemblyAI cost
 
 **Doc updates (concurrent)**
-- [ ] `ARCHITECTURE.md` (users table, `> Status:`), `DEPLOYMENT.md` (manual redeploy, `> Status:`), `README.md` (redeploy row), `TESTS.md`, `FEATURES.md`, `CHANGELOG.md`, `BACKLOG.md` (three items ticked)
+- [x] `ARCHITECTURE.md` (users table, `> Status:`), `DEPLOYMENT.md` (manual redeploy, `> Status:`), `README.md` (redeploy row), `TESTS.md`, `FEATURES.md`, `CHANGELOG.md`, `BACKLOG.md` (three items ticked) (README: in the CI section, since the redeploy is not a make target)
 
 **Commit checkpoints**
 - [x] `fix: stop storing microsoft tokens at sign-in` (a2adca8)
 - [x] `fix: default debug off outside development` (957636c)
-- [ ] `ci: add a manual staging redeploy`
+- [ ] `feat: configure transcription for the eu endpoint` (deviation: a fourth Phase 1 commit for the AssemblyAI settings, which the plan did not list as its own commit)
+- [x] `ci: add a manual staging redeploy` (b3fe779; pushed with a2adca8 and 957636c, CI run 37769000185 green and deployed both sides: migration 002 ran on staging, no SQL echo in the migration log, the live login bundle asks for `openid email profile` only)
 
 ### Phase 2: Placement register, CSV import, Users and roles
 **Code work**
@@ -213,26 +214,26 @@
 - [ ] `docs: complete sprint 1 audit and handover`
 
 ## Blockers and Dependencies
-- The PMO AssemblyAI key on the EU endpoint (Phase 1 smoke test). If the key is US-bound, an EU key is needed.
+- ~~The PMO AssemblyAI key on the EU endpoint~~ Resolved 2026-10-08: the key works on the EU endpoint.
 - A bucket policy on `nextcloud-talk-recordings-itc`, applied with the user's main-account login, before the staging scan (Phase 3/6).
 - Register data for the consultants in the gate calls: a CSV from the PS team's spreadsheet.
 - Three consultants told in advance that their calls will be analysed, and the PMO manager available for the review.
 
 >>> CURRENT PHASE: Phase 1 — Backlog fixes and transcription smoke test (in progress)
 
-## Session State (last updated: 2026-10-08 17:15)
+## Session State (last updated: 2026-10-08 18:05)
 - **Sprint**: 1 — Register and Sessions (PRD Phase 1)
-- **Current phase**: Phase 1 — Backlog fixes and transcription smoke test (in progress)
-- **Phase progress**: 3 of 6 Phase 1 code tasks complete
-- **Last completed task**: manual staging redeploy (`workflow_dispatch`) in `ci.yml`; docs updated
-- **Next task**: push Phase 1 commits (CI deploys the backend: migration 002 runs on staging), try a manual frontend redeploy; then AssemblyAI settings (EU base URL, models, prices) and the smoke test
-- **Last commit**: 957636c "fix: default debug off outside development" (a2adca8 and 957636c not pushed); `ci: add a manual staging redeploy` follows
-- **Uncommitted changes**: none after the redeploy commit
+- **Current phase**: Phase 1 — Backlog fixes and transcription smoke test (all tasks done; closing commit pending)
+- **Phase progress**: 6 of 6 Phase 1 code tasks complete; docs complete
+- **Last completed task**: AssemblyAI settings (EU endpoint, `["universal-3-5-pro", "universal-2"]`, prices) and the EU smoke test; manual redeploy verified (run 37770017665)
+- **Next task**: Phase 2, first item: the register repositories (`consultant_repo`, `client_repo`, `project_repo`, `placement_repo`)
+- **Last commit**: b3fe779 "ci: add a manual staging redeploy" (pushed with a2adca8 and 957636c); `feat: configure transcription for the eu endpoint` follows
+- **Uncommitted changes**: none after the transcription commit
 - **Blockers**: none yet (see Blockers and Dependencies)
-- **Tests passing**: 293 unit + 48 integration (backend) + 88 frontend unit (2026-10-08 16:50) + 9 e2e (Sprint 0 close) = 438; ruff, mypy, eslint, typecheck, Prettier clean
+- **Tests passing**: 297 unit + 48 integration (backend) + 88 frontend unit (2026-10-08 18:00) + 9 e2e (CI runs 37769000185, 37770017665) = 442; ruff, mypy, eslint, typecheck, Prettier, actionlint clean
 - **Files created this session**: `backend/alembic/versions/002_drop_user_ms_tokens.py`, `backend/tests/unit/test_config.py`
-- **Files modified this session**: `.github/workflows/ci.yml`, `README.md`, `docs/tracking/FEATURES.md`, `backend/app/config.py`, `backend/app/services/sso_service.py`, `backend/app/models/user.py`, `backend/tests/unit/test_sso_service.py`, `backend/tests/integration/test_migrations.py`, `frontend/src/hooks/useSSOLogin.ts`, `frontend/src/hooks/useSSOLogin.test.ts`, `docs/ARCHITECTURE.md`, `docs/DEPLOYMENT.md`, `docs/planning/{CURRENT-SPRINT,BACKLOG}.md`, `docs/tracking/{CHANGELOG,FEATURES,TESTS}.md`
-- **Key decisions this session**: Sprint 1 plan (User Decisions Made); `offline_access` dropped from sign-in requests, kept on the registration (Decisions Log)
+- **Files modified this session**: `.env.example`, `backend/app/services/cost_tracker.py`, `backend/tests/unit/test_cost_tracker.py`, `.github/workflows/ci.yml`, `README.md`, `docs/tracking/FEATURES.md`, `backend/app/config.py`, `backend/app/services/sso_service.py`, `backend/app/models/user.py`, `backend/tests/unit/test_sso_service.py`, `backend/tests/integration/test_migrations.py`, `frontend/src/hooks/useSSOLogin.ts`, `frontend/src/hooks/useSSOLogin.test.ts`, `docs/ARCHITECTURE.md`, `docs/DEPLOYMENT.md`, `docs/planning/{CURRENT-SPRINT,BACKLOG}.md`, `docs/tracking/{CHANGELOG,FEATURES,TESTS}.md`
+- **Key decisions this session**: Sprint 1 plan (User Decisions Made); `offline_access` dropped from sign-in requests; manual redeploy re-runs checks; AssemblyAI `["universal-3-5-pro", "universal-2"]` (Decisions Log)
 - **Recovery instructions**:
   - Read this file first, then `docs/handover/sprint-00-handover.md`.
   - **Copying from Interview Intelligence**: code comes from `E:\E Projects\Interview Intelligence Platform`. Fix its known gaps on copy (see Research Findings).
@@ -253,4 +254,5 @@
 | The Users page refuses to remove or change the last active `pmo_manager` | Plan approval 2026-10-08; prevents a lockout that only `make user-role` could undo |
 | Sign-in requests identity scopes only (`openid email profile`); `offline_access` dropped from the authorize request and the code exchange, kept on the app registration | User decision 2026-10-08; with no Microsoft token stored, a refresh token has no use. Leaving the registration alone keeps existing consents and needs no Entra change. Alternatives offered: drop it from the registration too (re-run the script); keep requesting it |
 | A manual redeploy re-runs the chosen side's checks and e2e before deploying | User decision 2026-10-08; keeps "deploy only after CI succeeds". Alternative offered: deploy straight away |
+| AssemblyAI default models `["universal-3-5-pro", "universal-2"]`, cost $0.21/hr plus $0.02/hr diarization | User decision 2026-10-08 after the smoke test: the current rate-card model, with Universal-2 for a language 3.5 Pro does not cover. Alternatives offered: 3.5 Pro alone; `universal-3-pro` as Interview Intelligence (accepted by the API, not on the rate card) |
 | AssemblyAI model names and prices are configuration | Plan approval 2026-10-08; the docs give two spellings for the current model and the prices differ from the tracker's |

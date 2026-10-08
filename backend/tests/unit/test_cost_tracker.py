@@ -1,7 +1,9 @@
 """Unit tests for cost tracking calculations."""
 
+import pytest
+
+from app.config import settings
 from app.services.cost_tracker import (
-    ASSEMBLYAI_COST_PER_SECOND,
     GPT54_MINI_INPUT_COST_PER_TOKEN,
     GPT54_MINI_OUTPUT_COST_PER_TOKEN,
     calculate_assemblyai_cost,
@@ -45,13 +47,23 @@ class TestCalculateEmbeddingCost:
 
 
 class TestCalculateAssemblyAICost:
-    def test_one_hour(self) -> None:
+    def test_one_hour_with_diarization(self) -> None:
+        # Universal-3.5 Pro $0.21/hr plus diarization $0.02/hr
         cost = calculate_assemblyai_cost(3600)
-        assert abs(cost - 0.15) < 1e-10
+        assert cost == pytest.approx(0.23)
+
+    def test_one_hour_without_speaker_labels(self) -> None:
+        cost = calculate_assemblyai_cost(3600, speaker_labels=False)
+        assert cost == pytest.approx(0.21)
 
     def test_subsecond_billing(self) -> None:
         # 0.5 seconds should still produce a non-zero cost
         cost = calculate_assemblyai_cost(0.5)
-        expected = 0.5 * ASSEMBLYAI_COST_PER_SECOND
-        assert cost == expected
+        assert cost == pytest.approx(0.5 * 0.23 / 3600)
         assert cost > 0
+
+    def test_prices_come_from_settings(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(settings, "assemblyai_cost_per_hour_usd", 0.15)
+        monkeypatch.setattr(settings, "assemblyai_diarization_cost_per_hour_usd", 0.0)
+
+        assert calculate_assemblyai_cost(3600) == pytest.approx(0.15)
