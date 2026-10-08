@@ -86,6 +86,8 @@ variable "credential_expiries" {
   default = {
     # Teams Graph app certificate, thumbprint F46877044D95A517407208FF2D2FE9F382684BD3
     teams-graph-certificate = "2027-10-06"
+    # Entra SSO app "PMO Intelligence" (ac99fe5f-a3bb-4299-afdc-0da9bdeab113), client secret "staging"
+    entra-sso-client-secret-staging = "2027-10-08"
   }
 
   validation {

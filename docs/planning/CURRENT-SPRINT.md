@@ -40,6 +40,7 @@
 | Load balancer | Two new ALBs (staging and prod), as in Interview Intelligence | One new ALB for both; share II's ALB |
 | Terraform state | S3 remote backend with native locking | Local state like II |
 | SSO credential | Client secret, with its expiry recorded and reminded | Certificate credential |
+| SSO tenancy (2026-10-08) | Single tenant: the InformationTech home tenant only; `AZURE_ALLOWED_TENANT_IDS` empty | Multi-tenant plus allowlist, as Interview Intelligence and the PRD bootstrap checklist |
 | Sprint length | 2 weeks | 1 week; until the exit gate |
 | Frontend package manager | pnpm (as in II) | npm |
 
@@ -114,12 +115,12 @@
 - [x] `CHANGELOG.md`
 
 **Commit checkpoint**
-- [ ] `feat: add terraform for staging and prod with remote state` (before apply; a follow-up commit after apply)
+- [x] `feat: add terraform for staging and prod with remote state` (before apply; a follow-up commit after apply) (deviation: the Terraform went in as smaller commits 36323b1, b0acf90, 71778f2, 62ac7a7, 2b28a77, 0445294, 53c6578, d50e186, 1d14675; phase close-out commit 4aeeaff `docs: complete the deployment guide for phase 4`, pushed)
 
 ### Phase 5: SSO, staging deploy, audit and handover
 **Code work and setup**
-- [ ] Entra SSO app "PMO Intelligence": multi-tenant plus allowlist, redirect URIs (localhost and staging), client secret with its expiry recorded
-- [ ] User populates the staging secret (values never in chat); `BOOTSTRAP_ADMIN_EMAILS` (Azure OpenAI values piped in and the AssemblyAI key set 2026-10-08; Entra values left; add the Entra client secret's expiry date to `credential_expiries`)
+- [x] Entra SSO app "PMO Intelligence": single tenant (InformationTech home tenant; user decision 2026-10-08, was multi-tenant plus allowlist), redirect URIs (localhost and staging), client secret with its expiry recorded; `AZURE_ALLOWED_TENANT_IDS` stays empty (2026-10-08 with new `scripts/entra/Register-SsoApp.ps1`: app `ac99fe5f-a3bb-4299-afdc-0da9bdeab113`, Web redirects localhost 3000/3100 and staging, OpenID scopes, assignment required with Abhishek assigned, secret `staging` to 2027-10-08 written into the staging secret; expiry added to `credential_expiries`, shared applied: 3 added)
+- [x] User populates the staging secret (values never in chat); `BOOTSTRAP_ADMIN_EMAILS` (Azure OpenAI values piped in and the AssemblyAI key set 2026-10-08; Entra values written by the script; `bootstrap_admin_emails` in the git-ignored staging `terraform.tfvars`, staging applied: task definition revision 2, backend stable, `/auth/sso/microsoft/config` serves the new app with the tenant authority)
 - [ ] Run the DB bootstrap for staging; push to `develop`; CI, then deploy
 - [ ] Exit gate: sign in at the staging URL with SSO; record the Teams ticket number
 
@@ -129,16 +130,16 @@
 **Commit checkpoint**
 - [ ] `docs: complete sprint 0 audit and handover`
 
->>> CURRENT PHASE: Phase 4 — Infrastructure as code (all code and doc tasks done; phase commit left)
+>>> CURRENT PHASE: Phase 5 — SSO, staging deploy, audit and handover (not started; waits for the user)
 
-## Session State (last updated: 2026-10-08 10:42)
+## Session State (last updated: 2026-10-08 11:42)
 - **Sprint**: 0 — Bootstrap
-- **Current phase**: Phase 4 — Infrastructure as code (Phases 1–3 done)
-- **Phase progress**: Phase 4 all 9 code tasks and 3 doc tasks done; phase commit left
-- **Last completed task**: expiry reminders verified as applied (re-plan clean, subscription confirmed, test email delivered); Phase 4 doc check: `DEPLOYMENT.md` status line, app secret key table, app-deploy rollback; `CHANGELOG.md`
-- **Next task**: Phase 4 commit (docs) and push; then STOP. Phase 5 starts with the Entra SSO app "PMO Intelligence" when the user asks
-- **Last commit**: 1d14675 "feat: email reminders before credentials expire" (pushed)
-- **Uncommitted changes**: `docs/DEPLOYMENT.md`, `docs/tracking/CHANGELOG.md`, `docs/planning/CURRENT-SPRINT.md`
+- **Current phase**: Phase 5 — SSO, staging deploy, audit and handover (Phases 1–4 done)
+- **Phase progress**: Phase 5 2 of 4 code and setup tasks
+- **Last completed task**: Entra SSO app created by `scripts/entra/Register-SsoApp.ps1`, values in the staging secret, secret expiry reminded (shared applied), bootstrap admin set (staging applied, backend revision 2 healthy); docs updated
+- **Next task**: commit and push the SSO work; then the user signs in at https://pmo-intelligence-staging.itcapp.ai (exit gate) and checks the role is `pmo_manager`
+- **Last commit**: 4aeeaff "docs: complete the deployment guide for phase 4" (pushed)
+- **Uncommitted changes**: `scripts/entra/Register-SsoApp.ps1`, `infra/shared/variables.tf`, `docs/DEPLOYMENT.md`, `docs/ARCHITECTURE.md`, `docs/tracking/CHANGELOG.md`, `docs/planning/CURRENT-SPRINT.md`
 - **Blockers**: Teams connector app pending tenant admin approval (external; affects only the exit-gate ticket item). Push: the repo is private under `Abhishekkv99`; the default git login and the active `gh` account (`abhishekitc`) cannot see it. User decision 2026-10-07: do not change the default git login or the active `gh` account; push with `Abhishekkv99`'s token for that one command only (`git -c credential.helper= -c credential.helper='!f() { echo username=x-access-token; echo "password=$(gh auth token --user Abhishekkv99)"; }; f' push origin develop`). AWS: run `aws sso login --profile pmo-intelligence` when the session expires
 - **Tests passing**: 252 unit + 38 integration (backend) + 86 frontend unit + 9 e2e = 385 (2026-10-07); `make lint-backend` passes
 - **Files created this session**: `docker-compose.yml`, `Makefile`, `.env.example`, `backend/.dockerignore`, `frontend/.dockerignore`, `backend/Dockerfile`, `.github/workflows/ci.yml`, `README.md`, `infra/bootstrap/{versions,variables,main,outputs}.tf`, `infra/bootstrap/.terraform.lock.hcl`, `infra/bootstrap/backend.tf`, `docs/DEPLOYMENT.md`
@@ -188,6 +189,11 @@
 | Staging deployments: `gpt-5.4-mini` (2026-03-17) and `text-embedding-3-small` (1536 dimensions, matching `signals.embedding`), each with a small TPM capacity | User decision 2026-10-08 |
 | Azure resource-group policy: a time-boxed (2 h) subscription-wide exemption for the one creation, **only with the policy owner's agreement**, deleted right after; Terraform adds a permanent exemption scoped to `rg-pmo-intelligence-swc` alone | User decision 2026-10-08; the subscription's custom policy "Restrict RG Creation to Managed Service Patterns" denies creating or updating any non-managed resource group, Owners included. An exemption cannot target a group that does not exist yet. Alternatives offered: the admin creates the group (Terraform reads it), or an existing group for now |
 | App-deploy rollback documented as an ECR retag of a known-good `sha-<commit>` image to `staging-latest` plus a force-new-deployment, then a `git revert` on `develop`; a migration added by the bad deploy is downgraded first with the newer image | User decision 2026-10-08; the retag is minutes, the revert stops the next CI deploy reintroducing the change. Alternatives offered: revert only (a full CI run), retag only |
+| **SSO app registration is single tenant** (InformationTech home tenant), not the PRD checklist's "same multi-tenant and allowlist settings" as Interview Intelligence | User decision 2026-10-08; every PMO user is in the home tenant, and Entra then refuses other tenants' accounts itself rather than relying on the app's issuer check. No code change: with `AZURE_ALLOWED_TENANT_IDS` empty, `sso_service.sso_authority()` uses the home tenant id. Moving to multi-tenant later is configuration only (registration setting plus that variable) |
+| One SSO app registration "PMO Intelligence" for every environment, one client secret per environment (12 months), created by `scripts/entra/Register-SsoApp.ps1`, which writes the values straight into the app secret | User decision 2026-10-08. Alternatives offered: one app per environment; one-off az commands; the portal. 6 and 24 months offered for the secret |
+| SSO assignment required: only users assigned to the enterprise app may sign in; Abhishek assigned | User decision 2026-10-08; recommended alternative was the whole tenant with no role until assigned in PMO. Access is now managed in Entra (who may sign in) and in PMO (the role) |
+| Redirect URIs are the Web platform (not SPA) for localhost 3000 and 3100 and staging | The backend redeems the code with the client secret; Entra refuses server-side redemption for SPA redirects. Ports: user decision 2026-10-08 |
+| Staging bootstrap admin: Abhishek.Verma@InformationTechConsultants.com, in the git-ignored `infra/environments/staging/terraform.tfvars` | User decision 2026-10-08 |
 | Credential expiry reminders: a `credential_expiries` map (name → expiry date) in `infra/shared/`; EventBridge Scheduler one-time schedules at 09:00 Europe/London 30, 14 and 3 days before each date publish to an SNS email topic for `Abhishek.Verma@InformationTechConsultants.com` | User decision 2026-10-08; a daily checker reading Entra through Graph was offered and declined (it would need its own Graph credential). Tracked now: the Teams Graph certificate (2027-10-06); the Entra SSO client secret is added when it is created in Phase 5 |
 | GitHub OIDC provider created by PMO's Terraform in the sandbox account | Survey 2026-10-07: none exists in `260172548683` (the II account's provider was the reason for a data source) |
 | **Staging hostname by subdomain delegation**: public zone `pmo-intelligence-staging.itcapp.ai` in the sandbox account; one NS record for it in the `itcapp.ai` zone, added by whoever manages that zone | User decision 2026-10-07; `itcapp.ai` is not in the sandbox account and Entra needs HTTPS outside `localhost`. Keeps the agreed hostname (#10) and leaves the certificate, its validation and the ALB record entirely in PMO's account. Prod uses its own delegated zone at product Phase 5 |

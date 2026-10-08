@@ -2,7 +2,7 @@
 
 PMO Intelligence runs in its own AWS account, **ITC Sandbox PD Intelligence (`260172548683`)**, in **eu-west-2**. Nothing on AWS is shared with Interview Intelligence. The only link outside the account is one NS record in the `itcapp.ai` zone that delegates `pmo-intelligence-staging.itcapp.ai` to PMO's hosted zone.
 
-> Status: Sprint 0, Phase 4 in progress. Applied on 2026-10-07: the state bucket (`infra/bootstrap/`), the shared stack (`infra/shared/`, 23 resources) and staging (`infra/environments/staging/`, 52 resources including the hosted zone). The NS delegation is in place, and `https://pmo-intelligence-staging.itcapp.ai` serves a valid certificate. The GitHub variables are set; the database bootstrap has run (`pmo_app`); the backend (deployed by CI) and the frontend (first image pushed by hand, later ones by CI) are healthy: `/api/v1/health` answers 200. PMO's Azure OpenAI (`infra/azure/`) is applied, and its endpoint, deployment names and key are in the staging secret, with PMO's own AssemblyAI key (2026-10-08). The credential-expiry reminders are applied in `infra/shared/`, the email subscription is confirmed, and a test email was delivered. Still to do: the Entra values in the staging secret (Sprint 0 Phase 5).
+> Status: Sprint 0, Phase 4 in progress. Applied on 2026-10-07: the state bucket (`infra/bootstrap/`), the shared stack (`infra/shared/`, 23 resources) and staging (`infra/environments/staging/`, 52 resources including the hosted zone). The NS delegation is in place, and `https://pmo-intelligence-staging.itcapp.ai` serves a valid certificate. The GitHub variables are set; the database bootstrap has run (`pmo_app`); the backend (deployed by CI) and the frontend (first image pushed by hand, later ones by CI) are healthy: `/api/v1/health` answers 200. PMO's Azure OpenAI (`infra/azure/`) is applied, and its endpoint, deployment names and key are in the staging secret, with PMO's own AssemblyAI key (2026-10-08). The credential-expiry reminders are applied in `infra/shared/`, the email subscription is confirmed, and a test email was delivered. The Entra SSO app "PMO Intelligence" was created on 2026-10-08 (section 7), its values are in the staging secret, `BOOTSTRAP_ADMIN_EMAILS` is set, and the backend runs task definition revision 2.
 
 ## Access
 Sign in with AWS IAM Identity Center (SSO) through the `pmo-intelligence` profile:
@@ -221,11 +221,37 @@ Credentials that expire are listed in `credential_expiries` in `infra/shared/var
 | Credential | Expires | Source |
 |------------|---------|--------|
 | `teams-graph-certificate` | 2027-10-06 | Teams Graph app certificate, thumbprint `F46877044D95A517407208FF2D2FE9F382684BD3` (`docs/integrations/TEAMS-GRAPH-SETUP.md`) |
-| Entra SSO client secret | set in product Phase 5 | Added when the secret is created |
+| `entra-sso-client-secret-staging` | 2027-10-08 | Client secret `staging` of the Entra SSO app "PMO Intelligence" (section 7) |
 
 - **Recipient**: `alert_email` (`Abhishek.Verma@InformationTechConsultants.com`). AWS sends a confirmation email after the first apply, and reminders arrive only once the link in it is clicked.
 - **Add or renew a credential**: put its name and new date in `credential_expiries`, then `terraform plan` and `apply` in `infra/shared/`. The old schedules are replaced.
 - Credentials with no expiry need no entry: the Azure OpenAI and AssemblyAI keys, the RDS master password (rotated by RDS), the ACM certificate (renewed by ACM), and deploys (OIDC, no stored key).
+
+### 7. Entra SSO app (`scripts/entra/Register-SsoApp.ps1`)
+One app registration, **PMO Intelligence** (client id `ac99fe5f-a3bb-4299-afdc-0da9bdeab113`), serves every environment, in the Information Tech Consultants tenant (`2b32b1fa-7899-482e-a6de-be99c0ff5516`).
+
+| Setting | Value |
+|---------|-------|
+| Audience | Single tenant (`AzureADMyOrg`); `AZURE_ALLOWED_TENANT_IDS` stays empty, so the backend uses the tenant id as the authority |
+| Redirect URIs (Web) | `http://localhost:3000/auth/callback/microsoft`, `http://localhost:3100/auth/callback/microsoft`, `https://pmo-intelligence-staging.itcapp.ai/auth/callback/microsoft`; prod's is added at product Phase 5 |
+| Platform | **Web, not SPA**: the browser does PKCE, but the backend redeems the code with the client secret, and Entra refuses a server-side redemption for an SPA redirect |
+| Scopes | Delegated Microsoft Graph `openid`, `email`, `profile`, `offline_access` |
+| Assignment required | On: only users assigned to the enterprise app can sign in. An assigned user with no role in PMO still sees nothing until a PMO manager gives them one |
+| Client secrets | One per environment, named after it (`staging`, expires 2027-10-08), 12 months each |
+
+```powershell
+az login                                   # as yourself; the tenant lets users register apps
+aws sso login --profile pmo-intelligence
+powershell -ExecutionPolicy Bypass -File scripts\entra\Register-SsoApp.ps1      # staging (defaults)
+powershell -ExecutionPolicy Bypass -File scripts\entra\Register-SsoApp.ps1 -AssignUsers someone@InformationTechConsultants.com   # add a user
+```
+
+The script is safe to re-run: it finds the app by exact name, adds redirect URIs without removing any, assigns only users not yet assigned, and skips the secret when the environment already has one. When it creates a secret, it writes `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET` and `AZURE_TENANT_ID` into `pmo-intelligence/<env>/app`, keeping the other keys. The value is never printed.
+
+- **After a new secret**: add `entra-sso-client-secret-<env>` with the printed expiry to `credential_expiries` (section 6) and apply `infra/shared/`; redeploy the backend.
+- **Rotate**: `-RotateSecret` adds a new secret and writes it, keeping the old one so running tasks still sign in. Redeploy the backend, then delete the old secret with the `az ad app credential delete` command the script prints.
+- **Prod (product Phase 5)**: `-Environment prod -RedirectUris https://pmo-intelligence.itcapp.ai/auth/callback/microsoft`.
+- **Bootstrap admins**: `bootstrap_admin_emails` in each environment's git-ignored `terraform.tfvars` (copy `terraform.tfvars.example`); staging has `Abhishek.Verma@InformationTechConsultants.com`. Changing it replaces the backend task definition and redeploys.
 
 ## Rollback
 - **A bad app deploy**: every deploy pushes `sha-<full commit sha>` next to `staging-latest`, and the services always run `staging-latest`. Point the tag back at a good image, then fix `develop`:
