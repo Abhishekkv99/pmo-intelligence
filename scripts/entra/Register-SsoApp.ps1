@@ -9,14 +9,21 @@
       1. creates the single-tenant app registration (or finds the existing one by exact name)
       2. adds the Web redirect URIs (keeps any already there) and the delegated OpenID scopes
          openid, email, profile and offline_access
-      3. creates the service principal, makes you an owner of it, and turns on
-         "assignment required", so only assigned users can sign in
-      4. assigns the users in -AssignUsers (default access)
+      3. creates the service principal, makes you an owner of it, and sets "assignment required"
+         from -RequireAssignment (off by default)
+      4. assigns the users in -AssignUsers (default access); this only limits sign-in when
+         assignment is required
       5. creates a client secret named after the environment and writes AZURE_CLIENT_ID,
          AZURE_CLIENT_SECRET and AZURE_TENANT_ID into pmo-intelligence/<env>/app, keeping every
          other key. The secret value is never printed
     Redirect URIs are Web, not SPA: the browser does PKCE, but the backend redeems the code with the
     client secret, and Entra refuses a server-side redemption for an SPA redirect.
+
+    Assignment required stays off unless -RequireAssignment is given. When it is on, Entra demands
+    admin consent for the app even though the tenant lets users consent to the OpenID scopes, so
+    nobody can sign in until a tenant administrator grants it (Enterprise apps > the app >
+    Permissions > Grant admin consent). With it off, any account in the tenant can sign in but has
+    no role, and sees nothing, until a PMO manager gives it one.
 
     An environment that already has a secret is left alone unless -RotateSecret is given. A rotation
     keeps the old secret, so running tasks still sign in; delete it (the key id is printed) after the
@@ -37,7 +44,8 @@ param(
         "http://localhost:3100/auth/callback/microsoft",
         "https://pmo-intelligence-staging.itcapp.ai/auth/callback/microsoft"
     ),
-    [string[]]$AssignUsers = @("Abhishek.Verma@InformationTechConsultants.com"),
+    [switch]$RequireAssignment,
+    [string[]]$AssignUsers = @(),
     [int]$SecretMonths = 12,
     [switch]$RotateSecret,
     [string]$AwsProfile = "pmo-intelligence",
@@ -118,7 +126,7 @@ $file = Write-TempJson @(@{ resourceAppId = $GraphAppId; resourceAccess = $acces
 try { Invoke-Az @("ad", "app", "update", "--id", $appId, "--required-resource-accesses", "@$file") | Out-Null }
 finally { Remove-Item $file -Force }
 
-# 3. Service principal, its owner, assignment required
+# 3. Service principal, its owner, assignment required (needs admin consent when on)
 $spId = Invoke-Az @("ad", "sp", "list", "--filter", "appId eq '$appId'", "--query", "[0].id", "-o", "tsv")
 if (-not $spId) {
     Write-Host "Creating service principal..."
@@ -129,8 +137,10 @@ if ($owners -notcontains $myObjectId) {
     Write-Host "Adding $signedInAs as an owner of the service principal..."
     Invoke-GraphPost "$GraphApi/servicePrincipals/$spId/owners/`$ref" @{ "@odata.id" = "$GraphApi/directoryObjects/$myObjectId" }
 }
-Write-Host "Turning on assignment required..."
-Invoke-Az @("ad", "sp", "update", "--id", $spId, "--set", "appRoleAssignmentRequired=true") | Out-Null
+$required = if ($RequireAssignment) { "true" } else { "false" }
+Write-Host "Setting assignment required to $required..."
+if ($RequireAssignment) { Write-Warning "Users cannot sign in until a tenant administrator grants admin consent to '$DisplayName'." }
+Invoke-Az @("ad", "sp", "update", "--id", $spId, "--set", "appRoleAssignmentRequired=$required") | Out-Null
 
 # 4. User assignments
 $assigned = @(Invoke-Az @("rest", "--method", "GET", "--uri", "$GraphApi/servicePrincipals/$spId/appRoleAssignedTo", "--query", "value[].principalId", "-o", "tsv"))
@@ -166,7 +176,7 @@ Write-Host ""
 Write-Host "Done." -ForegroundColor Green
 Write-Host "  Tenant ID:            $tenantId"
 Write-Host "  SSO app (client) ID:  $appId"
-Write-Host "  Service principal:    $spId (assignment required)"
+Write-Host "  Service principal:    $spId (assignment required: $required)"
 Write-Host "  Redirect URIs:        $($uris -join ', ')"
 if ($secretExpiry) {
     Write-Host "  '$Environment' secret expires: $secretExpiry (value written to $SecretId, not shown)"

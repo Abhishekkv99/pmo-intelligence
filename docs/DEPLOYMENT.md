@@ -149,7 +149,7 @@ terraform output github_variables
    | `AZURE_ALLOWED_TENANT_IDS` | By hand, optional | Comma-separated tenant ids allowed to sign in besides the home tenant (`AZURE_TENANT_ID`, always allowed); empty by default |
 
    To change one key and keep the others, read the secret, change that key in the JSON, and write the whole object back. A running task reads the secret only at start, so redeploy the backend afterwards.
-3. **Images.** The services run the `staging-latest` tag. Until one exists, ECS keeps retrying the task. CI deploys only the side that changed since the previous commit, so the first image of an unchanged side is pushed by hand. On Windows, `docker login` to ECR fails with the credential store ("The stub received bad data"), so use a temporary `DOCKER_CONFIG` whose `config.json` holds an `auths` entry for the registry, base64 of `AWS:<aws ecr get-login-password>`.
+3. **Images.** The services run the `staging-latest` tag. Until one exists, ECS keeps retrying the task. CI deploys only the side that changed since the previous commit, so the first image of an unchanged side is pushed by hand. On Windows, `docker login` to ECR fails with the credential store ("The stub received bad data"), so use a temporary `DOCKER_CONFIG` whose `config.json` holds an `auths` entry for the registry, base64 of `AWS:<aws ecr get-login-password>`. Build from Git Bash only with `MSYS_NO_PATHCONV=1`, and with CI's build argument (`--build-arg NEXT_PUBLIC_API_URL=/api/v1`, `--platform linux/amd64`); tag `sha-<full commit sha>` and `staging-latest`. Without it Git Bash turns `/api/v1` into `C:/Program Files/Git/api/v1`, which the frontend then calls (staging sign-in failed this way until 2026-10-08). Check the bundle before pushing: `docker run --rm --entrypoint sh <image> -c "grep -rhoE '.{20}api/v1' .next/static/chunks"`.
 
 **Protection**: the RDS instance (deletion protection, final snapshot), the media bucket, the app secret and the hosted zone carry `prevent_destroy`. Recreating the zone would change its name servers and break the delegation. Everything else can be destroyed and recreated.
 
@@ -236,17 +236,16 @@ One app registration, **PMO Intelligence** (client id `ac99fe5f-a3bb-4299-afdc-0
 | Redirect URIs (Web) | `http://localhost:3000/auth/callback/microsoft`, `http://localhost:3100/auth/callback/microsoft`, `https://pmo-intelligence-staging.itcapp.ai/auth/callback/microsoft`; prod's is added at product Phase 5 |
 | Platform | **Web, not SPA**: the browser does PKCE, but the backend redeems the code with the client secret, and Entra refuses a server-side redemption for an SPA redirect |
 | Scopes | Delegated Microsoft Graph `openid`, `email`, `profile`, `offline_access` |
-| Assignment required | On: only users assigned to the enterprise app can sign in. An assigned user with no role in PMO still sees nothing until a PMO manager gives them one |
+| Assignment required | **Off.** Any account in the tenant can sign in, consenting for itself to the four scopes (the tenant's user consent policy, `microsoft-user-default-recommended`, allows them), and has no role, so it sees nothing until a PMO manager gives it one. Turning assignment on (`-RequireAssignment`) makes Entra demand **admin consent** for the app regardless of the user consent policy, so nobody signs in until a tenant administrator grants it ("Need admin approval", seen on 2026-10-08) |
 | Client secrets | One per environment, named after it (`staging`, expires 2027-10-08), 12 months each |
 
 ```powershell
 az login                                   # as yourself; the tenant lets users register apps
 aws sso login --profile pmo-intelligence
 powershell -ExecutionPolicy Bypass -File scripts\entra\Register-SsoApp.ps1      # staging (defaults)
-powershell -ExecutionPolicy Bypass -File scripts\entra\Register-SsoApp.ps1 -AssignUsers someone@InformationTechConsultants.com   # add a user
 ```
 
-The script is safe to re-run: it finds the app by exact name, adds redirect URIs without removing any, assigns only users not yet assigned, and skips the secret when the environment already has one. When it creates a secret, it writes `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET` and `AZURE_TENANT_ID` into `pmo-intelligence/<env>/app`, keeping the other keys. The value is never printed.
+The script is safe to re-run: it finds the app by exact name, adds redirect URIs without removing any, sets assignment required from `-RequireAssignment` (off unless given), and skips the secret when the environment already has one. When it creates a secret, it writes `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET` and `AZURE_TENANT_ID` into `pmo-intelligence/<env>/app`, keeping the other keys. The value is never printed.
 
 - **After a new secret**: add `entra-sso-client-secret-<env>` with the printed expiry to `credential_expiries` (section 6) and apply `infra/shared/`; redeploy the backend.
 - **Rotate**: `-RotateSecret` adds a new secret and writes it, keeping the old one so running tasks still sign in. Redeploy the backend, then delete the old secret with the `az ad app credential delete` command the script prints.
