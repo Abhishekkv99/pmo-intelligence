@@ -32,7 +32,10 @@ module "environment" {
 
   image_tag              = "staging-latest"
   processing_concurrency = 1
-  bootstrap_admin_emails = var.bootstrap_admin_emails
+  # Catalog only; the bucket policy on the recordings bucket grants this
+  # environment's task role (docs/DEPLOYMENT.md).
+  recordings_scan_enabled = true
+  bootstrap_admin_emails  = var.bootstrap_admin_emails
 
   db_instance_class = "db.t4g.micro"
 }

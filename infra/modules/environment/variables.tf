@@ -163,3 +163,21 @@ variable "db_backup_retention_days" {
   type        = number
   default     = 7
 }
+
+variable "recordings_source_bucket" {
+  description = "Bucket holding the PMO call recordings (main ITC account; read through its bucket policy)"
+  type        = string
+  default     = "nextcloud-talk-recordings-itc"
+}
+
+variable "recordings_source_prefix" {
+  description = "Prefix of the PMO recordings folder in that bucket, with its trailing slash"
+  type        = string
+  default     = "recordings/pmo/"
+}
+
+variable "recordings_scan_enabled" {
+  description = "Catalog the recordings folder every 15 minutes (RECORDINGS_SCAN_ENABLED); never processes"
+  type        = bool
+  default     = false
+}

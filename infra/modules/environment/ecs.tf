@@ -38,6 +38,9 @@ locals {
     { name = "AZURE_OPENAI_API_VERSION", value = var.azure_openai_api_version },
     { name = "BOOTSTRAP_ADMIN_EMAILS", value = var.bootstrap_admin_emails },
     { name = "PROCESSING_CONCURRENCY", value = tostring(var.processing_concurrency) },
+    { name = "RECORDINGS_SOURCE_BUCKET", value = var.recordings_source_bucket },
+    { name = "RECORDINGS_SOURCE_PREFIX", value = var.recordings_source_prefix },
+    { name = "RECORDINGS_SCAN_ENABLED", value = tostring(var.recordings_scan_enabled) },
   ]
 
   backend_secrets = [

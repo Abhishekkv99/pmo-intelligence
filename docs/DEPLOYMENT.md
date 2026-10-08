@@ -2,7 +2,7 @@
 
 PMO Intelligence runs in its own AWS account, **ITC Sandbox PD Intelligence (`260172548683`)**, in **eu-west-2**. Nothing on AWS is shared with Interview Intelligence. The only link outside the account is one NS record in the `itcapp.ai` zone that delegates `pmo-intelligence-staging.itcapp.ai` to PMO's hosted zone.
 
-> Status: Sprint 1 in progress (Phase 1, 2026-10-08): migration 002 applied on staging by the CI deploy; the manual redeploy is in `ci.yml` ("Redeploying without a change"); no infrastructure change yet. Sprint 0 (complete 2026-10-08) applied: the state bucket (`infra/bootstrap/`, 7 resources), the shared stack (`infra/shared/`, 34: network, ECR, ECS cluster, GitHub OIDC role, deny-deletion policy, credential expiry reminders), staging (`infra/environments/staging/`, 61: the environment module with the database bootstrap and admin-cli task definitions) and PMO's Azure OpenAI (`infra/azure/`, 5). Counts are managed resources in each stack's state on 2026-10-08. The NS delegation is in place and `https://pmo-intelligence-staging.itcapp.ai` serves a valid certificate. The staging secret holds every value (database URL from the bootstrap, Azure OpenAI, AssemblyAI, the Entra SSO app); sign-in works for members of the tenant with a role (section 8). Production is applied at product Phase 5.
+> Status: Sprint 1 in progress (Phase 3, 2026-10-09): migrations 002–004 applied on staging by the CI deploys; the manual redeploy is in `ci.yml` ("Redeploying without a change"); the backend reads the PMO recordings folder (section 9: bucket policy on the main account's bucket, task-role statements and env vars by Terraform, applied 2026-10-09; staging still 61 managed resources, the task definition being replaced). Sprint 0 (complete 2026-10-08) applied: the state bucket (`infra/bootstrap/`, 7 resources), the shared stack (`infra/shared/`, 34: network, ECR, ECS cluster, GitHub OIDC role, deny-deletion policy, credential expiry reminders), staging (`infra/environments/staging/`, 61: the environment module with the database bootstrap and admin-cli task definitions) and PMO's Azure OpenAI (`infra/azure/`, 5). Counts are managed resources in each stack's state on 2026-10-08. The NS delegation is in place and `https://pmo-intelligence-staging.itcapp.ai` serves a valid certificate. The staging secret holds every value (database URL from the bootstrap, Azure OpenAI, AssemblyAI, the Entra SSO app); sign-in works for members of the tenant with a role (section 8). Production is applied at product Phase 5.
 
 ## Access
 Sign in with AWS IAM Identity Center (SSO) through the `pmo-intelligence` profile:
@@ -271,6 +271,49 @@ make user-role ENV=staging ARGS=--list                                          
 - **Who was refused**: every refused sign-in is a WARNING in the backend log group, `Sign-in refused: ...`, with the account it was for.
 - `scripts/user-role.sh` reads the cluster, task definition, subnets and security group from the environment's Terraform outputs, accepts only a plain email address and a known role, waits for the task, prints its own log stream and exits with the task's exit code.
 - **Needs the backend image** with `app/cli/user_role.py` (`staging-latest`).
+
+### 9. PMO recordings folder (bucket policy, then Terraform)
+The backend reads the PMO call recordings from `s3://nextcloud-talk-recordings-itc/recordings/pmo/`, a bucket in the **main ITC account (`430006376054`)**. Access across accounts needs both sides:
+
+1. **Bucket policy** (main account). Applied 2026-10-09 with the user's approval. Allow only: list the bucket under the prefix, and read objects under it, for PMO's staging task role and nothing else. The bucket's object ownership is `BucketOwnerEnforced`, so the policy covers every object; the objects use SSE-S3, so no KMS grant is needed. A policy of Allow statements does not narrow the main account's own access.
+
+   ```json
+   {
+     "Version": "2012-10-17",
+     "Statement": [
+       {
+         "Sid": "PmoStagingListRecordings",
+         "Effect": "Allow",
+         "Principal": { "AWS": "arn:aws:iam::260172548683:role/pmo-intelligence-staging-ecs-task" },
+         "Action": "s3:ListBucket",
+         "Resource": "arn:aws:s3:::nextcloud-talk-recordings-itc",
+         "Condition": { "StringLike": { "s3:prefix": "recordings/pmo/*" } }
+       },
+       {
+         "Sid": "PmoStagingReadRecordings",
+         "Effect": "Allow",
+         "Principal": { "AWS": "arn:aws:iam::260172548683:role/pmo-intelligence-staging-ecs-task" },
+         "Action": "s3:GetObject",
+         "Resource": "arn:aws:s3:::nextcloud-talk-recordings-itc/recordings/pmo/*"
+       }
+     ]
+   }
+   ```
+
+   ```bash
+   # Main-account login (the default profile). Check first: put-bucket-policy
+   # REPLACES any existing policy, so go on only if this says none exists.
+   MSYS_NO_PATHCONV=1 aws s3api get-bucket-policy --bucket nextcloud-talk-recordings-itc
+   MSYS_NO_PATHCONV=1 aws s3api put-bucket-policy --bucket nextcloud-talk-recordings-itc --policy file://recordings-bucket-policy.json
+   MSYS_NO_PATHCONV=1 aws s3api get-bucket-policy --bucket nextcloud-talk-recordings-itc --query Policy --output text
+   ```
+
+   **Never delete or overwrite anything in the main account.** If a policy already exists when this is next needed (production adds its own role), merge the new statements into the existing document by hand and have the account owner apply it; removing the policy is the account owner's decision alone.
+2. **Terraform** (PMO account, `infra/modules/environment/iam.tf` and `ecs.tf`). The task role gets the matching `ListRecordingsFolder` and `ReadRecordings` statements (variables `recordings_source_bucket`, `recordings_source_prefix`), and the backend gets `RECORDINGS_SOURCE_BUCKET`, `RECORDINGS_SOURCE_PREFIX` and `RECORDINGS_SCAN_ENABLED` (`recordings_scan_enabled`, true for staging). Applied 2026-10-09: the backend task definition replaced, the service and the task policy updated in place.
+
+Apply the bucket policy first: the redeploy runs a scan at startup, which fails with AccessDenied until the policy exists (the next pass, 15 minutes later, would then succeed).
+
+**Check**: the backend log shows `Recordings scan <id>: N folders (...), M recordings (...)` within a few minutes of the new task taking over processing. The first staging scan (2026-10-09) found 49 of 310 folders with calls on or after `RECORDINGS_EARLIEST_DATE` (2026-07-24) and cataloged 208 recordings; none matched, as the staging register was still empty.
 
 ## Redeploying without a change
 To rebuild and redeploy one side of staging from the head of `develop` (for example after a secret value changed, or to replace a bad image), run the CI workflow by hand:

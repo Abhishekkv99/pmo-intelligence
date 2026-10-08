@@ -63,6 +63,28 @@ data "aws_iam_policy_document" "task" {
     ]
   }
 
+  # The PMO recordings folder in the main ITC account. Read only, and only
+  # under the prefix; the bucket's own policy must allow this role too.
+  statement {
+    sid       = "ListRecordingsFolder"
+    effect    = "Allow"
+    actions   = ["s3:ListBucket"]
+    resources = ["arn:aws:s3:::${var.recordings_source_bucket}"]
+
+    condition {
+      test     = "StringLike"
+      variable = "s3:prefix"
+      values   = ["${var.recordings_source_prefix}*"]
+    }
+  }
+
+  statement {
+    sid       = "ReadRecordings"
+    effect    = "Allow"
+    actions   = ["s3:GetObject"]
+    resources = ["arn:aws:s3:::${var.recordings_source_bucket}/${var.recordings_source_prefix}*"]
+  }
+
   statement {
     sid       = "SendEmail"
     effect    = "Allow"
