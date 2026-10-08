@@ -8,6 +8,11 @@ one already matched, is left alone. Nothing is queued for transcription: a
 person presses Process for each recording (2,433 recordings were on the
 folder when it was surveyed).
 
+Only calls on or after ``RECORDINGS_EARLIEST_DATE`` (a UK date) are
+cataloged, and a folder only when it holds at least one of them: older
+calls are out of scope. A call's time is the one in its file name, else
+its S3 time.
+
 Every pass writes a ``recording_scans`` row. The catalog is written in one
 transaction, so a pass that fails or runs past ``SCAN_TIME_LIMIT_SECONDS``
 leaves the catalog as it was and records why.
@@ -17,7 +22,7 @@ import asyncio
 import logging
 from collections import defaultdict
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from typing import Protocol
 
 import aioboto3
@@ -30,6 +35,7 @@ from app.models.enums import FolderMatchStatus, ScanStatus
 from app.models.session import RecordingFolder, RecordingScan, SourceRecording
 from app.services.media_files import extension_of
 from app.services.recordings.folder_names import (
+    local_day,
     parse_folder_name,
     recorded_at_from_filename,
 )
@@ -101,6 +107,45 @@ def group_by_folder(
         ):
             files.append(obj)
     return dict(folders)
+
+
+@dataclass(frozen=True)
+class TimedRecording:
+    obj: SourceObject
+    # From the file name; None when the name carries no time.
+    recorded_at: datetime | None
+
+    @property
+    def call_time(self) -> datetime:
+        return self.recorded_at or self.obj.last_modified
+
+
+def keep_recent(
+    grouped: dict[str, list[SourceObject]],
+    earliest: date | None,
+    timezone: str,
+) -> dict[str, list[TimedRecording]]:
+    """Folder key to its recordings from ``earliest`` on (a day in ``timezone``).
+
+    A folder without one is left out. ``earliest`` None keeps every folder
+    that has a recording, with all of them.
+    """
+    kept: dict[str, list[TimedRecording]] = {}
+    for folder_key, files in grouped.items():
+        timed = [
+            TimedRecording(
+                obj, recorded_at_from_filename(obj.key.rsplit("/", 1)[-1], timezone)
+            )
+            for obj in files
+        ]
+        recent = [
+            t
+            for t in timed
+            if earliest is None or local_day(t.call_time, timezone) >= earliest
+        ]
+        if recent:
+            kept[folder_key] = recent
+    return kept
 
 
 @dataclass
@@ -176,6 +221,16 @@ class RecordingScanner:
             settings.recordings_source_bucket, prefix
         )
         grouped = group_by_folder(objects, prefix, settings.allowed_extensions)
+        recent = keep_recent(
+            grouped, settings.recordings_earliest_date, settings.recordings_timezone
+        )
+        if len(recent) < len(grouped):
+            logger.info(
+                "Recordings scan: %d of %d folders have calls on or after %s",
+                len(recent),
+                len(grouped),
+                settings.recordings_earliest_date,
+            )
         consultants = [
             ConsultantName(c.id, c.full_name)
             for c in await self.consultants.list_by_name()
@@ -183,9 +238,9 @@ class RecordingScanner:
         folders = await self.recordings.folders_by_key()
         known_recordings = await self.recordings.recording_keys()
         now = datetime.now(UTC)
-        counts = ScanCounts(folders_seen=len(grouped))
+        counts = ScanCounts(folders_seen=len(recent))
 
-        for folder_key, files in grouped.items():
+        for folder_key, files in recent.items():
             folder = folders.get(folder_key)
             parsed = parse_folder_name(folder_key[len(prefix) : -1])
             if folder is None:
@@ -205,18 +260,16 @@ class RecordingScanner:
             await self.recordings.flush()
 
             counts.recordings_seen += len(files)
-            for obj in files:
-                if obj.key in known_recordings:
+            for timed in files:
+                if timed.obj.key in known_recordings:
                     continue
                 self.recordings.add(
                     SourceRecording(
                         folder_id=folder.id,
-                        object_key=obj.key,
-                        size_bytes=obj.size,
-                        last_modified=obj.last_modified,
-                        recorded_at=recorded_at_from_filename(
-                            obj.key.rsplit("/", 1)[-1], settings.recordings_timezone
-                        ),
+                        object_key=timed.obj.key,
+                        size_bytes=timed.obj.size,
+                        last_modified=timed.obj.last_modified,
+                        recorded_at=timed.recorded_at,
                     )
                 )
                 counts.recordings_added += 1

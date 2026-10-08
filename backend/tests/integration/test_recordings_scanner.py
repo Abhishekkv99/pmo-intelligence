@@ -246,3 +246,31 @@ class TestFailedScans:
         latest = await repo.latest_scan()
         assert latest is not None and latest.id == left.id
         assert await _count(db_session, RecordingScan) == 1
+
+
+class TestEarliestDate:
+    async def test_only_calls_from_the_earliest_date_on_are_cataloged(
+        self, db_session: AsyncSession
+    ) -> None:
+        old_room = f"{PREFIX}PMO support Ann 2025/"
+        ongoing = f"{PREFIX}Ravi onboarding/"
+        source = FakeSource(
+            [
+                f"{old_room}Recording 2026-05-12 10-00-00.webm",
+                f"{ongoing}Recording 2026-07-01 10-00-00.webm",
+                f"{ongoing}Recording 2026-08-04 10-00-00.webm",
+            ]
+        )
+
+        scan = await RecordingScanner(db_session, source).run()
+
+        assert (scan.folders_seen, scan.folders_added) == (1, 1)
+        assert (scan.recordings_seen, scan.recordings_added) == (1, 1)
+        keys = set(
+            (await db_session.execute(select(RecordingFolder.folder_key))).scalars()
+        )
+        assert keys == {ongoing}
+        recordings = set(
+            (await db_session.execute(select(SourceRecording.object_key))).scalars()
+        )
+        assert recordings == {f"{ongoing}Recording 2026-08-04 10-00-00.webm"}

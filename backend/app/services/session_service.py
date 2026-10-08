@@ -24,7 +24,6 @@ import logging
 import time
 import uuid
 from datetime import UTC, date, datetime
-from zoneinfo import ZoneInfo
 
 from fastapi import UploadFile
 from sqlalchemy.exc import IntegrityError
@@ -51,6 +50,7 @@ from app.services.processing_queue import (
     get_processing_queue,
     register_runner,
 )
+from app.services.recordings.folder_names import local_day
 from app.services.storage import get_storage_backend
 from app.services.storage.base import StorageBackend
 from app.services.transcription.assemblyai_client import transcribe_media
@@ -91,7 +91,7 @@ def enqueue_session(session_id: uuid.UUID) -> bool:
 
 def call_date(held_at: datetime) -> date:
     """The calendar day of the call where it was held (``RECORDINGS_TIMEZONE``)."""
-    return held_at.astimezone(ZoneInfo(settings.recordings_timezone)).date()
+    return local_day(held_at, settings.recordings_timezone)
 
 
 def covers(placement: Placement, day: date) -> bool:

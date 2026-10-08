@@ -1,15 +1,15 @@
 # Test Tracking
 
 ## Summary
-Counts are taken from the test run output, never estimated. Last run 2026-10-09 (Sprint 1 Phase 3, recordings and session routes): backend unit and integration; frontend unit and e2e from the Phase 2 run (no frontend change since); e2e against the compose stack on ports 8100/3100.
+Counts are taken from the test run output, never estimated. Last run 2026-10-09 (Sprint 1 Phase 3, recordings earliest date): backend unit and integration; frontend unit and e2e from the Phase 2 run (no frontend change since); e2e against the compose stack on ports 8100/3100.
 
 | Layer | Count |
 |-------|-------|
-| Unit (backend) | 521 |
-| Integration (backend, testcontainers pgvector) | 145 |
+| Unit (backend) | 526 |
+| Integration (backend, testcontainers pgvector) | 146 |
 | Frontend unit (Vitest) | 113 |
 | Frontend e2e (Playwright, against the compose stack) | 12 (1 setup + 11) |
-| **Total** | **791** |
+| **Total** | **797** |
 
 ## How to run
 - Backend unit: `cd backend && uv run pytest tests/unit`
@@ -47,6 +47,7 @@ Counts are taken from the test run output, never estimated. Last run 2026-10-09 
 | `test_processing_queue.py` | 27 | Priorities (chat < session < backlog), dedup, dispatch order, workers, stragglers, runner registry |
 | `test_processing_status_api.py` | 11 | Queue status route; manager/admin only |
 | `test_rate_limiting.py` | 4 | Auth rate limits |
+| `test_recordings_cutoff.py` | 5 | A folder with only older calls is left out; an ongoing room keeps only its recent calls; the cutoff is a UK day (00:30 BST on the 24th kept, 23:30 on the 23rd not); a file without a time uses its S3 time; no cutoff keeps every folder with a recording |
 | `test_recordings_periodic.py` | 5 | The scan is one fixed backlog job; a second request while queued adds nothing; the runner and takeover sweep are registered once; the loop queues at start and each interval without stacking; stop ends it |
 | `test_refresh_tokens.py` | 15 | Refresh token storage, rotation, revocation; refresh refused, every token revoked and a WARNING logged for no role, a disabled account or a missing user |
 | `test_register_import_file.py` | 13 | Register CSV file checks: line numbers, Excel BOM, header case and spaces, trimmed cells, blank lines skipped; missing and unknown columns named; not UTF-8, over 1 MB, empty or header-only, over 1,000 rows refused; name normalisation |
@@ -70,7 +71,7 @@ Counts are taken from the test run output, never estimated. Last run 2026-10-09 
 | `test_health.py` | 1 | Health endpoint |
 | `test_migrations.py` | 5 | `alembic upgrade head` on an empty DB, `alembic check` (no drift), downgrade and re-upgrade; 002 drops the Microsoft token columns and its downgrade restores them; 003 adds the session and recordings tables and the `processing_costs.session_id` key, and its downgrade removes them; 004 adds and removes `recording_scans` |
 | `test_recordings_api.py` | 15 | The folder list (decided and undecided folders, unmatched left out, recordings with name or S3 time and their session, candidates, the last scan, the scan settings); choosing a consultant makes the folder `chosen`, an unknown consultant 422, an unknown folder 404; Scan now queues one scan; Process creates and queues the session, answers 409 with the placement choices and accepts one, and refuses a second Process; upload stores and queues (time kept as an instant, in UTC), `held_at` without a zone 422; a URL session is checked and queued; a metadata-address URL is refused and nothing is created; scoped roles get 403 on every route |
-| `test_recordings_scanner.py` | 8 | Recordings are allowed files directly in a folder (notes, nested files and objects under the prefix ignored); a first scan catalogs folders and recordings, matches by name, offers a choice for a shared first name, leaves a nameless folder unmatched, reads the call time from the name; nothing is processed or queued; a new file in a known room is added once; an unmatched folder matches once the consultant is registered; chosen and matched folders are never re-matched; a failed listing is recorded and changes nothing; the takeover sweep fails scans left running |
+| `test_recordings_scanner.py` | 9 | Recordings are allowed files directly in a folder (notes, nested files and objects under the prefix ignored); a first scan catalogs folders and recordings, matches by name, offers a choice for a shared first name, leaves a nameless folder unmatched, reads the call time from the name; nothing is processed or queued; a new file in a known room is added once; an unmatched folder matches once the consultant is registered; chosen and matched folders are never re-matched; a failed listing is recorded and changes nothing; the takeover sweep fails scans left running; only calls from the earliest date on are cataloged (an old room is left out, an ongoing one keeps its recent call) |
 | `test_register_api.py` | 20 | Register routes: a manager builds a placement; names tidied; uniqueness (client name, consultant email, project per client, placement key) answers 409; end before start, inactive or role-less people and unknown references answer 422; required fields cannot be cleared; partial PATCH with null clearing; ending a placement; a PS reads only their own placement by id (404 otherwise) and cannot list or edit (403); the user list has no secrets |
 | `test_register_import.py` | 10 | CSV import: a dry run previews and writes nothing; Confirm writes and a re-import is unchanged (rows reuse what earlier rows created); any row error writes nothing; filled cells overwrite, empty cells keep; a consultant entered by name gains the email; two consultants with one name need an email; people must be users with a role, a different role warns; not a `.csv` is 422; scoped roles cannot import |
 | `test_placement_scope.py` | 10 | Who can read a placement (each role); denial identical to a missing row; `access_log` rows only for permitted logged reads |

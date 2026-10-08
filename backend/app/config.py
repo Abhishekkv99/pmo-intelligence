@@ -1,3 +1,5 @@
+from datetime import date
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -80,6 +82,10 @@ class Settings(BaseSettings):
     recordings_scan_interval_seconds: int = 900
     # Recording file names carry the local time of the call.
     recordings_timezone: str = "Europe/London"
+    # Only calls on or after this UK date are cataloged, and only folders
+    # holding one: older calls are out of scope (user decision 2026-10-09,
+    # 2.5 months before then). Empty (None) catalogs everything.
+    recordings_earliest_date: date | None = date(2026, 7, 24)
 
     # Downloading a recording from a URL; max_upload_size_mb caps it too.
     url_download_timeout_seconds: int = 1800

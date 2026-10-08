@@ -96,3 +96,9 @@ def recorded_at_from_filename(filename: str, timezone: str) -> datetime | None:
     if screen:
         return datetime.fromtimestamp(int(screen.group(1)) / 1000, tz=UTC)
     return None
+
+
+def local_day(moment: datetime, timezone: str) -> date:
+    """The calendar day of ``moment`` in ``timezone`` (a call at 23:30 UTC in
+    summer is the next day in London)."""
+    return moment.astimezone(ZoneInfo(timezone)).date()
