@@ -36,6 +36,7 @@ from app.models.enums import (
     IssueStatus,
     Polarity,
     SignalCategory,
+    SignalIndicator,
     SourceKind,
     SpeakerRole,
     check_in,
@@ -102,8 +103,20 @@ class Signal(Base, UUIDMixin, TimestampMixin):
         CheckConstraint(
             check_in("speaker_role", SpeakerRole), name="ck_signals_speaker_role"
         ),
+        CheckConstraint(
+            check_in("indicator", SignalIndicator), name="ck_signals_indicator"
+        ),
         Index("ix_signals_placement_id_occurred_at", "placement_id", "occurred_at"),
         Index("ix_signals_source_kind_source_id", "source_kind", "source_id"),
+        # For "who else had this blocker": OpenAI embeddings are unit length,
+        # so cosine distance is the measure.
+        Index(
+            "ix_signals_embedding_hnsw",
+            "embedding",
+            postgresql_using="hnsw",
+            postgresql_with={"m": 16, "ef_construction": 64},
+            postgresql_ops={"embedding": "vector_cosine_ops"},
+        ),
     )
 
     placement_id: Mapped[uuid.UUID] = mapped_column(
@@ -133,7 +146,10 @@ class Signal(Base, UUIDMixin, TimestampMixin):
         nullable=True,
         index=True,
     )
-    # Filled in Sprint 2.
+    # What the signal says outright that a critical trigger reads (client
+    # dissatisfaction, a change of consultant asked for, intent to leave).
+    indicator: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    # The quote and note, embedded after the session's analysis is stored.
     embedding: Mapped[list[float] | None] = mapped_column(
         Vector(EMBEDDING_DIMENSIONS), nullable=True
     )

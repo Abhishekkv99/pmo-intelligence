@@ -52,11 +52,18 @@
 | Trend basis (after the design review) | "Signals known 14 days ago" means signals whose call happened on or before now − 14 days, decayed as of that day, so a backlog processed today still shows its trend | By when the signal was stored |
 | SME leaks (after the design review) | Closed both: an SME's board sorts by Technical score, then name, with no risk filter, so its order does not reveal the overall ranking; the session page shows an SME only Technical signals (transcript, summary, issues and actions unchanged) | Board only; neither |
 | Queue re-run (after the design review) | The processing queue remembers a key requested while that job runs and queues it once more when it finishes, for every job kind, so an edit made during a recompute is not lost | Health jobs only; accept the gap until the daily run |
+| Scoring lookback (Phase 2) | Signals whose call was within 90 days of the scoring time count (a 90-day-old signal weighs 1 % of a fresh one); none in 90 days is "Not scored" | 180 days; no window |
+| Flag windows (Phase 2) | Client dissatisfaction and intent to leave fire on a tagged signal anywhere in the 90-day lookback; relationship strain counts only signals within 14 days, for the single severity 3 and for the pair | 14 days for all; the lookback for all |
+| Trend without a past score (Phase 2) | No trend ("—") and no downward-trend flag until there is a score 14 days back | Compare with the prior 7.0 |
+| Precision (Phase 2) | Every score rounded half up to one decimal and stored that way; RAG, trend and triggers compare the rounded values | Two decimals stored, one shown |
+| Contract horizon past its end (Phase 2) | An active placement whose expected end is today + 30 days or earlier, past dates included, without a confirmed extension | Only upcoming ends |
+| Relationship strain pair (Phase 2) | Two negative Relationship signals of severity 2 or more within 14 days | Exactly severity 2 |
+| Top contributors (Phase 2) | Ranked by weight × \|value − prior\| (the pull from 7.0), neutral never, the newer first on a tie | By weight alone |
 | Embeddings client (after the design review) | The `openai` package's `AsyncAzureOpenAI.embeddings.create` with the same endpoint, key and deployment: exact token usage for the cost row and no tokenizer download in the non-root container; the unused `build_embeddings()` is replaced | LangChain's `AzureOpenAIEmbeddings` with an estimated cost and the tokenizer baked into the image |
 
 ## Task Checklist
 
->>> CURRENT PHASE: Phase 1
+>>> CURRENT PHASE: Phase 2
 
 ### Phase 0: Plan
 - [x] Plan approved (2026-10-09)
@@ -66,28 +73,28 @@
 **Code work**
 - [x] Investigate (read-only): the last backend deploy's old task (`aws ecs describe-tasks`: stoppingAt, stoppedAt, stopCode) and its CloudWatch log at shutdown (uvicorn "Shutting down", "Waiting for application shutdown", "Processing queue stopped") against the new task's "Took processing ownership after Xs"; decide between the deregistration delay and the keepalive explanation (2026-10-09, from the service events and logs, since stopped tasks are kept only about an hour. Deploy of 530df1d, UTC: new task waiting from 13:31:37; old task deregistered and draining from 13:32:15; old task signalled 13:37:49.6 and shut down cleanly in 0.1 s ("Processing queue stopped", "Application shutdown complete"); new task "Took processing ownership after 375s" at 13:37:52.8. **The drain is the whole delay**; the keepalive explanation is ruled out, and Sprint 1's "the old task's log has no shutdown lines" was wrong: the lines were there)
 - [x] Fix, agreed with the user against the evidence (user decisions 2026-10-09: drain 60 s; `stopTimeout` left at the default 30 s, since shutdown takes 0.1 s and the queue's grace is 10 s; so no uvicorn graceful-shutdown change, no lifespan log line beyond the release line, and the "ECS allows 30 s" comments stay true; only `processing_ownership.py`'s docstring changed): backend target group `deregistration_delay` (`infra/modules/environment/alb.tf`); backend container `stopTimeout` (`ecs.tf`, at most 120 on Fargate) so the queue stop and the release finish before SIGKILL; INFO lines in `ProcessingOwnership.release()` and the lifespan shutdown; uvicorn `--timeout-graceful-shutdown` below `stopTimeout` if needed (`backend/Dockerfile`); correct the docstrings that cite 300 s and 30 s (`processing_ownership.py`, `processing_queue.py`, `main.py`). A shorter deregistration delay also cuts in-flight requests, uploads included (up to 500 MB through the backend), at a deploy: weigh it with the user before choosing the value
-- [x] Terraform plan, `git status --untracked-files=all infra/`, approval, apply; one redeploy read through to "Took processing ownership" with the wait recorded (`tfplan-drain`: 0 add, 1 change in place, 0 destroy; approved and applied 2026-10-09; the target group reads `deregistration_delay.timeout_seconds` 60; staging still 61 managed resources; plan file deleted. The measured redeploy is this phase's push)
+- [x] Terraform plan, `git status --untracked-files=all infra/`, approval, apply; one redeploy read through to "Took processing ownership" with the wait recorded (`tfplan-drain`: 0 add, 1 change in place, 0 destroy; approved and applied 2026-10-09; the target group reads `deregistration_delay.timeout_seconds` 60; staging still 61 managed resources; plan file deleted. Deploy of fd2cd77, CI run 37964809513 green: "Took processing ownership after 150s" (was 375 s); the old task stopped cleanly, without the release line since it ran the previous image)
 - [x] Tests: the release log line (`test_release_logs_only_when_it_gave_the_lock_up`; backend 624 unit and 202 integration pass; ruff, format and mypy clean)
 
 **Doc updates (concurrent)**
 - [x] `DEPLOYMENT.md` (deploy timing, `> Status:`), `ARCHITECTURE.md` (infrastructure, `> Status:`), `BACKLOG.md` (tick), `FEATURES.md`, `TESTS.md`, `CHANGELOG.md` (DEPLOYMENT: "What a backend deploy does to processing" under "Redeploying without a change"; README: no new make target)
 
 **Commit checkpoint**
-- [ ] `fix: hand over processing promptly on deploy`
+- [x] `fix: hand over processing promptly on deploy` (fd2cd77, pushed with 0529a6b)
 
 ### Phase 2: Health tables, enumerations, configuration, scoring and triggers
 **Code work**
-- [ ] `app/models/enums.py`: `Indicator` with `INDICATOR_MEANINGS`, `RiskLevel` (green, amber, red), `Trend` (up, flat, down), `RiskTrigger` (all eight PRD triggers; six evaluated now), `FlagSeverity` (medium, high, critical) and the trigger severities
-- [ ] Migration `006` and `app/models/health.py`:
+- [x] `app/models/enums.py`: `Indicator` with `INDICATOR_MEANINGS`, `RiskLevel` (green, amber, red), `Trend` (up, flat, down), `RiskTrigger` (all eight PRD triggers; six evaluated now), `FlagSeverity` (medium, high, critical) and the trigger severities (as `SignalIndicator` with `SIGNAL_INDICATOR_MEANINGS`, deviation: the name says what it tags; also `RISK_TRIGGER_MEANINGS`, `RISK_TRIGGER_SEVERITY` and `SnapshotReason`: call, register, daily, catch_up)
+- [x] Migration `006` and `app/models/health.py`: (`006_create_health_snapshots_and_risk_flags.py`, written by hand since the dev database was down; `evidence_signal_ids` is a `uuid[]`)
   - `health_snapshots`: placement, computed_at, the six dimension scores, overall, trend, trend delta, risk level (empty when not scored), scored, signal count, `weights_version`, reason (call, register, daily), `evidence` JSONB (per dimension: the top five signals with weight and value, and the count); index on (placement, computed_at)
   - `risk_flags`: placement, trigger, severity, subject key (not null, `''` when the trigger has no subject, since NULLs never clash in a unique index), opened_at, `evidence_signal_ids`, closed_at, closed_by_user_id, closing_note; one open flag per (placement, trigger, subject key) by a partial unique index. With no closing this sprint, an open critical flag keeps its placement at least amber until Phase 4
   - `signals.indicator` (nullable, checked); an HNSW index on `signals.embedding` (`vector_cosine_ops`, m 16, ef_construction 64)
-- [ ] Model and migration declare the HNSW index identically (ops and `WITH` options), so `alembic check` stays clean; `EXPECTED_TABLES` and the meanings test cover the new tables and enumerations
-- [ ] `app/health/` (pure, no database, `now` passed in): `config.py` (`HealthConfig`, `load_health_config`), `config/v1.json`, `scoring.py` (`score_placement`: dimension scores, onboarding weighting by days since start, overall, trend from the signals whose call is on or before now − 14 days, decayed as of then, RAG with the critical floor, contributors), `triggers.py` (`evaluate_triggers`); settings `HEALTH_CONFIG_VERSION`, `HEALTH_DAILY_ENABLED`, `HEALTH_DAILY_HOUR`, `HEALTH_TIMEZONE`
-- [ ] Tests: exact scores for fixed signal sets (prior, decay, confidence, the onboarding window, weights scaled), not scored, trend bands, RAG and the critical floor, each trigger at its edges, configuration validation; migration 006 up and down; constraints
+- [x] Model and migration declare the HNSW index identically (ops and `WITH` options), so `alembic check` stays clean; `EXPECTED_TABLES` and the meanings test cover the new tables and enumerations (`alembic check` clean in `test_migrations.py`; a 006 up-and-down case)
+- [x] `app/health/` (pure, no database, `now` passed in): `config.py` (`HealthConfig`, `load_health_config`), `config/v1.json`, `scoring.py` (`score_placement`: dimension scores, onboarding weighting by days since start, overall, trend from the signals whose call is on or before now − 14 days, decayed as of then, RAG with the critical floor, contributors), `triggers.py` (`evaluate_triggers`); settings `HEALTH_CONFIG_VERSION`, `HEALTH_DAILY_ENABLED`, `HEALTH_DAILY_HOUR`, `HEALTH_TIMEZONE` (user decisions 2026-10-09 in the Decisions Log: 90-day lookback, flag windows, no trend without a past score, one decimal everywhere, past contract ends fire, strain pairs of severity 2 or more, contributors by pull from the prior; `round1`, `score_at`, `assess`, `trend_between`, `risk_level`, `evaluate_triggers`)
+- [x] Tests: exact scores for fixed signal sets (prior, decay, confidence, the onboarding window, weights scaled), not scored, trend bands, RAG and the critical floor, each trigger at its edges, configuration validation; migration 006 up and down; constraints (unit: `test_health_scoring.py` 42 with hand-worked numbers, `test_health_triggers.py` 29, `test_health_config.py` 15; integration: `test_health_schema.py` 17, a 006 case in `test_migrations.py`; backend 710 unit and 220 integration pass; ruff, format and mypy clean)
 
 **Doc updates (concurrent)**
-- [ ] `ARCHITECTURE.md` (health model as built, migration 006, `> Status:`), `.env.example`, `FEATURES.md`, `TESTS.md`, `CHANGELOG.md`
+- [x] `ARCHITECTURE.md` (health model as built, migration 006, `> Status:`), `.env.example`, `FEATURES.md`, `TESTS.md`, `CHANGELOG.md` (new section "Health model (as built)"; README: no new make target; `DEPLOYMENT.md`'s status waits for the deploy that applies 006, as before)
 
 **Commit checkpoint**
 - [ ] `feat: add the health scoring module and its tables`
@@ -178,15 +185,15 @@
 - Real calls: the staging register (by hand, BACKLOG) and consultants told beforehand (BACKLOG #6); the exit gate needs ten scored placements.
 - Phase 1's Terraform apply needs the user's approval; the fix waits for the evidence.
 
-## Session State (last updated: 2026-10-09 21:20)
+## Session State (last updated: 2026-10-10 00:30)
 - **Sprint**: 2 — Health v1 (PRD Phase 2)
-- **Current phase**: Phase 1 (code, docs and Terraform apply done; commit next)
-- **Last completed task**: Phase 1: cause found in the logs (the 300 s drain), drain set to 60 s and applied on staging, release log line, docs
-- **Next task**: commit `fix: hand over processing promptly on deploy` on the user's approval; push (with 0529a6b) and read the backend deploy through to "Took processing ownership", recording the wait; then stop before Phase 2
-- **Last commit**: 0529a6b "docs: plan sprint 2" (local, not pushed)
-- **Uncommitted changes**: Phase 1: `backend/app/services/processing_ownership.py`, `backend/tests/integration/test_processing_ownership.py`, `infra/modules/environment/alb.tf`, docs `ARCHITECTURE`, `DEPLOYMENT`, `planning/{BACKLOG,CURRENT-SPRINT}`, `tracking/{CHANGELOG,FEATURES,TESTS}`
+- **Current phase**: Phase 2 (code, tests and docs done; commit next)
+- **Last completed task**: Phase 2: enumerations, migration 006, `app/models/health.py`, the pure `app/health/` package (config v1, scoring, triggers), settings, tests and docs
+- **Next task**: commit `feat: add the health scoring module and its tables` on the user's approval; push, which deploys the backend and applies migration 006 on staging; read the deploy through to "Took processing ownership" and check the old task's "Released processing ownership" line; update `DEPLOYMENT.md`'s status for 006; then stop before Phase 3
+- **Last commit**: fd2cd77 "fix: hand over processing promptly on deploy" (pushed; CI run 37964809513 green, backend deployed)
+- **Uncommitted changes**: Phase 2: `backend/app/models/{enums,signal,health,__init__}.py`, `backend/alembic/versions/006_create_health_snapshots_and_risk_flags.py`, `backend/app/health/{__init__,config,scoring,triggers}.py`, `backend/app/health/config/v1.json`, `backend/app/config.py`, `backend/tests/unit/test_health_{config,scoring,triggers}.py`, `backend/tests/integration/{test_health_schema,test_migrations}.py`, `.env.example`; docs `ARCHITECTURE`, `planning/CURRENT-SPRINT`, `tracking/{CHANGELOG,FEATURES,TESTS}`; plus Phase 1's measured takeover time in `DEPLOYMENT.md`
 - **Blockers**: none
-- **Tests passing**: 624 unit + 202 integration (backend, run 2026-10-09 Phase 1) + 157 frontend unit + 17 e2e (Sprint 1) = 1000
+- **Tests passing**: 710 unit + 220 integration (backend, run 2026-10-09 Phase 2) + 157 frontend unit + 17 e2e (Sprint 1) = 1104
 - **Files modified this session**: `docs/planning/{CURRENT-SPRINT,BACKLOG,ROADMAP}.md`; Phase 1: the uncommitted files above
 - **Recovery instructions**:
   - Read this file first, then `docs/handover/sprint-01-handover.md`.
@@ -201,4 +208,5 @@
 | Every row of "User Decisions Made" above | User decisions 2026-10-09, Sprint 2 planning; alternatives listed with each |
 | The backend target group drains for 60 s (was AWS's default 300 s) | User decision 2026-10-09, after the logs showed the drain was the whole takeover delay; an upload still running 60 s into a deploy's drain is cut and must be retried. Alternatives offered: 30 s; 120 s; keep 300 s |
 | The backend container keeps the default `stopTimeout` (30 s) | User decision 2026-10-09; shutdown takes 0.1 s and the queue's grace is 10 s. Alternative offered: 60 s |
+| Judgement calls made while building Phase 2, for approval at the checkpoint | An ended or terminated placement raises no new flags (it is still scored); the enumeration is `SignalIndicator`, not `Indicator`; `SnapshotReason` includes `catch_up` for the takeover's recompute (Phase 4), so no later CHECK change; a repeated blocker's "open more than 10 days" is strictly more than 10 × 24 hours since first seen; the downward-trend evidence is the negative signals said within the trend window |
 | **Audit note (Rule C)** | Sprint 1 recorded that the old task's log "ends without shutdown lines" and guessed the lock was freed by the dropped connection; the lines were there, and the delay was the documented 300 s drain (the ownership module's own docstring named it). Cause: a log was skimmed for a line that `release()` never wrote, and the conclusion went into the backlog untested. Rule to add: before recording a cause, find the log line or timestamp that shows it; when a step leaves no log line, add one rather than infer |

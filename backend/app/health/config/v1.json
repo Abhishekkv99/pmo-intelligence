@@ -1,0 +1,36 @@
+{
+  "version": "v1",
+  "weights": {
+    "delivery": 30,
+    "relationship": 25,
+    "technical": 15,
+    "engagement": 15,
+    "communication": 10,
+    "onboarding": 5
+  },
+  "early_days": 30,
+  "onboarding_early_weight": 25,
+  "half_life_days": 14,
+  "lookback_days": 90,
+  "prior": 7.0,
+  "prior_weight": 1.0,
+  "values": {
+    "positive": 9.0,
+    "neutral": 7.0,
+    "negative": {"1": 5.0, "2": 3.0, "3": 1.0}
+  },
+  "top_contributors": 5,
+  "rag": {"green_min": 7.0, "amber_min": 5.0},
+  "trend": {"window_days": 14, "flat_band": 0.5},
+  "triggers": {
+    "repeated_blocker": {"min_occurrences": 2, "open_days": 10},
+    "downward_trend": {"drop": 1.5},
+    "relationship_strain": {
+      "window_days": 14,
+      "single_severity": 3,
+      "pair_severity": 2,
+      "pair_count": 2
+    },
+    "contract_horizon": {"days": 30}
+  }
+}

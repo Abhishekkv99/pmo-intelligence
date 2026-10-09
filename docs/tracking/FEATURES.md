@@ -59,4 +59,8 @@
 ## Sprint 2: Health v1
 | Feature | Files | Status |
 |---------|-------|--------|
-| Processing handed over about 2 minutes after a backend deploy (was about 6): 60 s connection drain on the backend target group; the ownership release is logged | `infra/modules/environment/alb.tf`, `backend/app/services/processing_ownership.py` | Done (applied on staging 2026-10-09; first deploy measured with this phase's push) |
+| Processing handed over about 2½ minutes after a backend deploy (was about 6): 60 s connection drain on the backend target group; the ownership release is logged | `infra/modules/environment/alb.tf`, `backend/app/services/processing_ownership.py` | Done (applied on staging 2026-10-09; the deploy of fd2cd77 took ownership after 150 s, was 375 s) |
+| Health model configuration, versioned (`v1`: the PRD's weights and thresholds) | `backend/app/health/config.py`, `backend/app/health/config/v1.json` | Done (Phase 2) |
+| Health scoring: six dimensions, overall, trend, RAG, contributors (pure) | `backend/app/health/scoring.py` | Done (Phase 2; called by the recompute from Phase 4) |
+| Early-warning triggers: client dissatisfaction, intent to leave, repeated blocker, downward trend, relationship strain, contract horizon (pure) | `backend/app/health/triggers.py` | Done (Phase 2; flags opened from Phase 4) |
+| Health snapshots and risk flags tables; signal indicator; embedding index (migration 006) | `backend/app/models/health.py`, `backend/alembic/versions/006_create_health_snapshots_and_risk_flags.py` | Done (Phase 2; applied on staging by the next deploy) |

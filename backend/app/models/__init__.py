@@ -1,5 +1,6 @@
 from app.models.access_log import AccessLog
 from app.models.base import Base
+from app.models.health import HealthSnapshot, RiskFlag
 from app.models.processing_cost import ProcessingCost
 from app.models.processing_job import ProcessingJob
 from app.models.refresh_token import RefreshToken
@@ -20,6 +21,7 @@ __all__ = [
     "Base",
     "Client",
     "Consultant",
+    "HealthSnapshot",
     "Issue",
     "Placement",
     "ProcessingCost",
@@ -28,6 +30,7 @@ __all__ = [
     "RecordingFolder",
     "RecordingScan",
     "RefreshToken",
+    "RiskFlag",
     "Session",
     "SessionTranscript",
     "Signal",

@@ -64,6 +64,16 @@ class Settings(BaseSettings):
     # is linked to (and reopens) the earlier issue.
     session_resolved_issue_lookback_days: int = 30
 
+    # Health model. The weights, decay and thresholds are in the versioned
+    # file app/health/config/<version>.json; every snapshot records the
+    # version. The daily recompute (decay and the contract horizon move
+    # without new evidence) runs at this hour in this zone, which also gives
+    # the dates the scoring reads.
+    health_config_version: str = "v1"
+    health_daily_enabled: bool = False
+    health_daily_hour: int = 6
+    health_timezone: str = "Europe/London"
+
     # AWS / Storage
     aws_region: str = "eu-west-2"
     s3_bucket_name: str = "pmo-intelligence-media"

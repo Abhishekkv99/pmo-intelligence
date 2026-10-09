@@ -24,6 +24,7 @@ EXPECTED_TABLES = {
     "alembic_version",
     "clients",
     "consultants",
+    "health_snapshots",
     "issues",
     "placements",
     "processing_costs",
@@ -32,6 +33,7 @@ EXPECTED_TABLES = {
     "recording_folders",
     "recording_scans",
     "refresh_tokens",
+    "risk_flags",
     "session_transcripts",
     "sessions",
     "signals",
@@ -117,6 +119,25 @@ async def _cost_session_foreign_keys(url: str) -> int:
 
 
 SIGNAL_TABLES = {"actions", "issues", "signals"}
+HEALTH_TABLES = {"health_snapshots", "risk_flags"}
+
+
+async def _signal_columns_and_indexes(url: str) -> tuple[set[str], set[str]]:
+    check = create_async_engine(url)
+    try:
+        async with check.connect() as conn:
+            columns = await conn.execute(
+                text(
+                    "SELECT column_name FROM information_schema.columns "
+                    "WHERE table_schema = 'public' AND table_name = 'signals'"
+                )
+            )
+            indexes = await conn.execute(
+                text("SELECT indexname FROM pg_indexes WHERE tablename = 'signals'")
+            )
+            return {row[0] for row in columns}, {row[0] for row in indexes}
+    finally:
+        await check.dispose()
 
 
 async def _transcript_columns(url: str) -> set[str]:
@@ -220,3 +241,23 @@ class TestMigrations:
         assert downgrade.returncode == 0, downgrade.stderr
         assert not SIGNAL_TABLES & await _tables(fresh_database_url)
         assert "project_phase" not in await _transcript_columns(fresh_database_url)
+
+    async def test_006_adds_health_tables_indicator_and_hnsw_index_and_removes_them(
+        self, fresh_database_url: str
+    ) -> None:
+        assert _alembic(fresh_database_url, "upgrade", "005").returncode == 0
+        assert not HEALTH_TABLES & await _tables(fresh_database_url)
+
+        upgrade = _alembic(fresh_database_url, "upgrade", "006")
+        assert upgrade.returncode == 0, upgrade.stderr
+        assert HEALTH_TABLES.issubset(await _tables(fresh_database_url))
+        columns, indexes = await _signal_columns_and_indexes(fresh_database_url)
+        assert "indicator" in columns
+        assert "ix_signals_embedding_hnsw" in indexes
+
+        downgrade = _alembic(fresh_database_url, "downgrade", "005")
+        assert downgrade.returncode == 0, downgrade.stderr
+        assert not HEALTH_TABLES & await _tables(fresh_database_url)
+        columns, indexes = await _signal_columns_and_indexes(fresh_database_url)
+        assert "indicator" not in columns
+        assert "ix_signals_embedding_hnsw" not in indexes

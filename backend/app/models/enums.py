@@ -1,4 +1,4 @@
-"""Enumerations for users, the register, sessions, signals, issues and actions.
+"""Enumerations for users, the register, sessions, signals, issues, actions and health.
 
 The single source for these value sets: models, migrations, schemas, tests and
 docs cite them from here rather than repeating the strings. Values are stored
@@ -225,6 +225,113 @@ class ActionStatus(enum.StrEnum):
     OPEN = "open"
     DONE = "done"
     OVERDUE = "overdue"
+
+
+class SignalIndicator(enum.StrEnum):
+    """What a signal says outright that a critical trigger reads."""
+
+    CLIENT_DISSATISFACTION = "client_dissatisfaction"
+    CONSULTANT_CHANGE_REQUESTED = "consultant_change_requested"
+    INTENT_TO_LEAVE = "intent_to_leave"
+
+
+# What each indicator means, for the client and relationship/engagement prompts.
+SIGNAL_INDICATOR_MEANINGS: dict[SignalIndicator, str] = {
+    SignalIndicator.CLIENT_DISSATISFACTION: (
+        "the client manager is unhappy with the consultant or their work, or "
+        "has escalated about them"
+    ),
+    SignalIndicator.CONSULTANT_CHANGE_REQUESTED: (
+        "the client has asked for, or talked about, a different consultant"
+    ),
+    SignalIndicator.INTENT_TO_LEAVE: (
+        "the consultant talks of leaving, another offer, or not wanting to continue"
+    ),
+}
+
+
+class RiskLevel(enum.StrEnum):
+    """A placement's RAG level from its overall score (PRD, "Scoring rules")."""
+
+    GREEN = "green"
+    AMBER = "amber"
+    RED = "red"
+
+
+class Trend(enum.StrEnum):
+    """Change in the overall score over the trend window."""
+
+    UP = "up"
+    FLAT = "flat"
+    DOWN = "down"
+
+
+class RiskTrigger(enum.StrEnum):
+    """The PRD's early-warning triggers; each opens a risk flag."""
+
+    GONE_QUIET = "gone_quiet"
+    CLIENT_DISSATISFACTION = "client_dissatisfaction"
+    REPEATED_BLOCKER = "repeated_blocker"
+    DOWNWARD_TREND = "downward_trend"
+    RELATIONSHIP_STRAIN = "relationship_strain"
+    CONTRACT_HORIZON = "contract_horizon"
+    INTENT_TO_LEAVE = "intent_to_leave"
+    MISSED_COMMITMENT = "missed_commitment"
+
+
+# When each trigger fires (PRD, "Early-warning triggers"); the thresholds are
+# the health configuration's.
+RISK_TRIGGER_MEANINGS: dict[RiskTrigger, str] = {
+    RiskTrigger.GONE_QUIET: "no post from the consultant in the group for a while",
+    RiskTrigger.CLIENT_DISSATISFACTION: (
+        "the client manager is unhappy, escalated, or asked for a change of consultant"
+    ),
+    RiskTrigger.REPEATED_BLOCKER: (
+        "the same technical blocker came up in two calls or has stayed open too long"
+    ),
+    RiskTrigger.DOWNWARD_TREND: "the overall score fell sharply over the trend window",
+    RiskTrigger.RELATIONSHIP_STRAIN: (
+        "a serious negative relationship signal, or two notable ones close together"
+    ),
+    RiskTrigger.CONTRACT_HORIZON: (
+        "the expected end is close or past and the extension is not confirmed"
+    ),
+    RiskTrigger.INTENT_TO_LEAVE: (
+        "the consultant mentioned leaving, another offer, or not wanting to continue"
+    ),
+    RiskTrigger.MISSED_COMMITMENT: (
+        "an action the consultant owned passed its due date without an update"
+    ),
+}
+
+
+class FlagSeverity(enum.StrEnum):
+    MEDIUM = "medium"
+    HIGH = "high"
+    CRITICAL = "critical"
+
+
+# Each trigger's severity (PRD, "Early-warning triggers"). An open critical
+# flag keeps its placement at least amber.
+RISK_TRIGGER_SEVERITY: dict[RiskTrigger, FlagSeverity] = {
+    RiskTrigger.GONE_QUIET: FlagSeverity.MEDIUM,
+    RiskTrigger.CLIENT_DISSATISFACTION: FlagSeverity.CRITICAL,
+    RiskTrigger.REPEATED_BLOCKER: FlagSeverity.HIGH,
+    RiskTrigger.DOWNWARD_TREND: FlagSeverity.HIGH,
+    RiskTrigger.RELATIONSHIP_STRAIN: FlagSeverity.HIGH,
+    RiskTrigger.CONTRACT_HORIZON: FlagSeverity.HIGH,
+    RiskTrigger.INTENT_TO_LEAVE: FlagSeverity.CRITICAL,
+    RiskTrigger.MISSED_COMMITMENT: FlagSeverity.MEDIUM,
+}
+
+
+class SnapshotReason(enum.StrEnum):
+    """What caused a health recompute."""
+
+    CALL = "call"  # a call was analysed
+    REGISTER = "register"  # the placement or its project was edited
+    DAILY = "daily"  # the daily recompute
+    CATCH_UP = "catch_up"  # a takeover found the latest snapshot out of date
 
 
 def check_in(column: str, values: type[enum.StrEnum]) -> str:
