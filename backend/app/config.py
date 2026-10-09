@@ -54,6 +54,16 @@ class Settings(BaseSettings):
     # default is no timeout, so a dead connection would wait forever
     azure_openai_timeout_seconds: int = 300
 
+    # Session pipeline. Every LLM node stops after this long and is recorded
+    # as a node error; it is under the client timeout so the node's own limit
+    # fires first. One reasoning effort for every node.
+    session_node_timeout_seconds: int = 240
+    session_reasoning_effort: str = "medium"
+    # The issues node is offered the placement's open issues and the ones
+    # resolved within this many days of the call, so a blocker raised again
+    # is linked to (and reopens) the earlier issue.
+    session_resolved_issue_lookback_days: int = 30
+
     # AWS / Storage
     aws_region: str = "eu-west-2"
     s3_bucket_name: str = "pmo-intelligence-media"

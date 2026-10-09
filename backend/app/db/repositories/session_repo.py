@@ -33,14 +33,17 @@ class SessionRepository:
         self.session.add(row)
         await self.session.flush()
 
-    async def save_transcript(
-        self, session_id: uuid.UUID, **fields: object
-    ) -> SessionTranscript:
-        """Create the session's transcript, or replace it on a re-run."""
+    async def get_transcript(self, session_id: uuid.UUID) -> SessionTranscript | None:
         result = await self.session.execute(
             select(SessionTranscript).where(SessionTranscript.session_id == session_id)
         )
-        transcript = result.scalar_one_or_none()
+        return result.scalar_one_or_none()
+
+    async def save_transcript(
+        self, session_id: uuid.UUID, **fields: object
+    ) -> SessionTranscript:
+        """Create the session's transcript, or set fields on the existing one."""
+        transcript = await self.get_transcript(session_id)
         if transcript is None:
             transcript = SessionTranscript(session_id=session_id)
             self.session.add(transcript)

@@ -11,13 +11,16 @@ from app.models.session import (
     SessionTranscript,
     SourceRecording,
 )
+from app.models.signal import Action, Issue, Signal
 from app.models.user import User
 
 __all__ = [
     "AccessLog",
+    "Action",
     "Base",
     "Client",
     "Consultant",
+    "Issue",
     "Placement",
     "ProcessingCost",
     "ProcessingJob",
@@ -27,6 +30,7 @@ __all__ = [
     "RefreshToken",
     "Session",
     "SessionTranscript",
+    "Signal",
     "SourceRecording",
     "User",
 ]

@@ -7,17 +7,18 @@ _session``), because the worker opens its own database session and must see
 the row.
 
 The ``session`` job does the slow part, in order: copy the recording into
-PMO's media bucket (server side) or download the URL, then transcribe with
-AssemblyAI and store the transcript and its cost. Status goes ``uploaded`` →
-``transcribing`` (from the job's start) → ``transcribed``, or ``failed`` with
-the reason. A ``processing_jobs`` row records each run: its stage
-(``copying``, ``downloading``, ``transcribing``), timing and error. The
-session waits at ``transcribed`` until the analysis pipeline (Sprint 1 Phase
-4) takes it further.
+PMO's media bucket (server side) or download the URL, transcribe with
+AssemblyAI and store the transcript and its cost, then analyse it with the
+session pipeline (``session_analysis``). Status goes ``uploaded`` →
+``transcribing`` (from the job's start) → ``transcribed`` → ``analyzing`` →
+``completed``, or ``failed`` with the reason. A job that finds its session
+already ``transcribed`` runs only the analysis. A ``processing_jobs`` row
+records each run: its stage (``copying``, ``downloading``, ``transcribing``,
+``analyzing``), timing and error.
 
 On takeover, sessions a stopped task left mid-run (``transcribing``,
 ``analyzing``) are failed, so a person can retry them, and sessions still
-``uploaded`` are queued again.
+``uploaded`` or ``transcribed`` are queued again.
 """
 
 import logging
@@ -51,6 +52,7 @@ from app.services.processing_queue import (
     register_runner,
 )
 from app.services.recordings.folder_names import local_day
+from app.services.session_analysis import Pipeline, SessionAnalysisService
 from app.services.storage import get_storage_backend
 from app.services.storage.base import StorageBackend
 from app.services.transcription.assemblyai_client import transcribe_media
@@ -67,6 +69,8 @@ MEDIA_URL_SECONDS = 2 * 60 * 60
 
 # Mid-run statuses a stopped task leaves behind.
 IN_FLIGHT = frozenset({SessionStatus.TRANSCRIBING.value, SessionStatus.ANALYZING.value})
+# Statuses a job picks up: a new session, or one transcribed but not analysed.
+WAITING = frozenset({SessionStatus.UPLOADED.value, SessionStatus.TRANSCRIBED.value})
 INTERRUPTED_REASON = "Interrupted by a restart before it finished; retry it"
 
 _registered = False
@@ -232,7 +236,7 @@ class SessionService:
 
 
 class SessionRunner:
-    """The ``session`` job: fetch the recording, transcribe, store."""
+    """The ``session`` job: fetch the recording, transcribe, analyse, store."""
 
     def __init__(
         self,
@@ -240,24 +244,27 @@ class SessionRunner:
         *,
         storage: StorageBackend | None = None,
         url_service: UrlDownloadService | None = None,
+        pipeline: Pipeline | None = None,
     ) -> None:
         self.db = db
         self.sessions = SessionRepository(db)
         self.storage = storage or get_storage_backend()
         self._url_service = url_service
+        self._pipeline = pipeline
 
     async def run(self, session_id: uuid.UUID) -> None:
         session = await self.sessions.get(session_id)
         if session is None:
             logger.warning("Session %s no longer exists; job skipped", session_id)
             return
-        if session.status != SessionStatus.UPLOADED.value:
+        if session.status not in WAITING:
             logger.info(
-                "Session %s is %s, not uploaded; job skipped",
+                "Session %s is %s, not waiting; job skipped",
                 session_id,
                 session.status,
             )
             return
+        analysis_only = session.status == SessionStatus.TRANSCRIBED.value
 
         job = ProcessingJob(
             kind=SESSION_JOB_KIND,
@@ -266,14 +273,20 @@ class SessionRunner:
             started_at=datetime.now(UTC),
         )
         await self.sessions.add(job)
-        session.status = SessionStatus.TRANSCRIBING.value
+        session.status = (
+            SessionStatus.ANALYZING.value
+            if analysis_only
+            else SessionStatus.TRANSCRIBING.value
+        )
         session.error_message = None
         await self.db.commit()
         job_id = job.id
 
         try:
-            await self._fetch(session, job)
-            await self._transcribe(session, job)
+            if not analysis_only:
+                await self._fetch(session, job)
+                await self._transcribe(session, job)
+            await self._analyse(session, job)
         except Exception as exc:
             await self.db.rollback()
             reason = f"{type(exc).__name__}: {getattr(exc, 'message', None) or exc}"
@@ -354,14 +367,19 @@ class SessionRunner:
             )
         )
         session.status = SessionStatus.TRANSCRIBED.value
-        job.status = JobStatus.COMPLETED.value
-        job.completed_at = datetime.now(UTC)
         await self.db.commit()
         logger.info(
             "Session %s transcribed (AssemblyAI %s, %.0f s of audio)",
             session.id,
             transcription.transcript_id,
             audio_seconds or 0.0,
+        )
+
+    async def _analyse(self, session: Session, job: ProcessingJob) -> None:
+        session.status = SessionStatus.ANALYZING.value
+        await self._stage(job, "analyzing")
+        await SessionAnalysisService(self.db, pipeline=self._pipeline).analyse(
+            session, job
         )
 
 
@@ -383,11 +401,10 @@ async def fail_interrupted_sessions() -> int:
 
 
 async def requeue_waiting_sessions() -> int:
-    """Takeover re-queue: sessions created but never started go back on the queue."""
+    """Takeover re-queue: sessions not started, or transcribed but not yet
+    analysed, go back on the queue."""
     async with async_session_factory() as db:
-        waiting = await SessionRepository(db).ids_with_status(
-            {SessionStatus.UPLOADED.value}
-        )
+        waiting = await SessionRepository(db).ids_with_status(WAITING)
     return sum(1 for session_id in waiting if enqueue_session(session_id))
 
 

@@ -1,6 +1,8 @@
 """Sessions from a recording, an upload or a URL, and the job that runs them.
 
-Against a real database; storage, the URL service and AssemblyAI are fakes.
+Against a real database; storage, the URL service, AssemblyAI and the
+analysis pipeline are fakes (the analysis itself is tested in
+``test_session_analysis.py``).
 """
 
 import io
@@ -17,6 +19,9 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.datastructures import Headers
 
+from app.ai.session.drafts import SessionAnalysis
+from app.ai.session.graph import SessionRunResult
+from app.ai.session.state import SessionContext
 from app.models.enums import FolderMatchStatus, JobStatus, SessionStatus
 from app.models.processing_cost import ProcessingCost
 from app.models.processing_job import ProcessingJob
@@ -27,7 +32,7 @@ from app.models.session import (
     SessionTranscript,
     SourceRecording,
 )
-from app.services import session_service
+from app.services import session_analysis, session_service
 from app.services.processing_queue import get_processing_queue
 from app.services.session_service import (
     PlacementChoiceError,
@@ -138,6 +143,24 @@ class FakeUrlService:
 @pytest.fixture
 def world(db_session: AsyncSession) -> World:
     return World(db_session)
+
+
+@pytest.fixture(autouse=True)
+def analysed(monkeypatch: pytest.MonkeyPatch) -> list[SessionContext]:
+    """The session pipeline answering with a summary; records what it was given."""
+    given: list[SessionContext] = []
+
+    async def fake(context: SessionContext) -> SessionRunResult:
+        given.append(context)
+        return SessionRunResult(
+            analysis=SessionAnalysis(summary="A short call."),
+            cost_records=[],
+            node_errors=[],
+            succeeded=["summarise"],
+        )
+
+    monkeypatch.setattr(session_analysis, "run_session_pipeline", fake)
+    return given
 
 
 @pytest.fixture
@@ -375,12 +398,13 @@ async def _job(db: AsyncSession, session_id: uuid.UUID) -> ProcessingJob:
 
 
 class TestSessionRunner:
-    async def test_recording_is_copied_then_transcribed_and_costed(
+    async def test_recording_is_copied_transcribed_costed_then_analysed(
         self,
         db_session: AsyncSession,
         world: World,
         tmp_path: Path,
         transcribed: list[str],
+        analysed: list[SessionContext],
     ) -> None:
         priya = await world.consultant()
         await world.placement(priya, date(2026, 1, 1), None)
@@ -397,15 +421,19 @@ class TestSessionRunner:
         ]
         assert session.recording_key == key
         assert transcribed == [str(tmp_path / key)]
-        assert session.status == SessionStatus.TRANSCRIBED.value
+        assert session.status == SessionStatus.COMPLETED.value
         assert session.duration_seconds == 1800.0
 
         transcript = await db_session.scalar(
             select(SessionTranscript).where(SessionTranscript.session_id == session.id)
         )
         assert transcript is not None
+        await db_session.refresh(transcript)
         assert transcript.full_text == "Morning. Morning."
         assert len(transcript.utterances or []) == 2
+        assert transcript.summary == "A short call."
+        [context] = analysed
+        assert context.full_text == "Morning. Morning."
 
         cost = await db_session.scalar(
             select(ProcessingCost).where(ProcessingCost.session_id == session.id)
@@ -417,7 +445,7 @@ class TestSessionRunner:
 
         job = await _job(db_session, session.id)
         assert job.status == JobStatus.COMPLETED.value
-        assert job.stage == "transcribing"
+        assert job.stage == "analyzing"
         assert cost.processing_job_id == job.id
 
     async def test_url_session_is_downloaded_by_the_job(
@@ -445,7 +473,7 @@ class TestSessionRunner:
         await db_session.refresh(session)
         assert urls.downloads == ["https://media.example.com/c.webm"]
         assert session.recording_key == f"sessions/{session.id}/c.webm"
-        assert session.status == SessionStatus.TRANSCRIBED.value
+        assert session.status == SessionStatus.COMPLETED.value
 
     async def test_upload_is_transcribed_without_fetching(
         self,
@@ -463,7 +491,7 @@ class TestSessionRunner:
 
         await db_session.refresh(session)
         assert storage.copies == []
-        assert session.status == SessionStatus.TRANSCRIBED.value
+        assert session.status == SessionStatus.COMPLETED.value
 
     async def test_transcription_failure_fails_the_session_and_its_job(
         self,
@@ -494,12 +522,72 @@ class TestSessionRunner:
         assert job.stage == "transcribing"
         assert job.completed_at is not None
 
+    async def test_transcribed_session_is_only_analysed(
+        self,
+        db_session: AsyncSession,
+        world: World,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        analysed: list[SessionContext],
+    ) -> None:
+        async def never(media: str) -> Transcription:
+            raise AssertionError("a transcribed session is not transcribed again")
+
+        monkeypatch.setattr(session_service, "transcribe_media", never)
+        session = await _session(
+            db_session,
+            world,
+            source="upload",
+            recording_key="sessions/x/a.webm",
+            status="transcribed",
+        )
+        db_session.add(
+            SessionTranscript(session_id=session.id, full_text="Hello.", utterances=[])
+        )
+        await db_session.flush()
+        storage = FakeStorage(str(tmp_path))
+
+        await SessionRunner(db_session, storage=storage).run(session.id)
+
+        await db_session.refresh(session)
+        assert session.status == SessionStatus.COMPLETED.value
+        assert storage.copies == []
+        assert [c.full_text for c in analysed] == ["Hello."]
+        job = await _job(db_session, session.id)
+        assert job.status == JobStatus.COMPLETED.value
+        assert job.stage == "analyzing"
+
+    async def test_analysis_failure_fails_the_session_and_its_job(
+        self,
+        db_session: AsyncSession,
+        world: World,
+        tmp_path: Path,
+        transcribed: list[str],
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        async def broken(context: SessionContext) -> SessionRunResult:
+            raise RuntimeError("graph bug")
+
+        monkeypatch.setattr(session_analysis, "run_session_pipeline", broken)
+        session = await _session(
+            db_session, world, source="upload", recording_key="sessions/x/a.webm"
+        )
+
+        await SessionRunner(db_session, storage=FakeStorage(str(tmp_path))).run(
+            session.id
+        )
+
+        await db_session.refresh(session)
+        assert session.status == SessionStatus.FAILED.value
+        assert session.error_message == "RuntimeError: graph bug"
+        job = await _job(db_session, session.id)
+        assert job.status == JobStatus.FAILED.value
+        assert job.stage == "analyzing"
+
     async def test_session_not_waiting_is_left_alone(
         self, db_session: AsyncSession, world: World, tmp_path: Path
     ) -> None:
-        session = await _session(
-            db_session, world, source="upload", status="transcribed"
-        )
+        session = await _session(db_session, world, source="upload", status="completed")
 
         await SessionRunner(db_session, storage=FakeStorage(str(tmp_path))).run(
             session.id
@@ -545,11 +633,17 @@ class TestTakeover:
         assert waiting.status == SessionStatus.UPLOADED.value
         assert running_job.status == JobStatus.FAILED.value
 
-    async def test_waiting_sessions_are_queued_again(
+    async def test_waiting_and_transcribed_sessions_are_queued_again(
         self, db_session: AsyncSession, world: World
     ) -> None:
         waiting = await _session(db_session, world, source="upload")
-        await _session(db_session, world, source="upload", status="transcribed")
+        transcribed = await _session(
+            db_session, world, source="upload", status="transcribed"
+        )
+        done = await _session(db_session, world, source="upload", status="completed")
 
-        assert await requeue_waiting_sessions() == 1
-        assert get_processing_queue().is_queued(session_job(waiting.id))
+        assert await requeue_waiting_sessions() == 2
+        queue = get_processing_queue()
+        assert queue.is_queued(session_job(waiting.id))
+        assert queue.is_queued(session_job(transcribed.id))
+        assert not queue.is_queued(session_job(done.id))

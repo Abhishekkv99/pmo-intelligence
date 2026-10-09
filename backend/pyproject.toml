@@ -80,5 +80,7 @@ module = [
     "asyncpg.*",
     "botocore",
     "botocore.*",
+    "pgvector",
+    "pgvector.*",
 ]
 ignore_missing_imports = true

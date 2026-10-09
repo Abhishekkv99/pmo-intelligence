@@ -42,3 +42,22 @@ def test_speech_models_read_from_json(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("ASSEMBLYAI_SPEECH_MODELS", '["universal-2"]')
 
     assert Settings().assemblyai_speech_models == ["universal-2"]
+
+
+def test_session_node_timeout_is_under_the_client_timeout(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    for name in (
+        "SESSION_NODE_TIMEOUT_SECONDS",
+        "AZURE_OPENAI_TIMEOUT_SECONDS",
+        "SESSION_REASONING_EFFORT",
+        "SESSION_RESOLVED_ISSUE_LOOKBACK_DAYS",
+    ):
+        monkeypatch.delenv(name, raising=False)
+
+    s = Settings()
+
+    # The node's own limit must fire first, so it is recorded as a node error.
+    assert s.session_node_timeout_seconds < s.azure_openai_timeout_seconds
+    assert s.session_reasoning_effort == "medium"
+    assert s.session_resolved_issue_lookback_days == 30

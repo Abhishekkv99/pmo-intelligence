@@ -214,3 +214,5 @@ class SessionTranscript(Base, UUIDMixin, TimestampMixin):
     summary: Mapped[str | None] = mapped_column(Text, nullable=True)
     # The kind the classify node chose; ``sessions.kind`` holds the one in use.
     session_class: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    # Where the consultant is in the project, in a few words, from classify.
+    project_phase: Mapped[str | None] = mapped_column(String(255), nullable=True)
