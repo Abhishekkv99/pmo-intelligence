@@ -65,16 +65,21 @@ class TestPeriodicRecordingsScan:
         self, queue: ProcessingQueue, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         requested: list[bool] = []
+        three = asyncio.Event()
 
         def counting() -> bool:
             requested.append(request_scan())
+            if len(requested) >= 3:
+                three.set()
             return requested[-1]
 
         monkeypatch.setattr(periodic, "request_scan", counting)
         loop = PeriodicRecordingsScan(interval_seconds=1)
         loop._interval = 0.05  # type: ignore[assignment]
         loop.start()
-        await asyncio.sleep(0.18)
+        # Wait for the ticks rather than a fixed time, which a loaded
+        # machine can overrun.
+        await asyncio.wait_for(three.wait(), 5)
         await loop.stop()
 
         # The first request queues the job; later ones find it still queued
