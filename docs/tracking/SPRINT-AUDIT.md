@@ -3,11 +3,13 @@
 > **This file is a MANDATORY artifact.** It must be filled out BEFORE the handover document is created.
 
 ## Sprint: 01 (Register and Sessions)
-## Date: 2026-10-09 (first pass, before the exit gate; to be re-checked after it)
+## Date: 2026-10-09 (first pass, and a second pass at the sprint close)
 
 The Sprint 0 report is in git history (`5434bec`, "docs: complete sprint 0 audit and handover") and summarised in `docs/handover/sprint-00-handover.md`.
 
-**Status**: first pass complete. Every check below passed or its finding is fixed and has a rule. Still open before the audit can be marked passed: the exit-gate calls (Phase 6), and a second pass over anything they change.
+**Status**: PASSED. The sprint closed without its exit gate (gate calls dropped, register import postponed; user decision 2026-10-09), so the second pass covers the sprint-close changes instead: the plan, BACKLOG, ROADMAP, the ARCHITECTURE and DEPLOYMENT status lines and the handover.
+
+**Second pass (2026-10-09)**: the code is unchanged since the first pass except `test_recordings_periodic.py` (S1-13), and CI run 37936852284 on that code passed backend checks (unit, integration), frontend checks and e2e; test counts are unchanged (5 tests in that file). Resource counts in DEPLOYMENT.md re-read with `terraform state list`: 7, 34, 61 managed, as stated. The closing docs' path references resolve. One more finding (S1-14).
 
 ---
 
@@ -42,7 +44,7 @@ Check each item. Mark `[x]` only after actually verifying (not from memory).
 
 ## Findings
 
-Findings S1-1 to S1-11 were recorded in `docs/planning/CURRENT-SPRINT.md` as they happened (or, S1-3, in its Research Findings) and were fixed then. S1-12 was found in Phase 5 and moved to the backlog by the user. S1-13 was found by this audit and fixed in it. Every finding has a local rule and a Learnings Log line.
+Findings S1-1 to S1-11 were recorded in `docs/planning/CURRENT-SPRINT.md` as they happened (or, S1-3, in its Research Findings) and were fixed then. S1-12 was found in Phase 5 and moved to the backlog by the user. S1-13 was found by the first pass and fixed in it; S1-14 at the sprint close. Every finding has a local rule and a Learnings Log line.
 
 | # | What was wrong | Root cause | Rule added/updated |
 |---|---------------|-----------|-------------------|
@@ -59,12 +61,13 @@ Findings S1-1 to S1-11 were recorded in `docs/planning/CURRENT-SPRINT.md` as the
 | S1-11 | An e2e run reported a fixed failure as still failing | It ran against the frontend image built before the change | Infra and tooling: rebuild the changed service before e2e |
 | S1-12 | One or two dialog tests (`UsersTab`, `PlacementDialog`) pass Vitest's 5 s limit in full runs with the default worker count while the compose stack runs | CPU contention: about 0.8 s alone, all 157 pass with `--maxWorkers=4`. Fix in BACKLOG (user decision) | Testing: re-run a timed-out test alone and with `--maxWorkers=4` before treating it as a regression |
 | S1-13 | One backend unit test failed once in the audit run (623 of 624) and could not be named or reproduced in eight more runs | The audit command kept only the run's last line. The likely cause, `test_recordings_periodic.py`'s fixed 0.18 s sleep expecting three ticks of a 0.05 s loop, was changed to wait for the ticks themselves | Testing: no fixed sleeps for async ticks; keep failure names (`-rf`, never cut a run to one line) |
+| S1-14 | Asked whether to push, the user was told the test commit would deploy nothing; it redeploys the staging backend. Corrected before the push, and the redeploy watched (375 s to processing ownership) | The answer was given from memory of the deploy rule ("only the changed side"), without reading which paths count as the backend side | Git workflow: read the deploy filter before saying what a push deploys; `backend/**` includes tests |
 
 ---
 
 ## Audit Result
-- [ ] All checklist items verified (first pass done; re-check after the exit gate)
+- [x] All checklist items verified (first pass and the sprint-close second pass)
 - [x] All findings fixed or moved to the backlog by the user (S1-7, S1-12)
-- [x] Every finding has a rule
-- [x] Learnings Log updated (13 lines)
-- [ ] **AUDIT PASSED** → handover document can be created (after the exit gate and the second pass)
+- [x] Every finding has a rule (16 rules for 14 findings)
+- [x] Learnings Log updated (14 lines)
+- [x] **AUDIT PASSED** → handover document can be created
