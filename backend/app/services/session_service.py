@@ -35,7 +35,13 @@ from app.db.repositories.placement_repo import PlacementRepository
 from app.db.repositories.recording_repo import RecordingRepository
 from app.db.repositories.session_repo import SessionRepository
 from app.db.session import async_session_factory
-from app.models.enums import FolderMatchStatus, JobStatus, SessionSource, SessionStatus
+from app.models.enums import (
+    FolderMatchStatus,
+    JobStatus,
+    SessionKind,
+    SessionSource,
+    SessionStatus,
+)
 from app.models.processing_cost import ProcessingCost
 from app.models.processing_job import ProcessingJob
 from app.models.register import Placement
@@ -232,6 +238,34 @@ class SessionService:
             original_filename=check.filename,
         )
         await self.sessions.add(session)
+        return session
+
+    async def retry(self, session: Session) -> Session:
+        """Put a failed session back where it failed; the caller commits and queues.
+
+        With a transcript it goes back to ``transcribed`` (analysis only);
+        otherwise to ``uploaded``, and the job skips the copy or download when
+        the recording is already stored. The failed job row and its costs stay.
+        """
+        if session.status != SessionStatus.FAILED.value:
+            raise ConflictError("Only a failed session can be retried")
+        transcript = await self.sessions.get_transcript(session.id)
+        session.status = (
+            SessionStatus.TRANSCRIBED.value
+            if transcript is not None
+            else SessionStatus.UPLOADED.value
+        )
+        session.error_message = None
+        await self.db.flush()
+        return session
+
+    async def set_kind(
+        self, session: Session, kind: SessionKind, user_id: uuid.UUID
+    ) -> Session:
+        """A person's kind for the call; later analysis keeps it."""
+        session.kind = kind.value
+        session.kind_overridden_by_user_id = user_id
+        await self.db.flush()
         return session
 
 

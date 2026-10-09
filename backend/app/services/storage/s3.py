@@ -87,15 +87,15 @@ class S3StorageBackend(StorageBackend):
                 raise
         return True
 
-    async def get_url(self, file_key: str, expires_in: int = 3600) -> str:
+    async def get_url(
+        self, file_key: str, expires_in: int = 3600, content_type: str | None = None
+    ) -> str:
+        params = {"Bucket": self.bucket_name, "Key": file_key}
+        if content_type is not None:
+            params["ResponseContentType"] = content_type
         async with self._session.client("s3", **self._client_kwargs()) as s3:
             url: str = await s3.generate_presigned_url(
-                "get_object",
-                Params={
-                    "Bucket": self.bucket_name,
-                    "Key": file_key,
-                },
-                ExpiresIn=expires_in,
+                "get_object", Params=params, ExpiresIn=expires_in
             )
         return url
 

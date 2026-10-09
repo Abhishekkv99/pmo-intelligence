@@ -106,10 +106,13 @@ describe("recordings in the table", () => {
     ]);
   });
 
-  it("is in flight while a session is waiting or transcribing", () => {
+  it("is in flight until a session is completed or failed", () => {
     expect(anyInFlight(folders)).toBe(true);
     expect(isInFlight("uploaded")).toBe(true);
-    expect(isInFlight("transcribed")).toBe(false);
+    // Transcribed but not yet analysed.
+    expect(isInFlight("transcribed")).toBe(true);
+    expect(isInFlight("analyzing")).toBe(true);
+    expect(isInFlight("completed")).toBe(false);
     expect(isInFlight("failed")).toBe(false);
     expect(
       anyInFlight([folder("a", [recording("x", "2026-10-01T09:00:00Z")])]),

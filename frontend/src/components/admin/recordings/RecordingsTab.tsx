@@ -1,15 +1,17 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import type { ColumnDef } from "@tanstack/react-table";
 import { Link2, Pencil, RefreshCw, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { DataTable } from "@/components/common/DataTable";
 import { saveErrorMessage } from "@/components/admin/register/fields";
-import { Badge } from "@/components/ui/badge";
+import { SessionStatusBadge } from "@/components/sessions/SessionStatusBadge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { requestScan, useRecordings } from "@/hooks/useRecordings";
+import { ROUTES } from "@/lib/constants";
 import {
   formatBytes,
   formatUkDateTime,
@@ -65,14 +67,17 @@ function StatusCell({ row }: { row: RecordingRow }) {
   if (!session) {
     return <span className="text-sm text-muted-foreground">Not processed</span>;
   }
-  if (session.status === "failed") {
-    return (
-      <Badge variant="destructive" title={session.error_message ?? undefined}>
-        Failed
-      </Badge>
-    );
-  }
-  return <Badge variant="secondary">{humanize(session.status)}</Badge>;
+  return (
+    <Link
+      href={`${ROUTES.sessions}/${session.id}`}
+      aria-label={`Open the session (${humanize(session.status)})`}
+    >
+      <SessionStatusBadge
+        status={session.status}
+        reason={session.error_message}
+      />
+    </Link>
+  );
 }
 
 /**

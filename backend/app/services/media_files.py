@@ -52,6 +52,25 @@ def extension_of(filename: str) -> str:
     return PurePosixPath(filename).suffix.lower()
 
 
+# The type a stored recording is served with for the session page's audio
+# player; files are stored without one. A video container is served as audio,
+# since only its sound is played.
+_PLAYBACK_TYPES = {
+    ".webm": "audio/webm",
+    ".mp4": "audio/mp4",
+    ".m4a": "audio/mp4",
+    ".mov": "video/quicktime",
+    ".mp3": "audio/mpeg",
+    ".wav": "audio/wav",
+    ".ogg": "audio/ogg",
+}
+
+
+def playback_type(filename: str) -> str:
+    """The media type to play ``filename`` with; octet-stream when unknown."""
+    return _PLAYBACK_TYPES.get(extension_of(filename), "application/octet-stream")
+
+
 def check_extension(filename: str, allowed: list[str]) -> str:
     """The file's lower-case extension, or a ValidationError naming the allowed ones."""
     extension = extension_of(filename)

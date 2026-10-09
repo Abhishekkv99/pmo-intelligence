@@ -199,6 +199,26 @@ class TestS3StorageBackendGetUrl:
             ExpiresIn=7200,
         )
 
+    async def test_get_url_can_set_the_type_the_object_is_served_with(self) -> None:
+        backend = _make_backend()
+        mock_client, mock_ctx = _mock_s3_client()
+        mock_client.generate_presigned_url.return_value = "https://signed"
+
+        with patch.object(backend._session, "client", return_value=mock_ctx):
+            await backend.get_url(
+                "sessions/x/call.webm", expires_in=900, content_type="audio/webm"
+            )
+
+        mock_client.generate_presigned_url.assert_awaited_once_with(
+            "get_object",
+            Params={
+                "Bucket": BUCKET,
+                "Key": "sessions/x/call.webm",
+                "ResponseContentType": "audio/webm",
+            },
+            ExpiresIn=900,
+        )
+
 
 class TestS3StorageBackendCopy:
     async def test_copy_from_another_bucket_is_server_side(self) -> None:

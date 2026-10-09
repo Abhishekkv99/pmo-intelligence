@@ -31,8 +31,14 @@ class StorageBackend(ABC):
         ...
 
     @abstractmethod
-    async def get_url(self, file_key: str, expires_in: int = 3600) -> str:
-        """Get a URL/path to access the file."""
+    async def get_url(
+        self, file_key: str, expires_in: int = 3600, content_type: str | None = None
+    ) -> str:
+        """Get a URL/path to access the file.
+
+        ``content_type`` is the type a presigned URL answers with, for a file
+        stored without one (a browser player needs it); a path ignores it.
+        """
         ...
 
     @abstractmethod

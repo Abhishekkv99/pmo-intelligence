@@ -74,7 +74,7 @@ class SignalRepository:
         signals = await self.session.execute(
             select(Signal)
             .where(Signal.source_kind == source_kind, Signal.source_id == source_id)
-            .order_by(Signal.occurred_at, Signal.id)
+            .order_by(Signal.occurred_at, Signal.offset_ms, Signal.id)
         )
         actions = await self.session.execute(
             select(Action)
@@ -82,3 +82,12 @@ class SignalRepository:
             .order_by(Action.offset_ms, Action.id)
         )
         return list(signals.scalars().all()), list(actions.scalars().all())
+
+    async def closed_by(self, source_id: uuid.UUID) -> list[Action]:
+        """Earlier actions that one session or message closed."""
+        result = await self.session.execute(
+            select(Action)
+            .where(Action.closed_source_id == source_id)
+            .order_by(Action.created_at, Action.id)
+        )
+        return list(result.scalars().all())

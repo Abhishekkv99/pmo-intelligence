@@ -5,6 +5,7 @@ export const ROUTES = {
   home: "/",
   login: "/login",
   actions: "/actions",
+  sessions: "/sessions",
   admin: "/admin",
   settings: "/settings",
   ssoCallback: "/auth/callback/microsoft",
@@ -30,4 +31,5 @@ export const API_ROUTES = {
   recordings: "/recordings",
   sessionUpload: "/sessions/upload",
   sessionUrl: "/sessions/url",
+  sessions: "/sessions",
 } as const;

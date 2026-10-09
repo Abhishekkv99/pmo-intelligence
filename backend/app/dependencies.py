@@ -13,8 +13,10 @@ from app.db.repositories.user_repo import UserRepository
 from app.db.session import async_session_factory
 from app.models.enums import Role
 from app.models.register import Placement, Project
+from app.models.session import Session
 from app.models.user import User
 from app.services.auth_service import SESSION_ENDED_MESSAGE, AuthService
+from app.services.media_token import check_media_token
 from app.utils.entitlements import (
     PlacementPeople,
     assert_can_read_placement,
@@ -162,3 +164,83 @@ async def require_logged_placement_scope(
 
 PlacementScope = Annotated[Placement, Depends(require_placement_scope)]
 LoggedPlacementScope = Annotated[Placement, Depends(require_logged_placement_scope)]
+
+
+# --- By-id session scope ------------------------------------------------------
+#
+# A session is read through its placement: the same rule, the same 404.
+
+
+async def _load_scoped_session(
+    session_id: uuid.UUID, db: AsyncSession, current_user: User
+) -> Session:
+    stmt = (
+        select(
+            Session,
+            Placement.ps_user_id,
+            Placement.sme_user_id,
+            Project.tech_lead_user_id,
+        )
+        .join(Placement, Placement.id == Session.placement_id)
+        .join(Project, Project.id == Placement.project_id)
+        .where(Session.id == session_id)
+    )
+    row = (await db.execute(stmt)).one_or_none()
+    if row is None:
+        raise NotFoundError("Session", str(session_id))
+    session: Session = row[0]
+    people = PlacementPeople(
+        ps_user_id=row[1], sme_user_id=row[2], tech_lead_user_id=row[3]
+    )
+    assert_can_read_placement(current_user, people, session_id, resource="Session")
+    return session
+
+
+@_guard
+async def require_session_scope(
+    session_id: uuid.UUID,
+    db: DbSession,
+    current_user: User = Depends(get_current_user),
+) -> Session:
+    """404 unless the session exists and the caller may read its placement."""
+    return await _load_scoped_session(session_id, db, current_user)
+
+
+@_guard
+async def require_logged_session_scope(
+    request: Request,
+    session_id: uuid.UUID,
+    db: DbSession,
+    current_user: User = Depends(get_current_user),
+) -> Session:
+    """``require_session_scope`` plus an ``access_log`` row for its placement."""
+    session = await _load_scoped_session(session_id, db, current_user)
+    await AccessLogRepository(db).record(
+        current_user.id, session.placement_id, request.url.path
+    )
+    return session
+
+
+SessionScope = Annotated[Session, Depends(require_session_scope)]
+LoggedSessionScope = Annotated[Session, Depends(require_logged_session_scope)]
+
+
+# --- Token scope ----------------------------------------------------------------
+#
+# A route the browser reaches without the Bearer token (an <audio> source)
+# carries a token naming the one row it may read. The coverage test requires
+# such a route to carry a guard marked with TOKEN_GUARD_ATTR.
+
+TOKEN_GUARD_ATTR = "__token_guard__"
+
+
+def _token_guard[F: Callable[..., Any]](func: F) -> F:
+    setattr(func, TOKEN_GUARD_ATTR, True)
+    return _guard(func)
+
+
+@_token_guard
+async def require_media_token(session_id: uuid.UUID, token: str) -> uuid.UUID:
+    """404 unless ``token`` is a live media token for ``session_id``."""
+    check_media_token(token, session_id)
+    return session_id

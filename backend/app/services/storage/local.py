@@ -50,7 +50,9 @@ class LocalStorageBackend(StorageBackend):
     async def exists(self, file_key: str) -> bool:
         return self._resolve_path(file_key).exists()
 
-    async def get_url(self, file_key: str, expires_in: int = 3600) -> str:
+    async def get_url(
+        self, file_key: str, expires_in: int = 3600, content_type: str | None = None
+    ) -> str:
         return str(self._resolve_path(file_key))
 
     async def copy_from_s3(

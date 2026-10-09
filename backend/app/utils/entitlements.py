@@ -160,6 +160,31 @@ def can_read_placement(user: Principal, people: PlacementPeople) -> bool:
     return people.names(user.id)
 
 
+@dataclass(frozen=True)
+class ListScope:
+    """The placements a list may show: every one, those naming one user, or none.
+
+    The query form of ``can_read_placement``, for lists that cannot check row
+    by row; a repository turns it into a WHERE clause.
+    """
+
+    everything: bool
+    named_user_id: uuid.UUID | None
+
+    @property
+    def nothing(self) -> bool:
+        return not self.everything and self.named_user_id is None
+
+
+def list_scope(user: Principal) -> ListScope:
+    """What ``user`` may list; fails closed for no role or an unknown one."""
+    if has_global_scope(user):
+        return ListScope(everything=True, named_user_id=None)
+    if user.role not in _KNOWN_ROLES:
+        return ListScope(everything=False, named_user_id=None)
+    return ListScope(everything=False, named_user_id=user.id)
+
+
 def assert_can_read_placement(
     user: Principal,
     people: PlacementPeople,

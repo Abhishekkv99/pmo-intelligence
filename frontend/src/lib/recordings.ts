@@ -30,10 +30,14 @@ export const SESSION_STATUSES = [
 ] as const;
 export type SessionStatus = (typeof SESSION_STATUSES)[number];
 
-/** Statuses a session passes through while its job still has work to do. */
+/**
+ * Statuses a session passes through while its job still has work to do;
+ * `transcribed` is waiting for its analysis.
+ */
 const IN_FLIGHT: ReadonlySet<SessionStatus> = new Set([
   "uploaded",
   "transcribing",
+  "transcribed",
   "analyzing",
 ]);
 

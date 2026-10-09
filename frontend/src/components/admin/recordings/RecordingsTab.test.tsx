@@ -142,6 +142,10 @@ describe("RecordingsTab", () => {
     ).toBeInTheDocument();
     const failed = within(rows[1]).getByText("Failed");
     expect(failed).toHaveAttribute("title", "no audio");
+    // A processed recording opens its session page.
+    expect(
+      within(rows[1]).getByRole("link", { name: "Open the session (Failed)" }),
+    ).toHaveAttribute("href", "/sessions/s2");
     expect(
       within(rows[1]).queryByRole("button", { name: "Process" }),
     ).toBeNull();

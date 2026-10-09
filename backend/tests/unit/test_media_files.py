@@ -8,6 +8,7 @@ from app.services.media_files import (
     check_extension,
     checked_stream,
     matches_extension,
+    playback_type,
     sanitize_filename,
 )
 from app.utils.exceptions import ValidationError
@@ -144,3 +145,20 @@ class TestCheckedStream:
         stream = checked_stream(_chunks(), extension=".webm", max_bytes=1000)
         with pytest.raises(ValidationError, match="empty"):
             await _drain(stream)
+
+
+class TestPlaybackType:
+    @pytest.mark.parametrize(
+        ("name", "expected"),
+        [
+            ("sessions/x/Recording 2026-10-01 10-00-00.webm", "audio/webm"),
+            ("call.MP4", "audio/mp4"),
+            ("call.mp3", "audio/mpeg"),
+            ("call.wav", "audio/wav"),
+            ("call.bin", "application/octet-stream"),
+        ],
+    )
+    def test_the_player_type_follows_the_extension(
+        self, name: str, expected: str
+    ) -> None:
+        assert playback_type(name) == expected

@@ -10,12 +10,18 @@ import { visibleNavItems } from "./Sidebar";
 describe("visibleNavItems", () => {
   it("shows every link, Admin included, to a global role", () => {
     const labels = visibleNavItems(true).map((item) => item.label);
-    expect(labels).toEqual(["Risk board", "Actions", "Admin", "Settings"]);
+    expect(labels).toEqual([
+      "Risk board",
+      "Sessions",
+      "Actions",
+      "Admin",
+      "Settings",
+    ]);
   });
 
   it("hides Admin from everyone else, leaving the other links", () => {
     const labels = visibleNavItems(false).map((item) => item.label);
-    expect(labels).toEqual(["Risk board", "Actions", "Settings"]);
+    expect(labels).toEqual(["Risk board", "Sessions", "Actions", "Settings"]);
   });
 
   it("points the risk board at the home route", () => {

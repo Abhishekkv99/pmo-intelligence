@@ -17,6 +17,7 @@ from app.utils.entitlements import (
     elevate_if_bootstrap_admin,
     has_global_scope,
     is_bootstrap_admin,
+    list_scope,
 )
 from app.utils.exceptions import AuthorizationError, NotFoundError
 
@@ -187,3 +188,23 @@ class TestBootstrapAdmins:
 
         assert elevate_if_bootstrap_admin(user) is False  # type: ignore[arg-type]
         assert user.role == "sme"
+
+
+class TestListScope:
+    @pytest.mark.parametrize("role", sorted(GLOBAL_ROLES))
+    def test_a_global_role_lists_everything(self, role: str) -> None:
+        scope = list_scope(_user(role))
+        assert scope.everything and not scope.nothing
+
+    @pytest.mark.parametrize(
+        "role", [Role.PS.value, Role.SME.value, Role.TECH_LEAD.value]
+    )
+    def test_a_named_role_lists_the_placements_naming_them(self, role: str) -> None:
+        user = _user(role)
+        scope = list_scope(user)
+        assert not scope.everything
+        assert scope.named_user_id == user.id
+
+    @pytest.mark.parametrize("role", [None, "", "superuser"])
+    def test_no_role_or_an_unknown_one_lists_nothing(self, role: str | None) -> None:
+        assert list_scope(_user(role)).nothing

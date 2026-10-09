@@ -15,8 +15,11 @@ Applied on the server for every route; the route-coverage test (`backend/tests/u
 | `require_roles(...)` | Operations that address no placement (admin, queue status) | `403 {"detail": "Not authorised for this operation"}` |
 | `require_placement_scope` | Routes addressed by a placement id | `404`, identical to a missing placement |
 | `require_logged_placement_scope` | Routes that show a consultant's data; also writes an `access_log` row | `404`, identical to a missing placement |
+| `require_session_scope` | Routes addressed by a session id: the session's placement must be in scope | `404`, identical to a missing session |
+| `require_logged_session_scope` | The session page; also writes an `access_log` row for the session's placement | `404`, identical to a missing session |
+| `require_media_token` | The one route reached without the Bearer token (the audio player's source on local storage): a 15-minute token naming the session | `404`, identical to a missing session |
 
-A route addressed by a recording, recordings folder or user id (`{recording_id}`, `{folder_id}`, `{user_id}`) must carry `require_roles(...)`: those rows belong to no placement, so only the global roles reach them. The coverage test checks this too.
+A route addressed by a recording, recordings folder or user id (`{recording_id}`, `{folder_id}`, `{user_id}`) must carry `require_roles(...)`: those rows belong to no placement, so only the global roles reach them. A route addressed by a session id (`{session_id}`) must carry a session-scope guard. A route reached without the Bearer token is listed as token-scoped and must carry a token guard. The coverage test checks all of this.
 
 **Roles** are `pmo_manager`, `sme`, `tech_lead`, `ps` and `admin`, defined in `backend/app/models/enums.py`.
 - **Global roles** (`pmo_manager`, `admin`) read every placement.
@@ -121,10 +124,23 @@ The PMO recordings folder (Admin > Recordings). PMO managers and admins only; an
 - **`SessionCreated`**: `{id, placement_id, source, status, held_at}`; `source` is `s3 | upload | url | graph`, `status` starts at `uploaded`.
 
 ### Sessions
+Reading a session is for anyone whose scope covers its placement (the global roles read all; a PS, SME or tech lead reads the placements naming them). Creating, retrying and correcting the kind are for PMO managers and admins.
+
 | Method | Path | Auth | Request | Response |
 |--------|------|------|---------|----------|
 | POST | `/sessions/upload` | `pmo_manager`, `admin`; 10/min | multipart: `file`, `placement_id`, `held_at` (ISO 8601 with an offset) | `202` `SessionCreated`; the recording is stored and the session's job queued |
 | POST | `/sessions/url` | `pmo_manager`, `admin`; 10/min | `{url, placement_id, held_at}` (`held_at` with an offset) | `202` `SessionCreated`; the URL is checked now and downloaded by the job |
+| GET | `/sessions?consultant_id=&status=` | any role | — | `SessionListItem[]`: the sessions in the caller's scope, newest call first; both filters optional. Not logged |
+| GET | `/sessions/{session_id}` | session scope (logged) | — | `SessionDetail`; writes an `access_log` row (the session's placement, the path); 404 outside scope |
+| GET | `/sessions/{session_id}/media-url` | session scope | — | `{url, content_type, expires_in_seconds}`: 15 minutes. On S3 a presigned URL answering with the recording's media type; on local storage a link to `/sessions/{session_id}/media?token=…`. 404 when no recording is stored. Not logged |
+| GET | `/sessions/{session_id}/media?token=` | token (no Bearer) | — | The stored recording, with Range support (`206`), on local storage only; 404 on S3, and for a bad, expired or other session's token |
+| PATCH | `/sessions/{session_id}/kind` | `pmo_manager`, `admin` (and session scope) | `{kind}`, a `SessionKind` | `SessionDetail`; the kind is marked as set by a person, and a later analysis keeps it. It cannot be cleared |
+| POST | `/sessions/{session_id}/retry` | `pmo_manager`, `admin` (and session scope); 10/min | — | `202` `SessionCreated`; a `failed` session goes back to `transcribed` when it has a transcript (analysis only), else to `uploaded` (the copy or download is skipped when the recording is stored), and is queued. 409 for any other status |
+
+- **`SessionListItem`**: `{id, placement_id, consultant: {id, name}, client: {id, name}, project: {id, name}, held_at, duration_seconds, kind, status, error_message, signal_count, action_count}`. `kind` is a `SessionKind` (`onboarding | technical | check_in | escalation | other`) or `null` until classified.
+- **`SessionDetail`**: the list item's fields, plus `kind_overridden`, `session_class` (the pipeline's class), `project_phase`, `source`, `original_filename`, `quotes_rejected`, `has_recording`, `summary`, `speakers` (`{label: {role, name}}`), `utterances` (`[{speaker, text, start_ms, end_ms}]`), `signals`, `issues`, `actions`, `closed_actions`, `cost` (`{transcription_usd, analysis_usd, total_usd}`) and `node_errors` (`[{node, error, ...}]` for the global roles, `null` for everyone else).
+- **Signal**: `{id, category, dimension, polarity, severity, confidence, quote, note, speaker_role, offset_ms, issue_id}`. **Issue**: the issues this call raised or saw again, as they stand now: `{id, topic, status, occurrence_count, first_seen_at, last_seen_at, resolved_at, offset_ms}` (`offset_ms`: where this call first talks about it). **Action**: `{id, description, owner_role, owner: {id, full_name, email} | null, quote, offset_ms, due_text, due_date, status, closed_at}`; `closed_actions` are earlier actions this call said were done.
+- The enumerations are those of `backend/app/models/enums.py`.
 
 - **Upload checks**: an allowed extension (`ALLOWED_EXTENSIONS`), first bytes that match it (422 "The file's content is not WEBM…" otherwise), and at most `MAX_UPLOAD_SIZE_MB` (500). A body over the limit plus 1 MiB is refused with **413** as it arrives, before it is spooled; a file over the limit is refused with 422.
 - **URL checks**: `https` only; every address the host resolves to must be public, on every redirect (422 "The URL points to a private or internal address"); a URL needing sign-in answers 502. The recording type and size are checked again as the job downloads it.

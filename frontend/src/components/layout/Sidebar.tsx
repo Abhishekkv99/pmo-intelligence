@@ -15,6 +15,7 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { label: "Risk board", href: ROUTES.home },
+  { label: "Sessions", href: ROUTES.sessions },
   { label: "Actions", href: ROUTES.actions },
   { label: "Admin", href: ROUTES.admin, globalOnly: true },
   { label: "Settings", href: ROUTES.settings },
