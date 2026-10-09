@@ -1,335 +1,201 @@
-# Sprint 1: Register and Sessions
+# Sprint 2: Health v1
 
-**Status**: `complete` (2026-10-09; plan approved 2026-10-08). The PRD Phase 1 exit gate was not run: the gate calls were dropped and the register import postponed (user decision 2026-10-09)
-**Duration**: 2026-10-09 – 2026-10-22 (2 weeks)
-**Objective**: PRD Phase 1. The placement register (admin pages, CSV import), session ingestion from the PMO recordings folder, upload and URL, transcription, the session pipeline with verified signals, and the session page. Also four Sprint 0 backlog items: drop the stored Microsoft tokens, debug off by default, the Admin "Users and roles" page, and a manual CI redeploy.
-**Exit gate** (PRD Phase 1): three real recorded PMO calls processed end to end on staging, from consultants who were told beforehand that their call would be analysed; the PMO manager agrees the summary and signals are right.
-**Source repo for copied code**: `E:\E Projects\Interview Intelligence Platform` (develop)
+**Status**: `in-progress` (plan approved 2026-10-09)
+**Duration**: 2026-10-12 – 2026-10-23 (2 weeks)
+**Objective**: PRD Phase 2. Turn signals into a deterministic health reading per placement: signal embeddings, the scoring module, health snapshots, triggers and risk flags, the daily recompute, the risk board and the placement (consultant) page. Also the processing takeover delay after backend deploys (BACKLOG tech debt). Real calls are processed on staging alongside the build.
+**Exit gate** (PRD Phase 2): ten placements scored from their sessions; the PMO manager agrees with the ranking, or the weights are tuned until they do.
 **Branch**: `develop`
-**Previous sprint**: Sprint 0 (Bootstrap), complete 2026-10-08; see `docs/handover/sprint-00-handover.md`. Its plan, session notes and Decisions Log are in git history (`5434bec`).
+**Previous sprint**: Sprint 1 (Register and Sessions), complete 2026-10-09 without its exit gate; see `docs/handover/sprint-01-handover.md`. Its plan, session notes and Decisions Log are in git history (`957e497`, plus the last row carried into this Decisions Log).
 
 ---
 
 ## Research Findings Summary
-- **PMO recordings folder** (read-only survey 2026-10-08):
-  - Location: `s3://nextcloud-talk-recordings-itc/recordings/pmo/`, in the main ITC account `430006376054`, eu-west-2.
-  - Contents: 309 folders and 2,433 recordings (2,428 webm, 4 mp4), 304 GiB in all, about 125 MiB per recording, about 75 recordings a month lately.
-  - Encryption is SSE-S3 (no KMS grant needed). There is no bucket policy today.
-  - **A folder is a recurring Nextcloud Talk room** with one `Recording YYYY-MM-DD HH-MM-SS.webm` per call.
-  - Folder names: 79 of 310 follow `DD-MM-YY - <free text>#-#<ticket|ADHOC>#-#PMO#-#UK` (also with `#|#`); the other 231 have no date and no suffix, e.g. `PRJ ITC BD – <name> – <client> – <start> – <end>`. The free text mixes session tags (PMO support, PS, HC, FDC, PTP), stack codes (PRJ ITC DS), the consultant's name (first only, or full), the client and the placement dates. One folder has an empty name.
-  - **Corrected 2026-10-08 (Phase 3)**: the "mis-decoded dash (`�`)" was the cp1252 console reading the AWS CLI output. Read with boto3, the keys hold 93 real en dashes (U+2013) and no U+FFFD, so there is nothing to repair; an en dash is a separator.
-  - Files: 2,424 `Recording YYYY-MM-DD HH-MM-SS.webm`, plus `V1_YYYY-MM-DDTHHMMSS.mp4/.webm` (4), `screen-recording-<epoch ms>.webm` (3), one other name, one file nested four levels deeper and one empty folder marker.
-- **Same region**: PMO's S3 gateway endpoint (default policy) reaches a bucket in another account in eu-west-2, so a server-side `CopyObject` works. Interview Intelligence streams copies only because its buckets are in different regions.
-- **AssemblyAI**:
-  - **EU endpoint**: `aai.settings.base_url = "https://api.eu.assemblyai.com"`. Data stays in the EU, at the same price as the US endpoint.
-  - **`speech_models` is required.** The docs name the current model both `universal-3-pro` and `universal-3-5-pro`, so the value is configuration, confirmed by a smoke test.
-  - **Pricing**: $0.21/hr for Universal-3.5 Pro, plus $0.02/hr for diarization. The cost tracker currently has $0.15.
-  - **Diarization**: `speaker_labels`, plus `speakers_expected` or `speaker_options` (min and max).
-  - **Open**: whether the PMO key works on the EU endpoint. Phase 1 smoke test.
-- **LangGraph**:
-  - The lock has 1.0.8. Version 1.2 (2026-05) added `add_node(timeout=, error_handler=)`, for async nodes only; how errors behave in a parallel fan-out is not documented.
-  - Decision: stay on 1.0.x and enforce each node's timeout inside one shared node wrapper (`asyncio.timeout` plus try/except).
-- **Structured output**: `with_structured_output(Model, method="json_schema", include_raw=True)`, as Interview Intelligence uses, with token usage read from the raw message.
-- **Gaps in the copied Interview Intelligence code, to fix on copy**:
-  - No evidence-quote verification.
-  - No per-node timeout.
-  - Meeting node failures and costs are never persisted.
-  - URL download has no SSRF guard.
-  - Upload size is checked only from `file.size`.
-  - The scanner assumes one recording per folder.
-- **Uploads**: recordings run to about 125–250 MiB, so stream them through the backend in 1 MiB chunks with a running byte cap. The 500 MB limit is already configured, and presigned browser uploads are not needed at this size.
+- **Takeover delay** (BACKLOG tech debt, 370–390 s on four deploys):
+  - The backend target group (`infra/modules/environment/alb.tf`) sets no `deregistration_delay`, so AWS's default 300 s applies; the ECS container definition sets no `stopTimeout` (default 30 s). `processing_ownership.py`'s own docstring names the 300 s deregistration delay before the old task is signalled.
+  - The backend runs uvicorn in exec form (`backend/Dockerfile`), so SIGTERM reaches it; the lifespan stops the queue and calls `release()` on the lock's own connection, but `release()` logs nothing, so a clean release cannot be told from a dropped connection.
+  - A second fit: RDS for PostgreSQL keepalive defaults are `tcp_keepalives_idle` 300 s, `interval` 30 s, `count` 2 (AWS, "Dead connection handling in PostgreSQL"), about 6 minutes to drop a silent peer.
+  - Phase 1 reads the old task's stop timestamps and shutdown log before choosing the fix.
+- **Embeddings**: text-embedding-3-small is GA on Azure OpenAI until 2028-02-09 (Microsoft Foundry model retirement schedule, updated 2026-09-23); a third-party page claiming an April 2026 deprecation is wrong. gpt-5.4-mini (2026-03-17) is GA until 2027-09-21. 1536 dimensions fit pgvector's HNSW limit (2,000); OpenAI's embeddings are unit-normalised, so cosine distance (`<=>`, `vector_cosine_ops`) is the operator. Interview Intelligence uses HNSW `m=16, ef_construction=64` and `SET LOCAL hnsw.ef_search` before a search. The staging secret already holds `AZURE_EMBEDDING_DEPLOYMENT` (`text-embedding-3-small-staging`). Data Zone Standard is about $0.022–0.024 per 1M tokens (third-party tracker), near the cost tracker's $0.02.
+- **Time-decayed scores**: the standard form is weight = 0.5^(age/half-life), normalised by the sum of weights (polars `ewm_mean_by`, ClickHouse `exponentialTimeDecayedAvg`). A known pitfall is that a decayed average swings on little data when few signals are recent; a prior with its own weight in the average damps that, which is the formula chosen below.
+- **Charts**: Recharts 2.15.4 and the shadcn `components/ui/chart.tsx` wrapper are installed and unused. The shadcn chart colours come from `--chart-1`…`--chart-5`, redefined under `.dark`; reference lines and dots take `var(--…)` colours to follow the theme. Recharts 3.x on React 19 has had an immer issue and prefers the `responsive` prop to `ResponsiveContainer`; staying on 2.15.4 this sprint avoids a migration.
+- **Code found to reuse**:
+  - `llm_factory.build_embeddings()` (cached, unused) and `cost_tracker.calculate_embedding_cost()`.
+  - `services/recordings/periodic.py` is the pattern for a loop that enqueues a fixed-id queue job; there is no daily scheduler yet. Interview Intelligence's daily report scheduler checks the hour in UTC and keeps its "sent" date in memory, so it is not copied.
+  - The route commits, then queues (`api/v1/sessions.py`).
+  - `session_repo` already applies `ListScope` in a query; `placement_repo._rows` takes a filter easily.
+  - `ExtractedSignal` (`app/ai/session/schemas.py`) is shared by the client and relationship/engagement nodes, so `indicator` goes in one place; `prompts/common.py` lists the meanings the prompts quote.
+  - The e2e auth setup checks the `h2` "Risk board" on `/`, so the new board keeps it.
 
 ## User Decisions Made
 | Question | User Choice | Alternatives Offered |
 |----------|------------|---------------------|
-| Recordings (BACKLOG #2) | S3 folder `s3://nextcloud-talk-recordings-itc/recordings/pmo/` (main ITC account) | Upload and URL first; Teams meeting recordings; nowhere yet |
-| System of record (#3) | Owned here: admin pages, plus a one-off CSV seed from the PS spreadsheet | Import and edit here too; external sync |
-| Sprint scope | All of Phase 1 in one sprint | Phase 1 plus the Users page; split over two sprints |
-| Transcription region | AssemblyAI EU endpoint | US endpoint (as Interview Intelligence) |
-| S3 access | A bucket policy on the source bucket, applied by hand with the CLI under the main-account login (JSON and command in DEPLOYMENT.md); PMO's Terraform adds the matching task-role permission | A read role in the main account; a Terraform root for the bucket policy |
-| Folder matching | A folder is matched to a consultant when its name contains their first or last name as a whole word (case- and accent-insensitive). A folder matching several consultants, or a consultant with several placements active on the date, needs a person to choose. Unmatched folders are not listed. **No auto-processing: a Process button per recording** | Triage inbox; naming convention; transcribe then match; list unmatched; substring match |
-| Session unit | One recording file is one session, held at its file-name timestamp; the placement is the one active on that date | One folder is one session (the largest file) |
-| Copy on Process | Server-side copy into PMO's media bucket (`sessions/<id>/`); AssemblyAI reads a presigned URL to the copy | Presign the source object |
-| Scan trigger and kind | Catalog-only scan every 15 minutes (configurable) plus "Scan now"; the pipeline's classify node sets the session kind, and a person can correct it | Button only; the user picks the kind |
-| SME scope (#5) | Decide at Sprint 2; Sprint 1 applies the existing placement-scope rule | PRD suggestion; SME sees everything in scope |
-| Signals | `signals`, `issues` and `actions` tables now; the embedding column now, filled in Sprint 2 | Embed now; analysis JSON only |
-| Consent for the gate calls (#6) | The three gate calls are from consultants told beforehand; who confirmed is recorded here. HR's notice still gates production | HR notice before the gate; internal staff calls |
-| Backlog pulled in | Drop the stored Microsoft tokens; debug off by default; Admin "Users and roles" page; manual CI redeploy trigger | — |
-| Permissions | `pmo_manager` and `admin`: register, CSV, users, scan, process, upload, URL. `sme`, `tech_lead`, `ps`: read the sessions of the placements naming them | Named roles may process; PMO manager only |
-| CSV import | One row per placement; a dry-run preview, then Confirm; an unknown people email is a row error (import never creates users) | Create users without a role; one file per entity |
-| Speaker roles | An LLM role-attribution node copied from Interview Intelligence, reframed for PMO roles, with the register's names as hints | AssemblyAI speaker identification |
-| Session page extras | Audio player with jump-to-moment; kind override; retry; node errors panel | — |
+| Sprint scope | All of PRD Phase 2 plus the takeover delay fix | Phase 2 only; split over two sprints (backend, then pages) |
+| Real calls (handover Priority 1) | Alongside, not blocking: build on mocked and seeded data, review real runs as they come, prompt fixes as their own commits; the exit gate needs them | A first, blocking phase; not this sprint |
+| SME scope (BACKLOG #5) | Sessions and the Technical dimension only, as the PRD suggests; the API leaves out overall, RAG, flags and the other dimensions for an SME. PS and tech lead see full health for their placements; the global roles see everything | Same as PS and tech lead; sessions only, no health |
+| Weights and thresholds (BACKLOG #7) | The PRD's values as v1: Delivery 30 %, Relationship 25 %, Technical 15 %, Engagement 15 %, Communication 10 %, Onboarding 5 % (25 % in the first 30 days, the others scaled down); half-life 14 days; green ≥ 7, amber 5–6.9, red < 5; trigger thresholds as in the PRD | PRD values with Communication off until chat; other values |
+| Dimension score | Decayed average with a prior: score = (P·prior + Σ wᵢvᵢ) / (P + Σ wᵢ), wᵢ = confidence × 0.5^(age days / 14), prior 7.0 with weight P = 1.0; value positive 9, neutral 7, negative 5 / 3 / 1 for severity 1 / 2 / 3; all numbers configuration | Plain decayed average; baseline plus points |
+| No evidence | A placement with no signals is "Not scored" (no overall, trend or RAG) and listed last; contract horizon still opens flags | Prior score (7.0, green) |
+| Trend | Overall now minus the overall the same function gives from the signals known 14 days ago; flat within ±0.5 | Compare with a stored snapshot |
+| Configuration | A versioned JSON file in the repo, validated by Pydantic, chosen by `HEALTH_CONFIG_VERSION`; each snapshot records `weights_version` | Environment settings; a database table with an admin page |
+| Triggers this sprint | Client dissatisfaction, intent to leave (critical); repeated blocker, downward trend, relationship strain, contract horizon (high). Gone quiet and missed commitment come with Teams chat (Phase 3) | Six plus missed commitment; all eight |
+| Critical detection | A nullable `signals.indicator` (`client_dissatisfaction`, `consultant_change_requested`, `intent_to_leave`), chosen by the client and relationship/engagement nodes with the quote as evidence; no real call has been analysed, so nothing is re-analysed | Inferred from dimension and severity |
+| Flags | Open only this sprint (closing with a note is Phase 4); at most one open flag per placement, trigger and subject; new evidence is added to it | Pull closing in now |
+| Embeddings | Filled in the session job after the signals are stored (non-fatal, costed), a backfill command and an HNSW cosine index; no search UI yet | Fill and show similar signals; defer |
+| Consultant page | Per placement, `/placements/{id}`, titled with the consultant; links to their other placements; logged placement scope | Per consultant |
+| Board column for "last post" | Days since the last processed call until Teams chat lands | Leave it out until Phase 3 |
+| Recompute | After every analysed call, after a placement or project edit or an import, and daily at 06:00 Europe/London for every active placement, as queue jobs | Call and daily only |
+| Health chart | Stored snapshots, with call markers | A recomputed daily series |
+| SME on the board | The placements naming them, with the Technical score and trend only | No board for SMEs |
+| Snapshot evidence | Each snapshot stores, per dimension, the top five contributing signals (id, weight, value) and the counts | Recompute on read |
+| Repeated blocker | An open issue with at least one Technical signal, seen in 2+ calls or open more than 10 days | Any open issue |
+| Dates | 2026-10-12 – 2026-10-23 | From today; three weeks |
+| Trend basis (after the design review) | "Signals known 14 days ago" means signals whose call happened on or before now − 14 days, decayed as of that day, so a backlog processed today still shows its trend | By when the signal was stored |
+| SME leaks (after the design review) | Closed both: an SME's board sorts by Technical score, then name, with no risk filter, so its order does not reveal the overall ranking; the session page shows an SME only Technical signals (transcript, summary, issues and actions unchanged) | Board only; neither |
+| Queue re-run (after the design review) | The processing queue remembers a key requested while that job runs and queues it once more when it finishes, for every job kind, so an edit made during a recompute is not lost | Health jobs only; accept the gap until the daily run |
+| Embeddings client (after the design review) | The `openai` package's `AsyncAzureOpenAI.embeddings.create` with the same endpoint, key and deployment: exact token usage for the cost row and no tokenizer download in the non-root container; the unused `build_embeddings()` is replaced | LangChain's `AzureOpenAIEmbeddings` with an estimated cost and the tokenizer baked into the image |
 
 ## Task Checklist
 
-### Phase 1: Backlog fixes and transcription smoke test
+>>> CURRENT PHASE: Phase 1
+
+### Phase 0: Plan
+- [x] Plan approved (2026-10-09)
+- [ ] Commit `docs: plan sprint 2` (this file, `BACKLOG.md` #5 and #7 and the register item, `ROADMAP.md`)
+
+### Phase 1: Processing takeover delay
 **Code work**
-- [x] `backend/app/config.py`: `app_debug` defaults to `False`; compose and `.env.example` set `APP_DEBUG=true` for development (both already did; only the default changed; `tests/unit/test_config.py`)
-- [x] Stop storing users' Microsoft tokens at sign-in (`services/sso_service.py`), remove `refresh_microsoft_token`; migration `002_drop_user_ms_tokens.py` drops `ms_access_token`, `ms_refresh_token`, `ms_token_expires_at`; `User` model updated (also: sign-in asks for `openid email profile` only, no `offline_access`, backend and `useSSOLogin.ts`; the app registration keeps the scope, unused; user decision 2026-10-08)
-- [x] `.github/workflows/ci.yml`: `workflow_dispatch` with a `target` choice (backend / frontend / both) that redeploys that side of staging from `develop`; every `uses:` ref verified with `gh api` (no new refs; actionlint clean via Docker; runs that side's checks and e2e first, user decision 2026-10-08; fails on any branch but `develop`; first manual run 2026-10-08, run 37770017665: frontend CI and e2e passed, backend CI skipped, only the frontend built and deployed)
-- [x] Settings: `assemblyai_base_url` (EU default), `assemblyai_speech_models`, AssemblyAI prices as configuration; `cost_tracker` reads them (`["universal-3-5-pro", "universal-2"]`, $0.21/hr + $0.02/hr diarization; `.env.example` updated; staging uses the defaults, no infra change)
-- [x] Smoke test (not committed): the PMO key on the EU endpoint with a short public sample; record the key's region and the working `speech_models` value here (2026-10-08: **the PMO key works on `api.eu.assemblyai.com`**; a 282 s two-speaker sample transcribed with `speaker_labels`, speakers A and B, with each of `universal-3-pro`, `universal-3-5-pro` and `["universal-3-pro", "universal-2"]`; the two Pro ids are distinct models (874 vs 870 words). The rate card lists only `universal-3-5-pro` and `universal-2`)
-- [x] Tests: config default, SSO without token storage, migration 002 up and down, AssemblyAI cost
+- [ ] Investigate (read-only): the last backend deploy's old task (`aws ecs describe-tasks`: stoppingAt, stoppedAt, stopCode) and its CloudWatch log at shutdown (uvicorn "Shutting down", "Waiting for application shutdown", "Processing queue stopped") against the new task's "Took processing ownership after Xs"; decide between the deregistration delay and the keepalive explanation
+- [ ] Fix, agreed with the user against the evidence: backend target group `deregistration_delay` (`infra/modules/environment/alb.tf`); backend container `stopTimeout` (`ecs.tf`, at most 120 on Fargate) so the queue stop and the release finish before SIGKILL; INFO lines in `ProcessingOwnership.release()` and the lifespan shutdown; uvicorn `--timeout-graceful-shutdown` below `stopTimeout` if needed (`backend/Dockerfile`); correct the docstrings that cite 300 s and 30 s (`processing_ownership.py`, `processing_queue.py`, `main.py`). A shorter deregistration delay also cuts in-flight requests, uploads included (up to 500 MB through the backend), at a deploy: weigh it with the user before choosing the value
+- [ ] Terraform plan, `git status --untracked-files=all infra/`, approval, apply; one redeploy read through to "Took processing ownership" with the wait recorded
+- [ ] Tests: the release log line
 
 **Doc updates (concurrent)**
-- [x] `ARCHITECTURE.md` (users table, `> Status:`), `DEPLOYMENT.md` (manual redeploy, `> Status:`), `README.md` (redeploy row), `TESTS.md`, `FEATURES.md`, `CHANGELOG.md`, `BACKLOG.md` (three items ticked) (README: in the CI section, since the redeploy is not a make target)
-
-**Commit checkpoints**
-- [x] `fix: stop storing microsoft tokens at sign-in` (a2adca8)
-- [x] `fix: default debug off outside development` (957636c)
-- [x] `feat: configure transcription for the eu endpoint` (1e7e2f8, pushed; deviation: a fourth Phase 1 commit for the AssemblyAI settings, which the plan did not list as its own commit)
-- [x] `ci: add a manual staging redeploy` (b3fe779; pushed with a2adca8 and 957636c, CI run 37769000185 green and deployed both sides: migration 002 ran on staging, no SQL echo in the migration log, the live login bundle asks for `openid email profile` only)
-
-### Phase 2: Placement register, CSV import, Users and roles
-**Code work**
-- [x] Repositories: `consultant_repo`, `client_repo`, `project_repo`, `placement_repo` (on `db/repositories/base.py`) (`PlacementRow` loads a placement with its consultant, project, client and people in one joined query)
-- [x] `services/register_service.py`: CRUD, client `normalized_name`, validation (end after start, enumerations) (plus uniqueness as 409 and the people rule; no delete, user decision 2026-10-08)
-- [x] `services/register_import.py`: CSV → per-row result (create / update / error); dry run; Confirm all-or-nothing in one transaction. Columns `consultant_full_name, consultant_email, client_name, project_name, client_manager_name, tech_lead_email, ps_email, sme_email, start_date, expected_end_date, extension_status, rate_band`. Dedup: clients on normalized name; consultants on email (else full name); projects on (client, name); placements on (consultant, project, start_date). Dates ISO or `DD/MM/YYYY`; UTF-8 with or without BOM; 1 MB, 1,000 rows at most (filled cells overwrite, empty cells keep; people must be users with a role, a different role warns; user decisions 2026-10-08. A savepoint per file and one per row)
-- [x] Routes `api/v1/register.py` (global roles): list, create, update consultants, clients, projects, placements; `GET /placements/{placement_id}` with `require_placement_scope`; `POST /register/import?dry_run=` (`PATCH` for updates, so CORS now allows `PATCH`; import rate-limited 10/min; always 200 with `applied`)
-- [x] Routes `api/v1/users.py` (global roles): list, grant by email, change or remove a role, through `services/user_roles.py`; refuse to remove or change the last active `pmo_manager` (your own included) (`POST /users`, `PATCH /users/{user_id}`; the guard lives in `UserRoleService`, so `make user-role` refuses too, user decision 2026-10-08; a disabled manager does not count)
-- [x] Frontend: Admin as tabs (Register, Import, Users and roles, Recordings, Processing); TanStack tables, create/edit dialogs (react-hook-form + zod); hooks `useRegister.ts`, `useUsers.ts`; `API_ROUTES` additions (register part done: tabs Register, Import, Processing with `?tab=`; Placements first with sub-tabs, user decision 2026-10-08; generic `DataTable`; `api.patch`. Users and roles tab added with its commit, with role names from `ROLE_LABELS`; the Recordings tab comes in Phase 3)
-- [x] Tests: service, import (dry run, row errors, dedup, date formats, BOM, size), routes and guards (coverage test), integration against Postgres, frontend components (register part done: 13 unit, 30 integration, 20 frontend unit, 2 new e2e specs on the compose stack; users: 11 integration, 4 frontend unit, 1 e2e; e2e 12/12 on a cold backend, twice)
-
-**Doc updates (concurrent)**
-- [x] `API.md` (register, import, users), `ARCHITECTURE.md` (register as built, Admin tabs, `> Status:`), `FEATURES.md`, `TESTS.md`, `CHANGELOG.md`, `ROADMAP.md` (tick "Placement register"), `DEPLOYMENT.md` (`make user-role` stays as a fallback) (also `README.md`, the `make user-role` row)
-
-**Commit checkpoints**
-- [x] `feat: add the placement register with csv import` (dc7c5ab; deviation: also brings `GET /users`, which the people pickers need)
-- [x] (Discovered 2026-10-08) `fix: commit before the response is sent` (12da342): the request session (`get_db`, copied from Interview Intelligence) committed after the response, FastAPI's default for a yield dependency, so a list read straight after a save could miss the row (seen as flaky register e2e runs) and a failed commit still answered success. `DbSession = Annotated[AsyncSession, Depends(get_db, scope="function")]` at all 25 sites; `tests/unit/test_db_session_scope.py` (fails with the old scope); e2e 11/11 twice (user decision 2026-10-08)
-- [x] `feat: add the users and roles admin page` (887f3b7; pushed with dc7c5ab and 12da342)
-
-### Phase 3: Sessions and ingestion (folder scanner, upload, URL, transcription)
-**Code work**
-- [x] Migration `003_create_sessions_and_recordings.py` (models in `app/models/session.py`; user decisions 2026-10-08: match status `matched / chosen / needs_choice / unmatched`; the session links to its recording in one direction only, so `source_recordings` has no `session_id`; `sessions.kind` nullable until classified; `sessions.source_url` and `original_filename` added; the cost key is `ON DELETE SET NULL`. Deviation: `SessionKind`, `SessionSource`, `SessionStatus` and `FolderMatchStatus` land here, not in Phase 4, because the CHECK constraints need them; tests `test_session_schema.py` (10) and a 003 case in `test_migrations.py`):
-  - `sessions`, as in the ARCHITECTURE data model, plus `source_recording_id`, `kind_overridden_by_user_id`, `quotes_rejected` and `node_errors` (JSONB)
-  - `session_transcripts`
-  - `recording_folders`: `folder_key` (unique), `display_name`, `folder_date`, `consultant_id` (nullable), `match_status`, `candidate_consultant_ids` (JSONB), `last_seen_at`
-  - `source_recordings`: `folder_id`, `object_key` (unique), `size_bytes`, `last_modified`, `recorded_at` (no `session_id`: decided 2026-10-08)
-  - a foreign key from `processing_costs.session_id`
-- [x] Copy and adapt from Interview Intelligence (storage copied with its tests; the signature check, byte cap and file names shared in `services/media_files.py`; the SSRF guard in `services/url_guard.py`; URL downloads stream straight into storage, no temp file; the URL cap is `MAX_UPLOAD_SIZE_MB`; `aiofiles`, `assemblyai` and `botocore` added to mypy's ignore-missing-imports list, as `aioboto3` already was; user decisions 2026-10-08 in the Decisions Log; 113 unit tests):
-  - `services/storage/` (base, local, s3, multipart)
-  - `services/transcription/assemblyai_client.py`: EU base URL, configured models, `speaker_options`, a timeout around the thread call
-  - `upload_service.py`: running byte cap, extension plus magic-byte check, sanitised names
-  - `url_download_service.py`: SSRF guard (https only; refuse private, loopback, link-local and metadata addresses; re-check every redirect hop; byte cap)
-- [x] `services/recordings/` (plus `db/repositories/recording_repo.py` and migration `004_create_recording_scans.py`; user decisions 2026-10-08 in the Decisions Log: the scan is a queue job, its history is a table, every consultant counts and the one full name wins, recordings are allowed files directly in the folder; the `�` repair was dropped, see Research Findings; checked read-only on the real folder: 2,432 recordings in 310 folders, 2,431 timed from the name; 34 unit and 9 integration tests):
-  - `folder_names.py`: date, suffix strip (`#-#…`, `#|#…`), `�` repair, folding
-  - `name_match.py`: whole word, first and last tokens of `full_name`
-  - `scanner.py`: list, upsert folders and recordings, re-match unmatched and needs-choice folders, never process; time limit and claim
-  - `periodic.py`: every `RECORDINGS_SCAN_INTERVAL_SECONDS` (900), run by the processing owner only
-- [x] `services/session_service.py` (with `db/repositories/session_repo.py`, `copy_from_s3` on the storage backends, placement and recording lookups; user decisions 2026-10-09 in the Decisions Log; registered in `main.py` before takeover; 21 integration tests, 1 unit):
-  - Create a session from a recording, an upload or a URL.
-  - Status chain `uploaded → transcribing → transcribed → analyzing → completed / failed`.
-  - Runner kind `session`: copy into PMO's bucket, transcribe, store the transcript and the AssemblyAI cost, then hand off to the pipeline (Phase 4).
-  - Takeover sweep: sessions stuck in flight are marked failed.
-  - Takeover requeue: waiting sessions are put back on the queue.
-- [x] Routes (plus `services/recordings/catalog.py`, `schemas/recordings.py`, `middleware/body_limit.py`; the coverage test now requires `require_roles` on `{recording_id}`, `{folder_id}` and `{user_id}` paths, the role half of the Phase 5 coverage item; `held_at` stored in UTC; user decisions 2026-10-09 in the Decisions Log; 15 integration and 18 unit tests):
-  - `api/v1/recordings.py` (global roles): list folders (matched, needs choice) with their recordings; `PUT /recording-folders/{folder_id}/consultant`; `POST /recordings/scan`; `POST /recordings/{recording_id}/process` (409 without `placement_id` when ambiguous).
-  - `api/v1/sessions.py`: `POST /sessions/upload`, `POST /sessions/url` (global roles; placement chosen in the form).
-- [x] Settings `RECORDINGS_SOURCE_BUCKET`, `RECORDINGS_SOURCE_PREFIX`, `RECORDINGS_SCAN_ENABLED`, `RECORDINGS_SCAN_INTERVAL_SECONDS`, `RECORDINGS_TIMEZONE` (Europe/London; checked against one recording with a known call time) (`.env.example` too; `RECORDINGS_SCAN_ENABLED` defaults off and turns on the 15-minute loop only. The zone was checked on all 2,424 Talk recordings rather than one call: read as Europe/London none ends before it starts, medians 22 min summer and 20 min winter; read as UTC, 947 summer recordings would)
-- [x] Terraform (`infra/modules/environment/iam.tf`, `ecs.tf`, staging) (applied 2026-10-09 after the cutoff was deployed (8ef7e9c, CI run 37833956860); a fresh plan shows no differences; 61 managed resources, unchanged. The first scan on staging: 49 of 310 folders with calls from 2026-07-24, 208 recordings, 0 matched (empty register). Written and planned 2026-10-09, `tfplan-recordings`: task-role statements `ListRecordingsFolder` and `ReadRecordings`, env vars `RECORDINGS_SOURCE_BUCKET`, `RECORDINGS_SOURCE_PREFIX`, `RECORDINGS_SCAN_ENABLED=true` on staging; 1 to add, 2 to change, 1 to destroy = the task definition replace, the service and the task policy. Approved; **held until the earliest-date cutoff is on staging**, user decision): task-role `s3:ListBucket` (condition `s3:prefix` `recordings/pmo/*`) and `s3:GetObject` on `nextcloud-talk-recordings-itc/recordings/pmo/*`; new env vars. Plan reviewed, applied on approval
-- [x] External step (user, main-account login): check `get-bucket-policy` (expected: none), then `put-bucket-policy` with the reviewed Allow-only JSON for PMO's staging task role (2026-10-09: applied with the user's approval under their main-account login; `get-bucket-policy` showed none immediately before, the policy read back as approved; ownership is `BucketOwnerEnforced`, so it covers every object. Two statements for `arn:aws:iam::260172548683:role/pmo-intelligence-staging-ecs-task`: `s3:ListBucket` with `s3:prefix` `recordings/pmo/*`, `s3:GetObject` on `recordings/pmo/*`. Removal, if ever wanted, is the user's to run)
-- [x] Frontend (user decisions 2026-10-09 in the Decisions Log: a recordings table with the choices above it, the estimate from size at a measured rate, the dialogs on the Recordings tab for any placement, polling while a session is in flight; the folder list gained `estimated_minutes`, `estimated_cost_usd` and the session's `error_message`; `ApiError` carries the body and a 204 resolves empty; 24 frontend unit tests, 2 e2e):
-  - Admin > Recordings tab: the folders table, a needs-choice picker, the recordings in each folder with a Process button (the confirmation shows the estimated cost), "Scan now" and the last scan time.
-  - Upload and URL dialogs, from Interview Intelligence's `FileDropZone`, `UploadProgress` and `lib/upload.ts`.
-- [x] Tests (all listed below are in place; e2e 14/14 twice on the compose stack):
-  - Folder-name parser on the real name shapes.
-  - Name matching: whole word, accents, ambiguity.
-  - Scanner with mocked S3: new folders, new files in a matched room, nothing processed.
-  - SSRF guard, upload cap, and the AssemblyAI mock.
-  - Runner status chain and the sweeps.
-  - Integration: migration 003 and the process flow.
-
-**Doc updates (concurrent)**
-- [x] `ARCHITECTURE.md` (ingestion and data model as built, `> Status:`), `API.md`, `DEPLOYMENT.md` (bucket policy JSON and command, env vars, `> Status:` from `terraform state list`), `.env.example`, `FEATURES.md`, `TESTS.md`, `CHANGELOG.md`, `ROADMAP.md` (tick "Session ingestion") (all done over the Phase 3 commits; `ROADMAP.md` ticked with the frontend commit)
-
-**Commit checkpoints**
-- [x] (Deviation, user decision 2026-10-08) `feat: add the session and recordings tables`: migration 003, models, tests and docs on their own, committed locally and pushed with the scanner commit
-- [x] `feat: add sessions and the recordings scanner` (the scanner, migration 004 and the settings; pushed with 8629e82 and 43cb49b)
-- [x] (Deviation, user decision 2026-10-08) `feat: add the recording storage, upload, url and transcription services`: the copied services and their tests on their own, committed locally, pushed with the scanner commit
-- [x] (Deviation, user decision 2026-10-09) `feat: add the session service and its processing job`: the session service on its own, committed locally, pushed with the routes commit
-- [x] `feat: add session upload and url ingestion` (the recordings and session routes; pushed with cc73e5e)
-- [x] `feat: grant the backend read on the pmo recordings prefix` (Terraform, after apply)
-- [x] (Discovered 2026-10-09, user decision) `feat: add the recordings tab and upload dialogs`: the frontend item, with the size-based estimate and the uploads directory fix; closes Phase 3
-
-### Phase 4: Session pipeline and signals
-**Code work**
-- [x] Migration `005_create_signals_issues_actions.py` (renumbered: 004 is the recording scans, Phase 3) (models in `app/models/signal.py`; also `category`, `speaker_role`, `issue_id` on signals, `quote`, `offset_ms`, `closed_source_id` on actions, `session_transcripts.project_phase`, user decisions 2026-10-09; autogenerated against the dev database, `alembic check` clean; tests `test_signal_schema.py` (17) and a 005 case in `test_migrations.py`):
-  - `signals`: index on (`placement_id`, `occurred_at`), `embedding vector(1536)` nullable, `offset_ms`.
-  - `issues` and `actions`.
-- [x] `app/ai/session/` (plus `drafts.py`, what emit hands the store; `nodes.py`; `emit.py`; `app/ai/structured.py`, one structured-output call with its token usage. The node type is a Protocol, because LangGraph's `add_node` overloads need the parameter named `state`. Prompts read the meanings `SESSION_KIND_MEANINGS`, `SPEAKER_ROLE_MEANINGS`, `DIMENSION_MEANINGS`, `SEVERITY_MEANINGS` from `enums.py`):
-  - `state.py`: `cost_records` and `node_errors` merged with `operator.add`.
-  - `node.py`: one wrapper per node that times it, costs it, applies `asyncio.timeout` from configuration, and turns any exception into a `node_errors` entry.
-  - `schemas.py`: the structured-output models.
-  - `prompts/`: cite the enumerations constant.
-  - `graph.py`: `attribute_roles → classify → summarise → [issues, relationship_engagement, client_signals, actions] → emit_signals`.
-  - `attribute_roles` is given the register's names. `issues` and `actions` are given the placement's open items, so a repeated issue or a closing action names the earlier one. `emit_signals` is deterministic.
-- [x] Enumerations in `app/models/enums.py` (`SessionKind`, `SessionSource`, `SessionStatus`, `FolderMatchStatus` already added with migration 003): `SpeakerRole`, `Dimension`, `Polarity`, `SourceKind`, `IssueStatus`, `ActionStatus`, `FolderMatchStatus` (also `SignalCategory` and severity `SEVERITY_MIN`/`SEVERITY_MAX`)
-- [x] `services/quote_check.py`: normalise the quote (NFKC, casefold, quotes and dashes unified, whitespace collapsed), require it to be a substring of the transcript, then locate its utterance for `occurred_at` and `offset_ms`. Rejections are counted and never stored. (The quote's own surrounding quote marks and punctuation are ignored; the offset is the utterance's start; 11 unit tests)
-- [x] Persistence (`services/session_analysis.py`, `db/repositories/signal_repo.py`; one transaction after the graph; the runner continues into analysis, a `transcribed` session is only analysed, the takeover re-queues `transcribed`; settings `SESSION_NODE_TIMEOUT_SECONDS`, `SESSION_REASONING_EFFORT`, `SESSION_RESOLVED_ISSUE_LOOKBACK_DAYS`):
-  - On `session_transcripts`: the summary, `session_class` and `speaker_roles`.
-  - The signals, issues and actions.
-  - A `processing_costs` row per node, and one for AssemblyAI.
-  - On the session: `node_errors` and `quotes_rejected`.
-- [x] Tests (57 unit: quote check 11, emit 19, node 4, graph 6, prompts 13, structured 3, config 1; 34 integration: signal schema 17, migration 005 1, analysis 14, runner 2):
-  - Each node with mocked responses, including the failure and timeout paths (non-fatal).
-  - Quote rejection and quote location.
-  - The graph end to end with mocks.
-  - An integration run from transcript to signals.
-
-**Doc updates (concurrent)**
-- [x] `ARCHITECTURE.md` (pipeline as built, enumerations, `> Status:`), `FEATURES.md`, `TESTS.md`, `CHANGELOG.md` (also `.env.example`; `DEPLOYMENT.md`'s `> Status:` waits for the deploy that applies migration 005, as the rule on status following the action asks; `API.md` unchanged, no route changed)
+- [ ] `DEPLOYMENT.md` (deploy timing, `> Status:`), `ARCHITECTURE.md` (infrastructure, `> Status:`), `BACKLOG.md` (tick), `FEATURES.md`, `TESTS.md`, `CHANGELOG.md`
 
 **Commit checkpoint**
-- [x] `feat: add the session pipeline with verified signals` (209a8f1; CI run 37910393869 green, deployed)
+- [ ] `fix: hand over processing promptly on deploy`
 
-### Phase 5: Session page and sessions list
+### Phase 2: Health tables, enumerations, configuration, scoring and triggers
 **Code work**
-- [x] Session guards: `require_session_scope` / `require_logged_session_scope` (session → placement → scope; 404 on denial; the logged variant writes `access_log`). The coverage test requires one of them on any `{session_id}` path, and `require_roles` on `{recording_id}`, `{folder_id}` and `{user_id}` paths (the guard lands with the first session route in Phase 3) (also `require_media_token` and a token-scoped set in the coverage test; `list_scope` in `entitlements.py` for the list query)
-- [x] Backend `api/v1/sessions.py` (plus `services/session_view.py`, `schemas/sessions.py`, `services/media_token.py`, retry and `set_kind` in `session_service.py`, `GET /sessions/{id}/media?token=` for local playback, `get_url(content_type=)` on storage so S3 serves `audio/webm`; signals ordered by offset after time):
-  - `GET /sessions`: the sessions in the user's scope, filtered by consultant and status.
-  - `GET /sessions/{session_id}` (logged): the session, with node errors for global roles.
-  - `GET /sessions/{session_id}/media-url`: a 15-minute presigned URL.
-  - `PATCH /sessions/{session_id}/kind` and `POST /sessions/{session_id}/retry` (global roles; retry resumes from the failed stage).
-- [x] Frontend (both hooks in `hooks/useSessions.ts`, deviation; `components/sessions/{SessionsList,SessionView,AudioPlayer,SessionStatusBadge}.tsx`, `lib/sessions.ts`, `types/sessions.ts`; the Recordings tab links a processed recording to its session; `transcribed` counts as in flight):
-  - `app/sessions/page.tsx`, with a "Sessions" sidebar entry.
-  - `app/sessions/[sessionId]/page.tsx`:
-    - Header: consultant, client, project, held at, kind (with override) and status. The page polls every 10 s while processing.
-    - Audio player: clicking a signal, issue, action or transcript line seeks to that moment.
-    - Summary, then the speaker-attributed transcript.
-    - Signals with their quotes, then issues, actions and cost.
-    - For global roles: the node errors panel and a retry button.
-  - Hooks `useSessions.ts` and `useSession.ts`.
-- [x] Tests: guards and the access log, retry and override, components, e2e (a seeded completed session renders; the page polls while processing) (backend 41 unit + 21 integration; frontend 20 unit; e2e `sessions.spec.ts` 3, seeded by `app/cli/seed_e2e_session.py`; e2e 17/17 twice)
-- Design answered 2026-10-09 (Decisions Log, from "Local playback"): signed local media route with a token-scoped coverage set; the list unpaginated with browser search; retry from the failed stage by what is stored; kind set only; only the detail route logs; list columns and a Recordings-tab link to the session
+- [ ] `app/models/enums.py`: `Indicator` with `INDICATOR_MEANINGS`, `RiskLevel` (green, amber, red), `Trend` (up, flat, down), `RiskTrigger` (all eight PRD triggers; six evaluated now), `FlagSeverity` (medium, high, critical) and the trigger severities
+- [ ] Migration `006` and `app/models/health.py`:
+  - `health_snapshots`: placement, computed_at, the six dimension scores, overall, trend, trend delta, risk level (empty when not scored), scored, signal count, `weights_version`, reason (call, register, daily), `evidence` JSONB (per dimension: the top five signals with weight and value, and the count); index on (placement, computed_at)
+  - `risk_flags`: placement, trigger, severity, subject key (not null, `''` when the trigger has no subject, since NULLs never clash in a unique index), opened_at, `evidence_signal_ids`, closed_at, closed_by_user_id, closing_note; one open flag per (placement, trigger, subject key) by a partial unique index. With no closing this sprint, an open critical flag keeps its placement at least amber until Phase 4
+  - `signals.indicator` (nullable, checked); an HNSW index on `signals.embedding` (`vector_cosine_ops`, m 16, ef_construction 64)
+- [ ] Model and migration declare the HNSW index identically (ops and `WITH` options), so `alembic check` stays clean; `EXPECTED_TABLES` and the meanings test cover the new tables and enumerations
+- [ ] `app/health/` (pure, no database, `now` passed in): `config.py` (`HealthConfig`, `load_health_config`), `config/v1.json`, `scoring.py` (`score_placement`: dimension scores, onboarding weighting by days since start, overall, trend from the signals whose call is on or before now − 14 days, decayed as of then, RAG with the critical floor, contributors), `triggers.py` (`evaluate_triggers`); settings `HEALTH_CONFIG_VERSION`, `HEALTH_DAILY_ENABLED`, `HEALTH_DAILY_HOUR`, `HEALTH_TIMEZONE`
+- [ ] Tests: exact scores for fixed signal sets (prior, decay, confidence, the onboarding window, weights scaled), not scored, trend bands, RAG and the critical floor, each trigger at its edges, configuration validation; migration 006 up and down; constraints
 
 **Doc updates (concurrent)**
-- [x] `API.md`, `ARCHITECTURE.md` (frontend as built, `> Status:`), `FEATURES.md`, `TESTS.md`, `CHANGELOG.md`, `ROADMAP.md` (tick "Session pipeline and session page") (`DEPLOYMENT.md`: no infra or setting change; its status line was updated for the Phase 4 deploy and goes in this commit; README: no new make target)
+- [ ] `ARCHITECTURE.md` (health model as built, migration 006, `> Status:`), `.env.example`, `FEATURES.md`, `TESTS.md`, `CHANGELOG.md`
 
 **Commit checkpoint**
-- [x] `feat: add the session page and sessions list` (356236b; CI run 37930365598 green, both sides deployed)
+- [ ] `feat: add the health scoring module and its tables`
 
-### Phase 6: Staging rollout, exit gate, audit and handover
+### Phase 3: Indicator tagging and signal embeddings
+**Code work**
+- [ ] `ExtractedSignal.indicator` (`app/ai/session/schemas.py`, not on `Evidence`, which issues share); `prompts/common.py` lists `INDICATOR_MEANINGS` for the client and relationship/engagement prompts; `drafts.py` and `emit.py` carry it, allowing `client_dissatisfaction` and `consultant_change_requested` from the client node and `intent_to_leave` from the relationship/engagement node, and keeping an indicator when the same-quote dedup drops its duplicate; `session_analysis.py` stores it
+- [ ] `app/services/signal_embeddings.py`: embed a session's signals (quote and note) with `AsyncAzureOpenAI.embeddings.create` (replacing the unused `build_embeddings()`) after the analysis commit, only for a `completed` session, in its own try/except so a failure never fails the session; a `processing_costs` row from `usage.total_tokens`; `signal_repo` reads and writes; `app/cli/backfill_signal_embeddings.py` (NULL embeddings, batched); confirm the staging secret's `AZURE_EMBEDDING_DEPLOYMENT` and the Azure deployment
+- [ ] Tests: prompts list the meanings, emit and analysis keep the indicator; embeddings with a mocked client (success, failure non-fatal, cost row); the backfill command
+
+**Doc updates (concurrent)**
+- [ ] `ARCHITECTURE.md` (pipeline, embeddings), `FEATURES.md`, `TESTS.md`, `CHANGELOG.md`, `DEPLOYMENT.md` (the backfill command)
+
+**Commit checkpoint**
+- [ ] `feat: tag critical indicators and embed signals`
+
+### Phase 4: Recompute service, flags and jobs
+**Code work**
+- [ ] `app/db/repositories/health_repo.py` (snapshots: add, latest per placement, history; flags: open ones, add, add evidence); `signal_repo` (a placement's signals up to a time; open issues with a Technical signal); `placement_repo` (active placements; `ListScope` filter on `_rows`)
+- [ ] `app/services/health_service.py`: `recompute(placement_id, reason)`: load, score, evaluate triggers, write the snapshot and open or extend flags in one transaction
+- [ ] Jobs: `health_recompute` per placement (dedups bursts), `health_daily` (fixed id) fanning out to every active placement, a daily loop to the next `HEALTH_DAILY_HOUR` in `HEALTH_TIMEZONE` started in `main.py` behind `HEALTH_DAILY_ENABLED`; runners registered before takeover
+- [ ] Hooks: after a session job that ends `completed` (embeddings, then the recompute; never after a failed analysis); after the register routes commit (placement create and edit, project edit fanning out to its active placements, import confirm when applied)
+- [ ] `processing_queue.py`: a key requested while its job runs is queued once more when it finishes (every kind)
+- [ ] Takeover requeue: placements whose newest signal or register edit is newer than their latest snapshot are recomputed, which also covers a daily job lost to a deploy across 06:00
+- [ ] Tests: recompute against Postgres (snapshot, flags opened once, evidence added, not scored), jobs and fan-out, the queue re-run, hooks (enqueue after commit, only for completed sessions), the daily loop's next run across a clock change (no fixed sleeps)
+
+**Doc updates (concurrent)**
+- [ ] `ARCHITECTURE.md` (processing, health), `.env.example`, `DEPLOYMENT.md` (the daily recompute on staging), `FEATURES.md`, `TESTS.md`, `CHANGELOG.md`
+
+**Commit checkpoint**
+- [ ] `feat: recompute health after calls, edits and daily`
+
+### Phase 5: Board and placement health routes
+**Code work**
+- [ ] `app/services/health_view.py`, `app/schemas/health.py`, a routes module that does not clash with the `/health` probe:
+  - `GET /risk-board`: active placements in the caller's scope with the latest snapshot, open flags, weeks in, days since the last call, next action due; Technical only for an SME, sorted by Technical score then name, with no risk filter
+  - `session_view.py`: an SME's session page lists only Technical signals (transcript, summary, issues and actions unchanged)
+  - `GET /placements/{placement_id}/health` (logged placement scope): latest snapshot with evidence quotes, snapshot history, call markers, open flags with evidence, sessions, open issues, actions, register fields, the consultant's other placements in scope; Technical only for an SME
+- [ ] Tests: scope (404 outside, list filtered), SME responses without the hidden fields, the access log row, the coverage test
+
+**Doc updates (concurrent)**
+- [ ] `API.md`, `ARCHITECTURE.md`, `FEATURES.md`, `TESTS.md`, `CHANGELOG.md`
+
+**Commit checkpoint**
+- [ ] `feat: add the risk board and placement health routes`
+
+### Phase 6: Risk board page
+**Code work**
+- [ ] `src/app/page.tsx` with `components/health/RiskBoard.tsx` (keeps the `h2` "Risk board"), `hooks/useHealth.ts` (30 s polling), `lib/health.ts`, `types/health.ts`; filters PS, tech lead, client, risk level; red first, then trend; "Not scored" last; the SME view; dark mode
+- [ ] E2E seed (`seed_e2e_session.py --health`): dates relative to today, an indicator signal and a placement ending within 30 days, recomputed directly; `tests/e2e/risk-board.spec.ts`
+- [ ] Tests: components (sorting, filters, the SME view), e2e
+
+**Doc updates (concurrent)**
+- [ ] `ARCHITECTURE.md` (frontend), `FEATURES.md`, `TESTS.md`, `CHANGELOG.md`
+
+**Commit checkpoint**
+- [ ] `feat: add the risk board`
+
+### Phase 7: Placement health page
+**Code work**
+- [ ] `src/app/placements/[placementId]/page.tsx`, `components/health/{PlacementHealthView,DimensionScores,HealthChart,FlagList}.tsx` (Recharts through `components/ui/chart.tsx`, theme colours, call markers); links from the board, the sessions list and the session page; 404 shows "not found"
+- [ ] Tests: components (SME view, not scored, chart data), e2e
+
+**Doc updates (concurrent)**
+- [ ] `ARCHITECTURE.md`, `FEATURES.md`, `TESTS.md`, `CHANGELOG.md`, `ROADMAP.md` (tick the three Milestone 2 items)
+
+**Commit checkpoint**
+- [ ] `feat: add the placement health page`
+
+### Phase 8: Staging rollout, exit gate, audit and handover
 **Code work and setup**
-- [x] Deploy through CI; Phase 3 Terraform applied on approval; bucket policy applied by the user (done during Phases 3–5: bucket policy and Terraform 2026-10-09, last deploy 356236b, CI run 37930365598)
-- [x] First staging scan (catalog only); seed the register for the consultants concerned (CSV); resolve the needs-choice folders (scan done 2026-10-09: 49 folders, 208 recordings; the register import and the folder choices postponed with the PS team's CSV, user decision 2026-10-09, BACKLOG)
-- [x] Exit gate: process three calls from consultants who were told (names and date recorded here); the PMO manager reviews summaries and signals; fixes made (not run: the gate calls were dropped and are not tracked, user decision 2026-10-09; the session pipeline has not yet run on a real call)
+- [ ] Deploy through CI; turn on the daily recompute on staging; run the embedding backfill; check the snapshots
+- [ ] Exit gate: ten placements scored from real sessions; the PMO manager reviews the ranking; weight changes become a new configuration version
 
 **Doc updates (concurrent)**
-- [x] `docs/tracking/SPRINT-AUDIT.md` (Rule C), `docs/handover/sprint-01-handover.md`, `BACKLOG.md`, `ROADMAP.md` (SPRINT-AUDIT.md replaced with the Sprint 1 report, user decision 2026-10-09; first pass done 2026-10-09: 13 findings S1-1 to S1-13, each with a local rule and a Learnings Log line; second pass after the gate)
+- [ ] `docs/tracking/SPRINT-AUDIT.md` (Rule C), `docs/handover/sprint-02-handover.md`, `BACKLOG.md`, `ROADMAP.md`
 
 **Commit checkpoints**
-- [x] `docs: record the sprint 1 exit gate` (dropped with the gate; the audit's first pass was committed instead, 7361cf4, with 530df1d for the flaky test)
-- [ ] `docs: complete sprint 1 audit and handover`
+- [ ] `docs: record the sprint 2 exit gate`
+- [ ] `docs: complete sprint 2 audit and handover`
+
+### Alongside: real calls on staging
+- [ ] The user seeds the register on Admin > Register; the next scan matches the folders; settle any folder that names more than one consultant
+- [ ] Calls processed from consultants who know their calls are analysed (who and when recorded here)
+- [ ] Each run reviewed with the user (node errors, quotes rejected, cost, timing); fixes as their own `fix:` commits
 
 ## Blockers and Dependencies
-- ~~The PMO AssemblyAI key on the EU endpoint~~ Resolved 2026-10-08: the key works on the EU endpoint.
-- A bucket policy on `nextcloud-talk-recordings-itc`, applied with the user's main-account login, before the staging scan (Phase 3/6).
-- Register data for the consultants in the gate calls: a CSV from the PS team's spreadsheet.
-- Three consultants told in advance that their calls will be analysed, and the PMO manager available for the review.
+- Real calls: the staging register (by hand, BACKLOG) and consultants told beforehand (BACKLOG #6); the exit gate needs ten scored placements.
+- Phase 1's Terraform apply needs the user's approval; the fix waits for the evidence.
 
->>> SPRINT COMPLETE (2026-10-09) — next: Sprint 2 planning (`/sprint-start`)
-
-## Session State (last updated: 2026-10-09 19:40)
-- **Sprint**: 1 — Register and Sessions (PRD Phase 1)
-- **Current phase**: Sprint 1 complete (2026-10-09); Phase 6 closed without the exit gate (Decisions Log, last row)
-- **Phase progress**: all six phases closed; audit passed (second pass 2026-10-09); handover written
-- **Last completed task**: audit second pass and `docs/handover/sprint-01-handover.md`
-- **Next task**: commit `docs: complete sprint 1 audit and handover` (on the user's approval); then Sprint 2 planning with `/sprint-start`, reading the Sprint 1 handover first
-- **Last commit**: 7361cf4 "docs: record the sprint 1 audit first pass" and 530df1d "test: wait for the scan loop's ticks" (pushed, CI run 37936852284 green; the test commit redeployed the staging backend: healthy, processing ownership after 375 s)
-- **Uncommitted changes**: the sprint close: this file, `BACKLOG.md`, `ROADMAP.md`, the `ARCHITECTURE.md` and `DEPLOYMENT.md` status lines, `SPRINT-AUDIT.md` (passed), the new handover
-- **Blockers**: none for closing; the staging register waits for the PS team's CSV (BACKLOG)
-- **Tests passing**: 624 unit + 201 integration (backend) + 157 frontend unit + 17 e2e = 999, audit run 2026-10-09; `make lint` clean. Frontend unit with `--maxWorkers=4` (S1-12, BACKLOG)
-- **Files created this session**: Phase 5: `backend/app/cli/seed_e2e_session.py`, `backend/app/schemas/sessions.py`, `backend/app/services/{media_token,session_view}.py`, `backend/tests/integration/test_sessions_api.py`, `backend/tests/unit/test_{media_token,seed_e2e_session}.py`, `frontend/src/app/sessions/page.tsx`, `frontend/src/app/sessions/[sessionId]/page.tsx`, `frontend/src/components/sessions/{SessionsList,SessionsList.test,SessionView,SessionView.test,AudioPlayer,SessionStatusBadge}.tsx`, `frontend/src/hooks/useSessions{,.test}.ts`, `frontend/src/lib/sessions{,.test}.ts`, `frontend/src/types/sessions.ts`, `frontend/tests/e2e/sessions.spec.ts`. Phase 4: `backend/alembic/versions/005_create_signals_issues_actions.py`, `backend/app/models/signal.py`, `backend/app/ai/structured.py`, `backend/app/ai/session/{__init__,drafts,emit,graph,node,nodes,schemas,state}.py`, `backend/app/ai/session/prompts/{__init__,common,roles,classify,summarise,issues,relationship_engagement,client_signals,actions}.py`, `backend/app/services/{quote_check,session_analysis}.py`, `backend/app/db/repositories/signal_repo.py`, `backend/tests/unit/{session_pipeline_helpers,test_quote_check,test_session_emit,test_session_node,test_session_graph,test_session_prompts,test_structured}.py`, `backend/tests/integration/{test_signal_schema,test_session_analysis}.py`. Phase 3: `backend/alembic/versions/003_create_sessions_and_recordings.py`, `backend/app/models/session.py`, `backend/tests/integration/test_session_schema.py`, `backend/app/services/storage/*`, `backend/app/services/transcription/{__init__,assemblyai_client}.py`, `backend/app/services/{media_files,upload_service,url_download_service,url_guard}.py`, `backend/tests/unit/test_{assemblyai_client,media_files,multipart_upload,storage_local,storage_s3,upload_service,url_download_service,url_guard}.py`, `backend/alembic/versions/004_create_recording_scans.py`, `backend/app/services/recordings/{__init__,folder_names,name_match,scanner,periodic}.py`, `backend/app/db/repositories/recording_repo.py`, `backend/tests/unit/test_{folder_names,name_match,recordings_periodic}.py`, `backend/tests/integration/test_recordings_scanner.py`, `backend/app/services/session_service.py`, `backend/app/db/repositories/session_repo.py`, `backend/tests/integration/test_session_service.py`, `backend/app/api/v1/{recordings,sessions}.py`, `backend/app/schemas/recordings.py`, `backend/app/services/recordings/catalog.py`, `backend/app/middleware/body_limit.py`, `backend/tests/unit/test_body_limit.py`, `backend/tests/integration/test_recordings_api.py`, `backend/tests/unit/test_recordings_cutoff.py`, `frontend/src/components/admin/recordings/{RecordingsTab,RecordingsTab.test,dialogs,FilteredSelect}.tsx`, `frontend/src/components/common/{FileDropZone,UploadProgress}.tsx`, `frontend/src/hooks/useRecordings{,.test}.ts`, `frontend/src/lib/recordings{,.test}.ts`, `frontend/src/lib/upload.ts`, `frontend/src/types/recordings.ts`, `frontend/tests/e2e/admin-recordings.spec.ts`. Phase 2: `backend/app/db/repositories/{consultant,client,project,placement}_repo.py`, `backend/app/schemas/{register,users}.py`, `backend/app/services/{register_service,register_import}.py`, `backend/app/api/v1/{register,users}.py`, `backend/tests/unit/test_register_import_file.py`, `backend/tests/integration/test_register_{api,import}.py`, `frontend/src/components/admin/register/*`, `frontend/src/components/common/DataTable{,.test}.tsx`, `frontend/src/hooks/{useRegister,useUsers}.ts`, `frontend/src/hooks/useRegister.test.ts`, `frontend/src/lib/register{,.test}.ts`, `frontend/src/types/register.ts`, `frontend/tests/e2e/admin-register.spec.ts`
-- **Files modified this session**: Phase 5: `backend/app/api/v1/sessions.py`, `backend/app/dependencies.py`, `backend/app/utils/entitlements.py`, `backend/app/db/repositories/{session,signal}_repo.py`, `backend/app/services/{session_service,media_files}.py`, `backend/app/services/storage/{base,local,s3}.py`, `backend/tests/unit/test_{entitlement_coverage,entitlements,media_files,storage_s3}.py`, `frontend/src/components/admin/recordings/RecordingsTab{,.test}.tsx`, `frontend/src/components/layout/Sidebar{,.test}.tsx`, `frontend/src/lib/{constants,recordings,recordings.test}.ts`; docs `API`, `ARCHITECTURE`, `DEPLOYMENT`, `planning/{BACKLOG,CURRENT-SPRINT,ROADMAP}`, `tracking/{CHANGELOG,FEATURES,TESTS}`. Phase 4: `backend/app/models/{enums,session,__init__}.py`, `backend/app/config.py`, `backend/pyproject.toml` (mypy: pgvector), `backend/app/db/repositories/session_repo.py`, `backend/app/services/session_service.py`, `backend/tests/unit/test_config.py`, `backend/tests/integration/{test_migrations,test_session_service}.py`, `.env.example`; docs `ARCHITECTURE`, `tracking/{TESTS,FEATURES,CHANGELOG}`, `planning/CURRENT-SPRINT`. Phase 3: `backend/app/models/{enums,processing_cost,__init__}.py`, `backend/tests/integration/test_migrations.py`, `backend/app/config.py`, `backend/pyproject.toml`, `.env.example`, `backend/app/main.py`, `backend/app/models/session.py`, `backend/app/services/storage/{base,s3,local}.py`, `backend/app/db/repositories/{placement,recording}_repo.py`, `backend/tests/unit/test_storage_s3.py`, `infra/modules/environment/{iam,ecs,variables}.tf`, `infra/environments/staging/main.tf`, docs `DEPLOYMENT`, `backend/Dockerfile`, `backend/app/services/recordings/catalog.py`, `backend/app/schemas/recordings.py`, `frontend/src/components/admin/AdminView{,.test}.tsx`, `frontend/src/lib/{api,constants}.ts`, docs `planning/ROADMAP`, `backend/app/api/router.py`, `backend/tests/unit/test_entitlement_coverage.py`; docs `API`, `tracking/FEATURES`; docs `ARCHITECTURE`, `tracking/{TESTS,CHANGELOG}`, `planning/CURRENT-SPRINT`. Phase 2: `backend/app/api/router.py`, `backend/app/main.py` (CORS PATCH), `backend/app/db/repositories/user_repo.py`, `backend/app/services/user_roles.py` (id on `UserSummary`), `frontend/src/components/admin/AdminView{,.test}.tsx`, `frontend/src/app/admin/page.tsx`, `frontend/src/lib/{api,api.test,constants}.ts`; docs `API`, `ARCHITECTURE`, `planning/{CURRENT-SPRINT,ROADMAP}`, `tracking/{CHANGELOG,FEATURES,TESTS}`
-- **Key decisions this session**: Phase 5: signed local media route, token-scoped coverage set, unpaginated list, retry from what is stored, kind set only, only the page logs, list columns and the Recordings-tab link, e2e seed command in the backend, `transcribed` in flight (Decisions Log). Judgement calls made while building, for approval at the checkpoint: the page also lists earlier actions the call closed; the cost split into transcription and analysis; the list filters run in the browser on the loaded list (the API filters are there and tested) and the call time is the row's link; both hooks in `useSessions.ts`; presigned URLs set the media type (files are stored without one); the seed refuses unless local sign-in is on and storage is local, and has `--failed` for the retry e2e; signals ordered by time, then offset. **Audit note (Rule C)**: the session page never started polling after a retry. SWR schedules its refresh timer only when `refreshInterval` changes, and a function answering 0 for a session first loaded failed never set one; the unit test of the interval passed, and only the retry e2e showed it. Fixed by keeping the interval in state, set from `onSuccess`. Rule to add: a polling interval that can be 0 is held in state and set from each fetch, never a function of the data; an e2e checks a page follows a status change it did not load with. **Audit note (Rule C)**: `TESTS.md` said 28 for `test_db_session_scope.py` (one case per route); it was 34 after Phase 3's six routes, and 40 now. Found by comparing every file's collected count with the table, not only the files edited. Rule to add: after any change that adds routes or parametrised cases, compare every row of `TESTS.md` with `pytest --collect-only` counts. **Audit note (Rule C)**: my first session-page integration test was flaky (1 in 2 full runs): two seeded signals had the same `occurred_at`, so their order fell to random ids. Fixed in the seed (time = call + offset, as the pipeline stores it) and the query (offset as tie-break). Rule to add: a test that asserts an order seeds distinct sort keys, and a query that orders rows breaks ties on a meaningful column before the id. Phase 4: analysis in the same job; failed when nothing usable; signals from issues, relationship/engagement and client; `SpeakerRole` as `messages.author_role`; one timeout and one effort; issue linking with reopen; one transaction; signal columns `speaker_role`, `issue_id`, `category`; due dates resolved by the model; owner user from the register; `project_phase` free text; action quotes checked (Decisions Log). Judgement calls made while building, approved by the user at the checkpoint (Decisions Log): the same quote for the same dimension kept once; a closed action needs its quote found; an older call neither reopens nor resolves an issue last seen later; the resolved-issue lookback as a setting; the meanings text for severities, session kinds and roles; the speaker roles stored as `{label: {role, name}}`. **Audit note (Rule C)**: every backend deploy waits about 6.5 minutes for processing ownership (390 s, 380 s on 2026-10-09); the old task's log has no shutdown lines, so the lock seems to be freed by the dead connection, not released. It was logged as "normal during a deploy" and only noticed when this deploy was watched to the end. Recorded in BACKLOG (tech debt), to look at Phase 6 or Sprint 2 (user decision 2026-10-09). Rule to add: a deploy check reads the new task's log through to "Took processing ownership" and records the wait; a wait longer than the stop timeout is a finding. Phase 3: folder match status `matched / chosen / needs_choice / unmatched`; session → recording link one way (`sessions.source_recording_id`, unique); `sessions.kind` nullable; `source_url` and `original_filename` on sessions; migration 003 committed on its own; AssemblyAI submit-and-poll, 2–4 speakers, pinned SSRF guard, signature must match the extension; scan as a queue job, `recording_scans`, matching every consultant with the full name winning, recordings directly in the folder with a last-modified fallback; placement by covering dates with a choice when ambiguous, slow steps in the job with a job row, `held_at` required on forms, stop at `transcribed`; one nested folder list, any consultant choosable, 409 with choices, upload body limit; earliest date 2026-07-24 for the scan, Terraform apply held until it is deployed, nothing ever deleted or overwritten in the main account; recordings table with choices above, size-based estimate, dialogs on the tab, polling while in flight, uploads directory owned by `appuser` (Decisions Log). **Audit note (Rule C)**: local uploads had never worked: the compose volume at `/app/uploads` was root's and the backend runs as `appuser`, so the first write failed with 500. Unit and integration tests write to a temporary directory, so only an e2e upload through the real container showed it. Cause: the copied Dockerfile switched to a non-root user without preparing the volume's mount point. Rule to add: every path a non-root container writes to (volumes included) is created and chowned in the Dockerfile, and an e2e test writes through it. **Audit note (Rule C)**: `make dev-build && make migrate && make test-e2e` never got past the first step, because `dev-build` runs compose attached; found after the run sat for 27 minutes. Rule to add: chain only commands that return; start the stack detached (`docker compose up --build -d --wait`) when later steps depend on it. **Audit note (Rule C)**: FEATURES.md was in Phase 3's doc list but missed by the first three Phase 3 commits (8629e82, 43cb49b, 15df2ce); caught when the routes commit's doc list was re-read, and the Phase 3 rows were added then. Cause: the doc list was re-read only for docs the change obviously touched. Rule to add: before each commit, walk the phase's doc list item by item and either change the doc or note why not. Phase 2: CSV blanks keep; people are users with any role; no delete; Placements-first layout; commit before the response (Decisions Log). **Audit note (Rule C)**: the request session from Interview Intelligence committed after the response, FastAPI's documented default for yield dependencies; found only because a register e2e read its write back at once. Cause: copied infrastructure code was not checked against the framework's current semantics. Rule to add: a yield dependency that commits or releases a resource the response depends on is declared with `scope="function"`, and a test walks every route to check it. **Audit note (Rule C)**: two e2e flakes in this phase had test-side causes. The first import after a container restart is slow (cold backend), and back-to-back local runs exhaust the import's 10/minute limit, because every worker signs in as the one e2e user. Fixed with a 15 s allowance on the import steps. Rule to add: an e2e step that waits on a server-side job gets the cold-start allowance; when an e2e failure looks random, read the backend log for its status codes (429, 5xx) before changing the test
+## Session State (last updated: 2026-10-09 21:20)
+- **Sprint**: 2 — Health v1 (PRD Phase 2)
+- **Current phase**: Phase 0 (plan approved; the plan commit is next)
+- **Last completed task**: Sprint 2 planning; plan written here, with the design review's four decisions (trend basis, SME leaks, queue re-run, embeddings client) and its smaller fixes folded into the phases
+- **Next task**: commit `docs: plan sprint 2` on the user's approval; then Phase 1, the read-only investigation of the takeover delay
+- **Last commit**: 957e497 "docs: complete sprint 1 audit and handover" (pushed; CI run 37940241628 green, nothing deployed)
+- **Uncommitted changes**: this file (Sprint 2 plan), `BACKLOG.md` (#5, #7, the register item), `ROADMAP.md`
+- **Blockers**: none
+- **Tests passing**: 624 unit + 201 integration (backend) + 157 frontend unit + 17 e2e = 999 (Sprint 1 audit run, 2026-10-09)
+- **Files modified this session**: `docs/planning/{CURRENT-SPRINT,BACKLOG,ROADMAP}.md`
 - **Recovery instructions**:
-  - Read this file first, then `docs/handover/sprint-00-handover.md`.
-  - **Copying from Interview Intelligence**: code comes from `E:\E Projects\Interview Intelligence Platform`. Fix its known gaps on copy (see Research Findings).
-  - **Local stack**: `make dev-build`, `make migrate`, `make test-e2e`. Add `PMO_API_PORT=8100 PMO_WEB_PORT=3100` when another project holds ports 8000/3000.
+  - Read this file first, then `docs/handover/sprint-01-handover.md`.
+  - **Local stack**: `docker compose up --build -d --wait`, `make migrate`, `make test-e2e`. Add `PMO_API_PORT=8100 PMO_WEB_PORT=3100` when another project holds ports 8000/3000.
   - **Push and `gh`**: use `Abhishekkv99`'s token per command, never a change to the default login: `git -c credential.helper= -c credential.helper='!f() { echo username=x-access-token; echo "password=$(gh auth token --user Abhishekkv99)"; }; f' push origin develop`.
-  - **AWS sign-in**: `aws sso login --profile pmo-intelligence`. The source recordings bucket is read with the default profile (main account `430006376054`), read-only, until the bucket policy is applied.
+  - **AWS sign-in**: `aws sso login --profile pmo-intelligence`. Nothing is ever deleted or overwritten in the main ITC account (`430006376054`).
 
 ## Decisions Log
 | Decision | Rationale |
 |----------|-----------|
-| One recording file is one session; a folder is a recurring Talk room matched to a consultant | Survey 2026-10-08: 309 folders hold 2,433 recordings; one session per folder would drop most calls |
-| No automatic processing of scanned recordings; Process is a button per recording | User decision 2026-10-08; 2,433 recordings are on the folder, and Interview Intelligence's first scan once queued about 3,800 folders for paid processing |
-| Name matching on the first and last tokens of `full_name`, whole word, case- and accent-insensitive; no new name columns | User decision 2026-10-08 (first or last name or both); whole-word matching keeps "Ann" from matching "Anna" |
-| Recording file-name timestamps read as Europe/London (`RECORDINGS_TIMEZONE`) | Plan approval 2026-10-08; checked in Phase 3 against one recording with a known call time |
-| Stay on LangGraph 1.0.x; timeouts enforced in one shared node wrapper | Plan approval 2026-10-08; 1.2's native node timeouts need async nodes, and their parallel fan-out behaviour is not documented |
-| Evidence quotes checked by a normalised substring match against the transcript; an unverified signal is never stored, only counted | PRD ("Keep the model honest") and the project rules; Interview Intelligence had no check |
-| By-id session routes use a session scope guard (session → placement → scope, 404); a session page view writes `access_log` | Server-side scope on every by-id route; session pages show a consultant's data |
-| The Users page refuses to remove or change the last active `pmo_manager` | Plan approval 2026-10-08; prevents a lockout that only `make user-role` could undo |
-| Sign-in requests identity scopes only (`openid email profile`); `offline_access` dropped from the authorize request and the code exchange, kept on the app registration | User decision 2026-10-08; with no Microsoft token stored, a refresh token has no use. Leaving the registration alone keeps existing consents and needs no Entra change. Alternatives offered: drop it from the registration too (re-run the script); keep requesting it |
-| A manual redeploy re-runs the chosen side's checks and e2e before deploying | User decision 2026-10-08; keeps "deploy only after CI succeeds". Alternative offered: deploy straight away |
-| AssemblyAI default models `["universal-3-5-pro", "universal-2"]`, cost $0.21/hr plus $0.02/hr diarization | User decision 2026-10-08 after the smoke test: the current rate-card model, with Universal-2 for a language 3.5 Pro does not cover. Alternatives offered: 3.5 Pro alone; `universal-3-pro` as Interview Intelligence (accepted by the API, not on the rate card) |
-| CSV re-import: a filled cell overwrites, an empty cell keeps the stored value | User decision 2026-10-08; re-importing the same sheet changes nothing. Alternatives offered: blanks clear; create only |
-| People named in the register (CSV and pages) are active users with any role; a role other than the column's is a warning | User decision 2026-10-08. Alternatives offered: matching role required; any user row |
-| No delete in Sprint 1: placements end by status, consultants leave by status | User decision 2026-10-08; foreign keys are RESTRICT and history will hang off these rows. Alternative offered: delete when unreferenced |
-| Register tab opens on Placements, with sub-tabs for Consultants, Clients and Projects; the Admin tab is in the URL | User decision 2026-10-08. Alternatives offered: four equal sub-tabs; separate pages |
-| `GET /users` ships with the register commit; changing roles stays with the Users and roles commit | The register's people pickers need the user list |
-| The request session commits before the response: `DbSession` with `scope="function"` on every route and guard | User decision 2026-10-08, after flaky e2e runs traced to commits after the response. Alternatives offered: an explicit commit in every write route; retries in the e2e tests |
-| The last-PMO-manager guard is in `UserRoleService`, so the page and `make user-role` both refuse | User decision 2026-10-08; recovery still works by granting `pmo_manager` to someone, and through the bootstrap list. Alternative offered: page only |
-| Both global roles (`pmo_manager`, `admin`) manage users, the `pmo_manager` role included | User decision 2026-10-08; the PRD gives both user and access admin. Alternatives offered: admins cannot touch managers; PMO manager only |
-| Folder match status has four values: `matched` (automatic), `chosen` (a person picked), `needs_choice`, `unmatched`; the scanner re-matches only the last two | User decision 2026-10-08; a person's choice is never overwritten by the 15-minute scan. Alternatives offered: three values plus `consultant_chosen_by_user_id`; four values plus that column |
-| A session links to its recording through `sessions.source_recording_id` (unique) only | User decision 2026-10-08; no circular foreign key, no two columns to keep in step, one session per recording enforced by the database. Alternative offered: both directions, as first planned |
-| `sessions.kind` is NULL until the classify node or a person sets it | User decision 2026-10-08; an unclassified call is shown as such rather than as `other`. Alternative offered: default `other` |
-| Sessions keep `source_url` (URL sessions) and `original_filename` (uploads and scanned files) | User decision 2026-10-08; every session keeps its source reference (PRD, Inputs). Alternatives offered: URL only; nothing beyond `recording_key` |
-| `processing_costs.session_id` → `sessions` is `ON DELETE SET NULL` | Matches `processing_job_id`; cost history outlives a session the retention job may later delete |
-| AssemblyAI: submit once, then poll asynchronously under `ASSEMBLYAI_TIMEOUT_SECONDS` (1800) every `ASSEMBLYAI_POLL_INTERVAL_SECONDS` (5) | User decision 2026-10-08; a timeout or shutdown stops cleanly with no thread left polling. `Transcript.get_by_id` blocks until done, so status is read with `assemblyai.api.get_transcript`. Alternative offered: the blocking call in a thread under `asyncio.timeout`, as Interview Intelligence |
-| Diarization expects 2 to 4 speakers (`ASSEMBLYAI_MIN_SPEAKERS`, `ASSEMBLYAI_MAX_SPEAKERS`) | User decision 2026-10-08; a PMO call is the consultant and a PMO person, sometimes an SME or tech lead. Alternatives offered: no hint; 2 to 6 |
-| The URL download pins the connection to the address it checked (Host and SNI keep the name, so TLS is verified against it) | User decision 2026-10-08; closes the DNS-rebinding gap. Checked live: a pinned HEAD to a public site verifies, and httpcore passes `sni_hostname` as the TLS `server_hostname`. Alternative offered: check, then let httpx resolve again |
-| A recording's first bytes must match its extension's signature | User decision 2026-10-08; a renamed file is refused with the reason. Alternative offered: any allowed media signature |
-| A scan is a processing-queue job (kind `recordings_scan`, one fixed id, backlog priority); the 15-minute loop and Scan now only enqueue it | User decision 2026-10-08; the queue's (kind, id) dedup stops overlapping passes, and only the processing owner's queue runs jobs, so no lock of its own. Alternative offered: a separate loop with an advisory lock, Scan now running inside the request |
-| Every scan writes a `recording_scans` row (migration 004; the signals migration becomes 005) | User decision 2026-10-08; the Recordings tab shows the last scan's time, counts and error, across restarts. Alternatives offered: newest `last_seen_at` only; in memory |
-| Folder matching considers every consultant, `left` included; among several candidates the only one with both first and last name wins | User decision 2026-10-08; old recordings belong to past placements. Alternatives offered: exclude `left`; no tie-break |
-| A recording is a file with an allowed extension directly in its folder; its time comes from the `Recording …`, `V1_…` or `screen-recording-<ms>` name, else the S3 last-modified time stands in, marked on the page | User decision 2026-10-08, after the survey found 8 files outside the Talk naming. Alternatives offered: no fallback time; Talk names only |
-| `RECORDINGS_SCAN_ENABLED` switches only the 15-minute loop; Scan now always queues a scan | Development cannot read the bucket, so the loop is off there; a scan run by hand records its failure in `recording_scans` instead of failing silently |
-| A recording's placement: the folder consultant's placement whose dates cover the call's UK date, whatever its status; none or several → 409 with the choices, and any placement of that consultant may be chosen | User decision 2026-10-09; an ended placement still owns the calls held while it ran. Alternatives offered: active status only; refuse when none covers |
-| The `session` job does the slow steps (copy, download, transcribe); the session is `transcribing` from the job's start, and a `processing_jobs` row records stage, timing and error | User decision 2026-10-09; the request answers quickly, and the job row feeds the node-errors panel and retry (Phase 5). Alternatives offered: no job row; copy or download inside the request |
-| Upload and URL sessions take `held_at` (date and time, UK) from the form, required, prefilled from a Talk-style file name | User decision 2026-10-09. Alternative offered: the file name, else the upload time |
-| Until the analysis pipeline exists the job stops at `transcribed`; Phase 4 adds the analysis step and re-queues `transcribed` sessions | User decision 2026-10-09. Alternative offered: mark `completed` for now |
-| The route commits before queueing a session; the service never commits on the request's behalf | The worker opens its own database session and must see the row; as in Interview Intelligence |
-| `GET /recording-folders` returns the listed folders with their recordings and the latest scan in one response | User decision 2026-10-09; about 2,400 recordings, filtered in the browser like the other admin tables. Alternative offered: recordings fetched per folder |
-| Any consultant may be chosen for any folder (to settle a choice or correct a wrong match); the folder becomes `chosen`; no clearing | User decision 2026-10-09. Alternatives offered: candidates only on needs-choice folders; also allow clearing |
-| Process answers 409 with the placement choices (`{detail, placements}`) | User decision 2026-10-09; the dialog shows them without another request. Alternative offered: detail only |
-| A body-limit middleware refuses an oversized upload (413) as it arrives | User decision 2026-10-09; Starlette spools a multipart body to disk before the route runs, so the service's cap alone came too late. Alternatives offered: Content-Length check only; leave as is |
-| Only calls on or after `RECORDINGS_EARLIEST_DATE` (2026-07-24, a UK date) are cataloged; a folder is kept when it holds at least one, with only those calls | User decision 2026-10-09: only folders from the last 2.5 months are of interest. Alternatives offered: a folder's first recording must be after the date (old rooms dropped entirely); a rolling 76-day window; all recordings of a kept folder |
-| The Terraform apply waits until the cutoff is deployed | User decision 2026-10-09; the redeploy runs the first scan at once, which must already honour the cutoff. Alternative offered: apply now with the scan off |
-| Nothing is ever deleted or overwritten in the main ITC account (`430006376054`); changes there are additive, approved, and preceded by a read showing nothing to replace; any undo is the user's | User instruction 2026-10-09, given when approving that the bucket policy be applied for them |
-| The Recordings tab is one table of recordings, newest first, with the folders that name more than one consultant above it | User decision 2026-10-09; fewest clicks to process a call. Alternatives offered: a folders table with recordings in a dialog; expandable folder rows |
-| Process shows a cost estimate from the file size at `RECORDINGS_BYTES_PER_SECOND` (79,000), computed on the backend | User decision 2026-10-09; measured read-only on the 204 Talk recordings since the earliest date (median 77.4 KiB/s). Alternatives offered: a nominal bitrate; no estimate |
-| Upload recording and Add from URL live on the Recordings tab and take any placement (active first) and the UK call time, prefilled from a Talk-style name | User decision 2026-10-09. Alternatives offered: active placements only; the Sessions page later |
-| The Recordings tab polls every 10 s while a session is in flight, 60 s otherwise, only while open | User decision 2026-10-09. Alternative offered: refresh on demand |
-| The backend image creates `/app/uploads` owned by `appuser`; the local `upload_data` volume was recreated | Found by the new upload e2e: the volume was root's, so local uploads failed with 500 (seen as a network error, the 500 carrying no CORS headers). User approved recreating the empty local volume 2026-10-09 |
-| AssemblyAI model names and prices are configuration | Plan approval 2026-10-08; the docs give two spellings for the current model and the prices differ from the tracker's |
-| Analysis runs in the same `session` job after transcription (`transcribed → analyzing → completed`, job stage `analyzing`); a job finding a session at `transcribed` runs only the analysis; the takeover re-queue also queues `transcribed` sessions | User decision 2026-10-09; the sessions already transcribed on staging are analysed on the next deploy. Alternatives offered: a separate `session_analysis` job; same job without the re-queue |
-| A session is `completed` (with `node_errors`) when the summary or at least one extraction node succeeded; otherwise `failed` ("retry it"), keeping only the costs and node errors | User decision 2026-10-09; an Azure outage shows as a failed session to retry. Alternatives offered: always completed; failed on any node error |
-| Signals come from the issues, relationship/engagement and client nodes, each with a dimension the model chooses from `Dimension`; actions go to `actions` only; summary and class are not signals | User decision 2026-10-09. Alternatives offered: actions as signals too; a fixed dimension per node |
-| `SpeakerRole` is `consultant | pmo_manager | sme | tech_lead | ps | other`, the PRD's `messages.author_role` set | User decision 2026-10-09; one enumeration for sessions and chat. Alternatives offered: the PRD's four session roles; adding `client` |
-| One node timeout `SESSION_NODE_TIMEOUT_SECONDS` (240, under the 300 s client timeout) and one `SESSION_REASONING_EFFORT` (`medium`) for every LLM node | User decision 2026-10-09. Alternatives offered: per-node settings; effort per node in code |
-| Issues across calls: the issues node is offered the placement's open issues and those resolved in the last 30 days, by short id; a linked issue gets `last_seen_at` and `occurrence_count` raised and reopens if resolved; resolved by the end of the call closes it | User decision 2026-10-09. Alternatives offered: open issues only; no linking until embeddings |
-| The graph touches no database; everything it produced is written in one transaction when it finishes, so a failed run leaves nothing and a retry starts clean; re-analysing a `completed` session is not offered in Sprint 1 | User decision 2026-10-09. Alternatives offered: replace on re-run; write per node |
-| `signals` also carries `offset_ms`, `speaker_role` (from the utterance holding the quote), `issue_id` (nullable) and `category` (the producing node) | User decision 2026-10-09; the triggers need who said it, and the repeated-blocker flag cites the issue's signals |
-| An action's `due_date` is resolved by the actions node from the due text and the call's UK date (ISO, else null) | User decision 2026-10-09; the missed-commitment trigger reads it. Alternatives offered: a deterministic parser; null for now |
-| An action's `owner_role` is a `SpeakerRole`; `owner_user_id` is set when the role is `ps`, `sme` or `tech_lead` and the placement names that person; the node may close an earlier open action (offered by short id), which becomes `done` at the call's time | User decision 2026-10-09. Alternative offered: role only |
-| An action carries the words where it was agreed (`quote`), checked like a signal's; the match gives `offset_ms`, an action whose quote is not found is dropped and counted in `quotes_rejected`, and `closed_source_id` records the session that closed it | User decision 2026-10-09; the session page seeks to an action (Phase 5). Alternatives offered: keep an action whose quote is not found; no position |
-| The classify node's project phase is stored as short free text in `session_transcripts.project_phase` | User decision 2026-10-09; no enumeration until the PMO says which phases matter. Alternatives offered: an enumeration; not stored |
-| The same quote read for the same dimension by two nodes is stored once | Made while building, approved by the user 2026-10-09 |
-| An earlier action is closed only when the quote saying it is done is found in the transcript | Made while building, approved 2026-10-09; consistent with every other quoted item |
-| A call older than an issue's last sighting neither reopens nor resolves it; its count still rises | Made while building, approved 2026-10-09; sessions may be processed out of order |
-| The resolved-issue window is the setting `SESSION_RESOLVED_ISSUE_LOOKBACK_DAYS` (30) | Made while building, approved 2026-10-09; thresholds are configuration |
-| The meanings of severities, session kinds and roles that the prompts quote are in `enums.py` (`SEVERITY_MEANINGS`: 1 minor, 2 notable, 3 serious; `SESSION_KIND_MEANINGS`; `SPEAKER_ROLE_MEANINGS`) | Made while building, approved 2026-10-09; the PRD gives severity 1–3 without meanings |
-| `session_transcripts.speaker_roles` is `{label: {role, name}}` | Made while building, approved 2026-10-09; the session page shows names as well as roles |
-| Local playback: on local storage `media-url` returns `/api/v1/sessions/{id}/media?token=…`, a 15-minute HMAC token (signed with `SECRET_KEY`, bound to the session id) that serves the file with Range support; on S3 it is a 15-minute presigned URL, and the token route answers 404 | User decision 2026-10-09; an `<audio>` tag cannot send the Bearer token, and no recording bytes pass through the backend on staging. Alternatives offered: no player locally; an unauthenticated static mount; stream through the backend everywhere |
-| The coverage test gains a token-scoped set: routes reached without a user must carry a marked token guard | Follows from local playback; the token route has no Bearer user |
-| `GET /sessions` returns every session in the caller's scope, newest call first, with `consultant_id` and `status` filters; search and sort in the browser | User decision 2026-10-09; tens to a few hundred sessions this sprint. Alternative offered: server-side pagination |
-| Retry is for `failed` sessions only (409 otherwise): with a transcript it goes back to `transcribed` (analysis only), otherwise to `uploaded` (the copy or download is skipped when the recording is stored); a new job row records it, the failed one and its costs stay | User decision 2026-10-09. Alternative offered: always from the start |
-| The kind override is set only (`{kind}`), never cleared; `kind_overridden_by_user_id` keeps analysis from replacing it | User decision 2026-10-09. Alternative offered: `null` restores the classify node's class |
-| Only `GET /sessions/{id}` writes `access_log` (one row per page view); `media-url` and the list are scope-checked, not logged | User decision 2026-10-09. Alternatives offered: also media-url; also the list |
-| Sessions list: call time (UK), consultant, client · project, kind, status (a failed one shows its reason on hover), duration, signals and actions counts; filters consultant and status; a row opens the session page. A processed recording's status on the Recordings tab links to its session | User decision 2026-10-09. Alternatives offered: no link; fewer columns |
-| The staging register comes from the PS team's CSV: checked locally (format, the import's dry run) and imported on staging by the user (Admin > Import) | User decision 2026-10-09. Alternatives offered: build it from the folder names; enter the gate consultants by hand |
-| The first import leaves the PS, SME and tech lead columns empty; people are added on the Placements page once they have roles | User decision 2026-10-09; until then only the global roles read those sessions. Alternative offered: grant the roles first |
-| The gate calls, who told the consultants and when, and the reviewing PMO manager are recorded here before any gate call is processed | User decision 2026-10-09 (consent for the gate calls, BACKLOG #6) |
-| The sprint audit (Rule C) starts while the register and gate calls are pending, and is re-checked after the gate | User decision 2026-10-09. Alternative offered: audit after the gate |
-| Sprint 1 closes without its exit gate: the three gate calls are dropped and not tracked, and the register import (PS team's CSV) is postponed to the backlog; Milestone 1's exit gate stays unticked | User decision 2026-10-09. Alternatives offered: close it and remove the gate from the roadmap; keep the sprint open until the CSV arrives |
+| The staging register is entered by hand on Admin > Register (consultant, client, project, placement), not imported from the PS team's CSV | Carried from Sprint 1 (user decision 2026-10-09, after that sprint closed); Process needs a placement covering the call. Alternatives offered: quick add from the Recordings tab; Process without a placement (both new features) |
+| Every row of "User Decisions Made" above | User decisions 2026-10-09, Sprint 2 planning; alternatives listed with each |
