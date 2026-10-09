@@ -5,6 +5,7 @@ import { useAuth } from "@/components/providers/AuthProvider";
 import { EmptyState } from "@/components/common/EmptyState";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { hasGlobalRole } from "@/lib/roles";
+import { RecordingsTab } from "./recordings/RecordingsTab";
 import { ImportTab } from "./register/ImportTab";
 import { RegisterTab } from "./register/RegisterTab";
 import { UsersTab } from "./users/UsersTab";
@@ -14,6 +15,7 @@ export const ADMIN_TABS = [
   { value: "register", label: "Register" },
   { value: "import", label: "Import" },
   { value: "users", label: "Users and roles" },
+  { value: "recordings", label: "Recordings" },
   { value: "processing", label: "Processing" },
 ] as const;
 
@@ -59,6 +61,9 @@ export function AdminView() {
           </TabsContent>
           <TabsContent value="users">
             <UsersTab />
+          </TabsContent>
+          <TabsContent value="recordings">
+            <RecordingsTab enabled={tab === "recordings"} />
           </TabsContent>
           <TabsContent value="processing">
             <ProcessingStatusPanel enabled={tab === "processing"} />

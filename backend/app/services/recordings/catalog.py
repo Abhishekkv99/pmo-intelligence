@@ -19,7 +19,14 @@ from app.schemas.recordings import (
     RecordingSessionRef,
     ScanSummary,
 )
+from app.services.cost_tracker import calculate_assemblyai_cost
 from app.utils.exceptions import NotFoundError, ValidationError
+
+
+def estimate(size_bytes: int) -> tuple[float, float]:
+    """(minutes, USD) to transcribe a recording of ``size_bytes``, estimated."""
+    seconds = size_bytes / settings.recordings_bytes_per_second
+    return round(seconds / 60, 1), round(calculate_assemblyai_cost(seconds), 2)
 
 
 class RecordingCatalog:
@@ -39,7 +46,8 @@ class RecordingCatalog:
         names = {c.id: c.full_name for c in await self.consultants.list_by_name()}
         rows = await self.recordings.recordings_with_sessions([f.id for f in folders])
         by_folder: dict[uuid.UUID, list[RecordingItem]] = {f.id: [] for f in folders}
-        for recording, session_id, session_status in rows:
+        for recording, session in rows:
+            minutes, cost = estimate(recording.size_bytes)
             by_folder[recording.folder_id].append(
                 RecordingItem(
                     id=recording.id,
@@ -47,11 +55,15 @@ class RecordingCatalog:
                     size_bytes=recording.size_bytes,
                     recorded_at=recording.recorded_at or recording.last_modified,
                     time_from_name=recording.recorded_at is not None,
+                    estimated_minutes=minutes,
+                    estimated_cost_usd=cost,
                     session=(
                         RecordingSessionRef(
-                            id=session_id, status=SessionStatus(session_status)
+                            id=session.id,
+                            status=SessionStatus(session.status),
+                            error_message=session.error_message,
                         )
-                        if session_id is not None and session_status is not None
+                        if session is not None
                         else None
                     ),
                 )

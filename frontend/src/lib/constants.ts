@@ -25,4 +25,9 @@ export const API_ROUTES = {
   placements: "/placements",
   registerImport: "/register/import",
   users: "/users",
+  recordingFolders: "/recording-folders",
+  recordingsScan: "/recordings/scan",
+  recordings: "/recordings",
+  sessionUpload: "/sessions/upload",
+  sessionUrl: "/sessions/url",
 } as const;

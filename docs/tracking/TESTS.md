@@ -1,22 +1,22 @@
 # Test Tracking
 
 ## Summary
-Counts are taken from the test run output, never estimated. Last run 2026-10-09 (Sprint 1 Phase 3, recordings earliest date): backend unit and integration; frontend unit and e2e from the Phase 2 run (no frontend change since); e2e against the compose stack on ports 8100/3100.
+Counts are taken from the test run output, never estimated. Last run 2026-10-09 (Sprint 1 Phase 3, Admin > Recordings): every layer; backend from the earliest-date run (since then only the folder-list test gained assertions, run on its own); e2e against the compose stack on ports 8100/3100, twice.
 
 | Layer | Count |
 |-------|-------|
 | Unit (backend) | 526 |
 | Integration (backend, testcontainers pgvector) | 146 |
-| Frontend unit (Vitest) | 113 |
-| Frontend e2e (Playwright, against the compose stack) | 12 (1 setup + 11) |
-| **Total** | **797** |
+| Frontend unit (Vitest) | 137 |
+| Frontend e2e (Playwright, against the compose stack) | 14 (1 setup + 13) |
+| **Total** | **823** |
 
 ## How to run
 - Backend unit: `cd backend && uv run pytest tests/unit`
 - Backend integration (needs Docker running): `cd backend && uv run pytest tests/integration`
 - Frontend unit: `cd frontend && pnpm test`
 - Frontend e2e (needs the backend with `LOCAL_AUTH_ENABLED=true` on :8000 and the frontend on :3000): `cd frontend && pnpm test:e2e`
-- With make: `make test` (backend unit + integration, frontend unit); `make dev-build`, `make migrate`, then `make test-e2e`. If another dev server holds 8000 or 3000, its answers make the suite fail at `auth.setup.ts`. Move the PMO stack with `make dev-build PMO_API_PORT=8100 PMO_WEB_PORT=3100` and `make test-e2e PMO_API_PORT=8100 PMO_WEB_PORT=3100`
+- With make: `make test` (backend unit + integration, frontend unit); `make dev-build`, `make migrate`, then `make test-e2e`. `make dev-build` stays attached to the stack's logs, so run the other two in a second terminal (or start the stack detached: `docker compose up --build -d --wait` with the same port variables). If another dev server holds 8000 or 3000, its answers make the suite fail at `auth.setup.ts`. Move the PMO stack with `make dev-build PMO_API_PORT=8100 PMO_WEB_PORT=3100` and `make test-e2e PMO_API_PORT=8100 PMO_WEB_PORT=3100`
 - CI runs the same suites; e2e runs against the compose stack (`.github/workflows/ci.yml`)
 
 ## Backend unit tests (`backend/tests/unit/`)
@@ -86,7 +86,8 @@ Counts are taken from the test run output, never estimated. Last run 2026-10-09 
 |------|-------|--------|
 | `app/auth/callback/microsoft/page.test.tsx` | 8 | Error param, missing code, missing PKCE verifier, code exchange payload and redirect to `/`, exchange failure, a refused sign-in shows the backend's reason, a non-refusal keeps the generic message, back to login |
 | `app/layout.test.tsx` | 3 | Metadata name and tagline; toast region mounted; toasts shown |
-| `components/admin/AdminView.test.tsx` | 10 | Opens on the register for `pmo_manager` and `admin`; the tabs in order (Register, Import, Users and roles, Processing); the tab in the URL opens (the queue polls only on its tab); choosing a tab writes `?tab=`; an unknown tab falls back; no tabs and the no-access message for `sme`, `tech_lead`, `ps` and no role |
+| `components/admin/AdminView.test.tsx` | 11 | Opens on the register for `pmo_manager` and `admin`; the tabs in order (Register, Import, Users and roles, Recordings, Processing); the recordings tab polls only while open; the tab in the URL opens (the queue polls only on its tab); choosing a tab writes `?tab=`; an unknown tab falls back; no tabs and the no-access message for `sme`, `tech_lead`, `ps` and no role |
+| `components/admin/recordings/RecordingsTab.test.tsx` | 8 | The last scan and the schedule; folders needing a choice with their candidates; recordings newest first with status (failure reason on hover), estimate and the file-time marker; Process off until the folder has a consultant; Process after confirming the estimated cost; a placement asked for when the API offers a choice; Scan now says when one is already queued; a failed scan shows why |
 | `components/admin/register/ImportTab.test.tsx` | 3 | Preview then Confirm of a clean file; Confirm stays disabled while a row has an error; a refused file shows the reason |
 | `components/admin/register/PlacementDialog.test.tsx` | 3 | End date before the start refused in the form; every field sent with empties as null; a failed save stays open with the API's message |
 | `components/admin/users/UsersTab.test.tsx` | 4 | Users listed with role, you marked, Microsoft sign-in state; the last PMO manager refusal shown and nothing refreshed; email and role required to give access; a change reports its message and refreshes |
@@ -99,12 +100,14 @@ Counts are taken from the test run output, never estimated. Last run 2026-10-09 
 | `components/layout/Sidebar.test.tsx` | 3 | Nav for global roles (with Admin) and others (without); risk board at `/` |
 | `components/layout/ThemeToggle.test.tsx` | 4 | Light, dark and system options |
 | `components/providers/AuthProvider.test.tsx` | 6 | Session restore with role; no-role user stays; signed-in user leaves `/login` for `/`; signed-out visitor stays on `/login`; expiry sends to `/login` |
+| `hooks/useRecordings.test.ts` | 4 | Process sends an empty body or the chosen placement; a 409 with placements becomes a choice; any other refusal rejects with the API's message; choosing a folder's consultant and Scan now |
 | `hooks/useRegister.test.ts` | 3 | Create with POST, update with PATCH on the record's path; import sends the file and the dry-run flag |
 | `hooks/useProcessingStatus.test.ts` | 3 | No request when disabled; 5 s / 30 s polling; busy flag |
 | `hooks/useSSOLogin.test.ts` | 3 | Authority from the server and identity scopes only; single-tenant authority; config failure |
 | `hooks/useScrollRestore.test.ts` | 3 | Save and restore scroll position per key |
 | `lib/api.test.ts` | 8 | `patch` sends PATCH with the body and token, and raises the API's message; one refresh and retry on 401, no refresh loop, session expiry, refresh timeout, shared refresh, no refresh for auth endpoints |
 | `lib/pkce.test.ts` | 7 | Verifier and S256 challenge; verifier stored once and cleared |
+| `lib/recordings.test.ts` | 11 | UK wall time to ISO: BST, GMT and both clock-change days, a bad value refused; an instant on a UK clock; the call time from Talk and `V1_` names, none otherwise; recordings with their folder newest first; in-flight statuses; sizes and costs |
 | `lib/register.test.ts` | 3 | Enumeration labels; empty and none become null; skills split on commas |
 | `lib/roles.test.ts` | 4 | The five roles; `pmo_manager` and `admin` global; scoped roles and no role not global |
 
@@ -112,6 +115,7 @@ Counts are taken from the test run output, never estimated. Last run 2026-10-09 
 | File | Tests | Covers |
 |------|-------|--------|
 | `auth.setup.ts` | 1 | Registers and signs in with local auth (the user is a bootstrap admin in `docker-compose.yml`, since sign-in needs a role), copies the refresh cookie, lands on the risk board, saves the storage state |
+| `admin-recordings.spec.ts` | 2 | Uploads a Talk-named recording for a placement imported in the test (call time prefilled from the name, placement found by filter) and sees it queued; the URL dialog refuses an http address |
 | `admin-users.spec.ts` | 1 | A PMO manager gives a new address the PMO SME role (listed, not signed in yet), then removes it |
 | `admin-register.spec.ts` | 2 | A PMO manager adds a client in the dialog, and the same name again is refused with the reason; a CSV is previewed, confirmed, and its placement found on the register |
 | `auth.spec.ts` | 8 | Login page offers only Microsoft (no password, no sign-up); `/signup` redirects or 404s; signed-in user lands on the risk board, is sent from `/login` to `/`, opens Actions, sees the app name |

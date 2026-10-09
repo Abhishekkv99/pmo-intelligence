@@ -135,11 +135,13 @@ class ApiClient {
     const message =
       (body as { detail?: string } | null)?.detail ??
       `API error: ${response.status} ${response.statusText}`;
-    throw new ApiError(message, response.status);
+    throw new ApiError(message, response.status, body);
   }
 
+  /** The response body as JSON; `undefined` for 204 No Content. */
   private async json<T>(response: Response): Promise<T> {
     await this.throwIfNotOk(response);
+    if (response.status === 204) return undefined as T;
     return response.json() as Promise<T>;
   }
 
@@ -269,11 +271,14 @@ class ApiClient {
 
 export class ApiError extends Error {
   status: number;
+  /** The parsed error body, for errors that carry more than `detail`. */
+  body: unknown;
 
-  constructor(message: string, status: number) {
+  constructor(message: string, status: number, body: unknown = null) {
     super(message);
     this.name = "ApiError";
     this.status = status;
+    this.body = body;
   }
 }
 

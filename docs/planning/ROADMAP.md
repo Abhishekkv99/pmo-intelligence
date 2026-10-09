@@ -11,7 +11,7 @@ Six phases, each one or two sprints, each ending with a staging sign-off by the 
 
 ## Milestone 1: Register and Sessions
 - [x] Placement register (admin pages, CSV import) (Sprint 1 Phase 2, 2026-10-08)
-- [ ] Session ingestion: upload, URL and S3 folder; transcription
+- [x] Session ingestion: upload, URL and S3 folder; transcription (Sprint 1 Phase 3, 2026-10-09)
 - [ ] Session pipeline and session page
 - **Exit gate**: three real recorded PMO calls processed end to end; the PMO manager agrees the signals and summary are right
 

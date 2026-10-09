@@ -86,6 +86,13 @@ class Settings(BaseSettings):
     # holding one: older calls are out of scope (user decision 2026-10-09,
     # 2.5 months before then). Empty (None) catalogs everything.
     recordings_earliest_date: date | None = date(2026, 7, 24)
+    # Typical bytes per second of audio in a PMO recording, for the cost
+    # estimate shown before Process (a recording's length is known only once
+    # transcribed). Measured 2026-10-09 on the 204 Talk recordings since the
+    # earliest date: size over the gap between the file name's time and the
+    # S3 time, median 77.4 KiB/s (p10 25, p90 109 over all 2,294). The gap
+    # includes the upload, so estimates err high.
+    recordings_bytes_per_second: int = 79_000
 
     # Downloading a recording from a URL; max_upload_size_mb caps it too.
     url_download_timeout_seconds: int = 1800

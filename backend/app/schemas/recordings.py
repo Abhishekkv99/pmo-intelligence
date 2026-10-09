@@ -22,6 +22,7 @@ class ConsultantRef(BaseModel):
 class RecordingSessionRef(BaseModel):
     id: uuid.UUID
     status: SessionStatus
+    error_message: str | None
 
 
 class RecordingItem(BaseModel):
@@ -31,6 +32,9 @@ class RecordingItem(BaseModel):
     # From the file name; the S3 time when ``time_from_name`` is false.
     recorded_at: datetime
     time_from_name: bool
+    # From the size at RECORDINGS_BYTES_PER_SECOND: a rough guide, not a quote.
+    estimated_minutes: float
+    estimated_cost_usd: float
     session: RecordingSessionRef | None
 
 

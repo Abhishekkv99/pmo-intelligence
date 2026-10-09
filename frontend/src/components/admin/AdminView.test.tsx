@@ -29,6 +29,11 @@ vi.mock("./register/ImportTab", () => ({
 vi.mock("./users/UsersTab", () => ({
   UsersTab: () => <div data-testid="users-tab" />,
 }));
+vi.mock("./recordings/RecordingsTab", () => ({
+  RecordingsTab: ({ enabled }: { enabled: boolean }) => (
+    <div data-testid="recordings-tab">{String(enabled)}</div>
+  ),
+}));
 
 import { AdminView } from "./AdminView";
 
@@ -88,8 +93,17 @@ describe("AdminView", () => {
       "Register",
       "Import",
       "Users and roles",
+      "Recordings",
       "Processing",
     ]);
+  });
+
+  it("lets the recordings tab poll only while it is open", () => {
+    signInAs("admin");
+    search = "tab=recordings";
+    render(<AdminView />);
+
+    expect(screen.getByTestId("recordings-tab")).toHaveTextContent("true");
   });
 
   it("falls back to the register for an unknown tab", () => {

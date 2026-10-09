@@ -149,7 +149,14 @@ class TestFolderList:
         assert untimed["time_from_name"] is False
         assert untimed["recorded_at"].startswith("2026-10-01T10:00:00")
         assert untimed["session"] is None
-        assert timed_item["session"] == {"id": str(processed.id), "status": "uploaded"}
+        assert timed_item["session"] == {
+            "id": str(processed.id),
+            "status": "uploaded",
+            "error_message": None,
+        }
+        # 131,000,000 bytes at 79,000 B/s: 27.6 minutes, $0.11 at $0.23/h.
+        assert timed_item["estimated_minutes"] == 27.6
+        assert timed_item["estimated_cost_usd"] == 0.11
         assert second["match_status"] == "needs_choice"
         assert {c["full_name"] for c in second["candidates"]} == {
             "Priya Shah",

@@ -53,6 +53,11 @@ ENV MALLOC_ARENA_MAX=2
 RUN apt-get update && apt-get install -y --no-install-recommends curl && \
     rm -rf /var/lib/apt/lists/*
 
+# Local file storage (STORAGE_BACKEND=local, development and CI). A named
+# volume mounted here takes this directory's owner when it is first created,
+# so the non-root user can write uploads; without it the volume is root's.
+RUN mkdir -p /app/uploads && chown appuser:appgroup /app/uploads
+
 USER appuser
 
 EXPOSE 8000

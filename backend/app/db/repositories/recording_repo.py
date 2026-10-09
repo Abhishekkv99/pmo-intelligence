@@ -58,17 +58,17 @@ class RecordingRepository:
 
     async def recordings_with_sessions(
         self, folder_ids: list[uuid.UUID]
-    ) -> list[tuple[SourceRecording, uuid.UUID | None, str | None]]:
-        """Each recording in the folders, with its session's id and status if any."""
+    ) -> list[tuple[SourceRecording, Session | None]]:
+        """Each recording in the folders, with its session if it has one."""
         if not folder_ids:
             return []
         result = await self.session.execute(
-            select(SourceRecording, Session.id, Session.status)
+            select(SourceRecording, Session)
             .outerjoin(Session, Session.source_recording_id == SourceRecording.id)
             .where(SourceRecording.folder_id.in_(folder_ids))
             .order_by(SourceRecording.object_key)
         )
-        return [(row[0], row[1], row[2]) for row in result.all()]
+        return [(row[0], row[1]) for row in result.all()]
 
     def add(self, row: RecordingFolder | SourceRecording) -> None:
         self.session.add(row)
