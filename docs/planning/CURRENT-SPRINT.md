@@ -60,17 +60,17 @@
 
 ### Phase 0: Plan
 - [x] Plan approved (2026-10-09)
-- [ ] Commit `docs: plan sprint 2` (this file, `BACKLOG.md` #5 and #7 and the register item, `ROADMAP.md`)
+- [x] Commit `docs: plan sprint 2` (0529a6b)
 
 ### Phase 1: Processing takeover delay
 **Code work**
-- [ ] Investigate (read-only): the last backend deploy's old task (`aws ecs describe-tasks`: stoppingAt, stoppedAt, stopCode) and its CloudWatch log at shutdown (uvicorn "Shutting down", "Waiting for application shutdown", "Processing queue stopped") against the new task's "Took processing ownership after Xs"; decide between the deregistration delay and the keepalive explanation
-- [ ] Fix, agreed with the user against the evidence: backend target group `deregistration_delay` (`infra/modules/environment/alb.tf`); backend container `stopTimeout` (`ecs.tf`, at most 120 on Fargate) so the queue stop and the release finish before SIGKILL; INFO lines in `ProcessingOwnership.release()` and the lifespan shutdown; uvicorn `--timeout-graceful-shutdown` below `stopTimeout` if needed (`backend/Dockerfile`); correct the docstrings that cite 300 s and 30 s (`processing_ownership.py`, `processing_queue.py`, `main.py`). A shorter deregistration delay also cuts in-flight requests, uploads included (up to 500 MB through the backend), at a deploy: weigh it with the user before choosing the value
-- [ ] Terraform plan, `git status --untracked-files=all infra/`, approval, apply; one redeploy read through to "Took processing ownership" with the wait recorded
-- [ ] Tests: the release log line
+- [x] Investigate (read-only): the last backend deploy's old task (`aws ecs describe-tasks`: stoppingAt, stoppedAt, stopCode) and its CloudWatch log at shutdown (uvicorn "Shutting down", "Waiting for application shutdown", "Processing queue stopped") against the new task's "Took processing ownership after Xs"; decide between the deregistration delay and the keepalive explanation (2026-10-09, from the service events and logs, since stopped tasks are kept only about an hour. Deploy of 530df1d, UTC: new task waiting from 13:31:37; old task deregistered and draining from 13:32:15; old task signalled 13:37:49.6 and shut down cleanly in 0.1 s ("Processing queue stopped", "Application shutdown complete"); new task "Took processing ownership after 375s" at 13:37:52.8. **The drain is the whole delay**; the keepalive explanation is ruled out, and Sprint 1's "the old task's log has no shutdown lines" was wrong: the lines were there)
+- [x] Fix, agreed with the user against the evidence (user decisions 2026-10-09: drain 60 s; `stopTimeout` left at the default 30 s, since shutdown takes 0.1 s and the queue's grace is 10 s; so no uvicorn graceful-shutdown change, no lifespan log line beyond the release line, and the "ECS allows 30 s" comments stay true; only `processing_ownership.py`'s docstring changed): backend target group `deregistration_delay` (`infra/modules/environment/alb.tf`); backend container `stopTimeout` (`ecs.tf`, at most 120 on Fargate) so the queue stop and the release finish before SIGKILL; INFO lines in `ProcessingOwnership.release()` and the lifespan shutdown; uvicorn `--timeout-graceful-shutdown` below `stopTimeout` if needed (`backend/Dockerfile`); correct the docstrings that cite 300 s and 30 s (`processing_ownership.py`, `processing_queue.py`, `main.py`). A shorter deregistration delay also cuts in-flight requests, uploads included (up to 500 MB through the backend), at a deploy: weigh it with the user before choosing the value
+- [x] Terraform plan, `git status --untracked-files=all infra/`, approval, apply; one redeploy read through to "Took processing ownership" with the wait recorded (`tfplan-drain`: 0 add, 1 change in place, 0 destroy; approved and applied 2026-10-09; the target group reads `deregistration_delay.timeout_seconds` 60; staging still 61 managed resources; plan file deleted. The measured redeploy is this phase's push)
+- [x] Tests: the release log line (`test_release_logs_only_when_it_gave_the_lock_up`; backend 624 unit and 202 integration pass; ruff, format and mypy clean)
 
 **Doc updates (concurrent)**
-- [ ] `DEPLOYMENT.md` (deploy timing, `> Status:`), `ARCHITECTURE.md` (infrastructure, `> Status:`), `BACKLOG.md` (tick), `FEATURES.md`, `TESTS.md`, `CHANGELOG.md`
+- [x] `DEPLOYMENT.md` (deploy timing, `> Status:`), `ARCHITECTURE.md` (infrastructure, `> Status:`), `BACKLOG.md` (tick), `FEATURES.md`, `TESTS.md`, `CHANGELOG.md` (DEPLOYMENT: "What a backend deploy does to processing" under "Redeploying without a change"; README: no new make target)
 
 **Commit checkpoint**
 - [ ] `fix: hand over processing promptly on deploy`
@@ -180,14 +180,14 @@
 
 ## Session State (last updated: 2026-10-09 21:20)
 - **Sprint**: 2 — Health v1 (PRD Phase 2)
-- **Current phase**: Phase 0 (plan approved; the plan commit is next)
-- **Last completed task**: Sprint 2 planning; plan written here, with the design review's four decisions (trend basis, SME leaks, queue re-run, embeddings client) and its smaller fixes folded into the phases
-- **Next task**: commit `docs: plan sprint 2` on the user's approval; then Phase 1, the read-only investigation of the takeover delay
-- **Last commit**: 957e497 "docs: complete sprint 1 audit and handover" (pushed; CI run 37940241628 green, nothing deployed)
-- **Uncommitted changes**: this file (Sprint 2 plan), `BACKLOG.md` (#5, #7, the register item), `ROADMAP.md`
+- **Current phase**: Phase 1 (code, docs and Terraform apply done; commit next)
+- **Last completed task**: Phase 1: cause found in the logs (the 300 s drain), drain set to 60 s and applied on staging, release log line, docs
+- **Next task**: commit `fix: hand over processing promptly on deploy` on the user's approval; push (with 0529a6b) and read the backend deploy through to "Took processing ownership", recording the wait; then stop before Phase 2
+- **Last commit**: 0529a6b "docs: plan sprint 2" (local, not pushed)
+- **Uncommitted changes**: Phase 1: `backend/app/services/processing_ownership.py`, `backend/tests/integration/test_processing_ownership.py`, `infra/modules/environment/alb.tf`, docs `ARCHITECTURE`, `DEPLOYMENT`, `planning/{BACKLOG,CURRENT-SPRINT}`, `tracking/{CHANGELOG,FEATURES,TESTS}`
 - **Blockers**: none
-- **Tests passing**: 624 unit + 201 integration (backend) + 157 frontend unit + 17 e2e = 999 (Sprint 1 audit run, 2026-10-09)
-- **Files modified this session**: `docs/planning/{CURRENT-SPRINT,BACKLOG,ROADMAP}.md`
+- **Tests passing**: 624 unit + 202 integration (backend, run 2026-10-09 Phase 1) + 157 frontend unit + 17 e2e (Sprint 1) = 1000
+- **Files modified this session**: `docs/planning/{CURRENT-SPRINT,BACKLOG,ROADMAP}.md`; Phase 1: the uncommitted files above
 - **Recovery instructions**:
   - Read this file first, then `docs/handover/sprint-01-handover.md`.
   - **Local stack**: `docker compose up --build -d --wait`, `make migrate`, `make test-e2e`. Add `PMO_API_PORT=8100 PMO_WEB_PORT=3100` when another project holds ports 8000/3000.
@@ -199,3 +199,6 @@
 |----------|-----------|
 | The staging register is entered by hand on Admin > Register (consultant, client, project, placement), not imported from the PS team's CSV | Carried from Sprint 1 (user decision 2026-10-09, after that sprint closed); Process needs a placement covering the call. Alternatives offered: quick add from the Recordings tab; Process without a placement (both new features) |
 | Every row of "User Decisions Made" above | User decisions 2026-10-09, Sprint 2 planning; alternatives listed with each |
+| The backend target group drains for 60 s (was AWS's default 300 s) | User decision 2026-10-09, after the logs showed the drain was the whole takeover delay; an upload still running 60 s into a deploy's drain is cut and must be retried. Alternatives offered: 30 s; 120 s; keep 300 s |
+| The backend container keeps the default `stopTimeout` (30 s) | User decision 2026-10-09; shutdown takes 0.1 s and the queue's grace is 10 s. Alternative offered: 60 s |
+| **Audit note (Rule C)** | Sprint 1 recorded that the old task's log "ends without shutdown lines" and guessed the lock was freed by the dropped connection; the lines were there, and the delay was the documented 300 s drain (the ownership module's own docstring named it). Cause: a log was skimmed for a line that `release()` never wrote, and the conclusion went into the backlog untested. Rule to add: before recording a cause, find the log line or timestamp that shows it; when a step leaves no log line, add one rather than infer |

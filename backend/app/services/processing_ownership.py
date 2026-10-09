@@ -2,8 +2,9 @@
 
 An ECS rolling deploy starts the new backend task, waits for it to be
 healthy, marks the old one to stop and drains its load-balancer connections
-for the target group's deregistration delay (300 s) before the old task is
-signalled. For those minutes both tasks are alive. Without ownership each
+for the target group's deregistration delay (60 s, ``alb.tf``; AWS's default
+of 300 s held processing back about 6 minutes per deploy) before the old task
+is signalled. For that time both tasks are alive. Without ownership each
 runs its own queue over the same backlog, and the new task's startup sweep
 fails every row still mid-processing - including rows the old task is
 actively working on and would finish a minute later. Worse, the old task
@@ -179,6 +180,9 @@ class ProcessingOwnership:
             )
         finally:
             await connection.close()
+        # Without this line a clean release cannot be told from a dropped
+        # connection when reading a deploy's logs.
+        logger.info("Released processing ownership")
 
 
 async def take_over_processing(

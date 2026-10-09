@@ -10,6 +10,7 @@ lock held by anything else using the default key).
 """
 
 import asyncio
+import logging
 import random
 
 import pytest
@@ -93,6 +94,20 @@ async def test_release_is_idempotent_and_the_lock_can_be_taken_again(
     await asyncio.wait_for(again.acquire(), 5)
     assert again.is_held
     await again.release()
+
+
+async def test_release_logs_only_when_it_gave_the_lock_up(
+    engine: AsyncEngine, caplog: pytest.LogCaptureFixture
+) -> None:
+    owner = ProcessingOwnership(engine, key=_key(), poll_seconds=0.05)
+    caplog.set_level(logging.INFO, logger="app.services.processing_ownership")
+
+    await owner.acquire()
+    await owner.release()
+    await owner.release()  # nothing held: no second line
+
+    messages = [record.getMessage() for record in caplog.records]
+    assert messages.count("Released processing ownership") == 1
 
 
 async def test_an_acquire_cancelled_while_waiting_leaves_nothing_held(

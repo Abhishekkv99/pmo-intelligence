@@ -22,6 +22,12 @@ resource "aws_lb_target_group" "backend" {
   vpc_id      = var.vpc_id
   target_type = "ip"
 
+  # The old task is signalled only after this drain, and the new task cannot
+  # take processing ownership until then; AWS's default of 300 s delayed
+  # processing about 6 minutes per deploy. A request still running when the
+  # drain ends is cut (a long upload started just before a deploy).
+  deregistration_delay = 60
+
   health_check {
     path                = "/api/v1/health"
     matcher             = "200"

@@ -55,3 +55,8 @@
 | Session scope guards (a session read through its placement; 404 outside scope; the page view writes `access_log`) and the coverage rule for session-id and token-scoped routes | `backend/app/dependencies.py`, `backend/app/utils/entitlements.py` (`list_scope`), `backend/tests/unit/test_entitlement_coverage.py` | Done |
 | Recording playback: presigned S3 URL with the media type (15 min); on local storage a signed link to a Range-capable media route | `backend/app/services/media_token.py`, `backend/app/services/storage/`, `backend/app/services/media_files.py` (`playback_type`) | Done |
 | Development seed for the e2e tests: an analysed session, or a failed one (`--failed`); refused unless local sign-in is on and storage is local | `backend/app/cli/seed_e2e_session.py`, `frontend/tests/e2e/sessions.spec.ts` | Done |
+
+## Sprint 2: Health v1
+| Feature | Files | Status |
+|---------|-------|--------|
+| Processing handed over about 2 minutes after a backend deploy (was about 6): 60 s connection drain on the backend target group; the ownership release is logged | `infra/modules/environment/alb.tf`, `backend/app/services/processing_ownership.py` | Done (applied on staging 2026-10-09; first deploy measured with this phase's push) |
