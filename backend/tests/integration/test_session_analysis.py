@@ -276,7 +276,9 @@ class TestStore:
             session_class="technical",
             project_phase="fifth week",
             summary="Priya is still blocked.",
-            signals=[_signal(category="relationship_engagement")],
+            signals=[
+                _signal(category="relationship_engagement", indicator="intent_to_leave")
+            ],
             quotes_rejected=2,
         )
         errors = [{"node": "client_signals", "error": "boom", "duration_seconds": 1}]
@@ -315,6 +317,7 @@ class TestStore:
         assert signal.occurred_at == HELD_AT + timedelta(seconds=61)
         assert signal.speaker_role == "consultant"
         assert signal.issue_id is None
+        assert signal.indicator == "intent_to_leave"
 
         [cost] = (
             await db_session.scalars(
@@ -577,11 +580,12 @@ class TestTranscriptToSignals:
             )
         ).all()
         assert {
-            (s.category, s.dimension, s.speaker_role, s.offset_ms) for s in signals
+            (s.category, s.dimension, s.speaker_role, s.offset_ms, s.indicator)
+            for s in signals
         } == {
-            ("issue", "technical", "consultant", 5_000),
-            ("client", "delivery", "consultant", 5_000),
-            ("relationship_engagement", "relationship", "consultant", 12_000),
+            ("issue", "technical", "consultant", 5_000, None),
+            ("client", "delivery", "consultant", 5_000, "client_dissatisfaction"),
+            ("relationship_engagement", "relationship", "consultant", 12_000, None),
         }
         assert len(signals) == 3
         await db_session.refresh(staging)

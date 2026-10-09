@@ -10,7 +10,7 @@ PMO_API_PORT ?= 8000
 PMO_WEB_PORT ?= 3000
 export PMO_API_PORT PMO_WEB_PORT
 
-.PHONY: dev dev-build down down-clean test test-backend test-frontend test-e2e lint lint-backend lint-frontend format migrate migrate-new db-bootstrap user-role clean help
+.PHONY: dev dev-build down down-clean test test-backend test-frontend test-e2e lint lint-backend lint-frontend format migrate migrate-new db-bootstrap user-role backfill-embeddings clean help
 
 # ========================
 # Development
@@ -76,6 +76,10 @@ db-bootstrap: ## Bootstrap a deployed database as a one-off ECS task (usage: mak
 user-role: ## Grant or remove a role, or list users, as a one-off ECS task (usage: make user-role ENV=staging EMAIL=a@b.com ROLE=sme|none, or ARGS=--list)
 	@test -n "$(ENV)" || { echo "usage: make user-role ENV=staging EMAIL=a@b.com ROLE=sme|none (or ARGS=--list)"; exit 2; }
 	bash scripts/user-role.sh $(ENV) $(if $(EMAIL),--email "$(EMAIL)" --role "$(ROLE)") $(ARGS)
+
+backfill-embeddings: ## Embed signals left without an embedding, as a one-off ECS task (usage: make backfill-embeddings ENV=staging [ARGS=--dry-run])
+	@test -n "$(ENV)" || { echo "usage: make backfill-embeddings ENV=staging [ARGS=--dry-run]"; exit 2; }
+	bash scripts/backfill-embeddings.sh $(ENV) $(ARGS)
 
 # ========================
 # Utilities

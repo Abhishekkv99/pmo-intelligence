@@ -7,7 +7,13 @@ import pytest
 from app.ai.session.emit import build_analysis, emit_signals
 from app.ai.session.schemas import ClosedAction, ExtractedAction, ExtractedIssue
 from app.ai.session.state import SessionGraphState
-from app.models.enums import Dimension, SignalCategory, SpeakerRole
+from app.models.enums import (
+    Dimension,
+    Polarity,
+    SignalCategory,
+    SignalIndicator,
+    SpeakerRole,
+)
 from tests.unit.session_pipeline_helpers import (
     ACTIONS,
     CLASSIFICATION,
@@ -183,6 +189,87 @@ class TestCleaning:
         analysis = build_analysis(_state(issues=[issue]))
 
         assert len(analysis.issues[0].topic) == 500
+
+
+ENJOYING = "To be honest I'm enjoying the team a lot."
+STAGING = "I still can't get into the staging cluster."
+
+
+class TestIndicators:
+    def test_each_extraction_keeps_the_indicators_it_may_set(self) -> None:
+        leaving = signal(ENJOYING, indicator=SignalIndicator.INTENT_TO_LEAVE)
+        analysis = build_analysis(_state(relationship_signals=[leaving]))
+
+        assert [(s.category, s.indicator) for s in analysis.signals] == [
+            ("relationship_engagement", "intent_to_leave"),
+            ("client", "client_dissatisfaction"),
+        ]
+        assert analysis.indicators_cleared == 0
+
+    @pytest.mark.parametrize(
+        ("node", "indicator"),
+        [
+            ("relationship_signals", SignalIndicator.CLIENT_DISSATISFACTION),
+            ("relationship_signals", SignalIndicator.CONSULTANT_CHANGE_REQUESTED),
+            ("client_signals", SignalIndicator.INTENT_TO_LEAVE),
+        ],
+    )
+    def test_another_extraction_s_indicator_is_cleared_and_the_signal_kept(
+        self, node: str, indicator: SignalIndicator
+    ) -> None:
+        changes: dict[str, Any] = {"relationship_signals": [], "client_signals": []}
+        changes[node] = [signal(ENJOYING, indicator=indicator)]
+        analysis = build_analysis(_state(**changes))
+
+        [kept] = analysis.signals
+        assert kept.indicator is None
+        assert analysis.indicators_cleared == 1
+
+    def test_a_duplicate_dropped_by_the_dedup_passes_its_indicator_on(self) -> None:
+        analysis = build_analysis(
+            _state(
+                relationship_signals=[signal(ENJOYING)],
+                client_signals=[
+                    signal(ENJOYING, indicator=SignalIndicator.CLIENT_DISSATISFACTION)
+                ],
+            )
+        )
+
+        [kept] = analysis.signals
+        assert kept.category == SignalCategory.RELATIONSHIP_ENGAGEMENT.value
+        assert kept.indicator == "client_dissatisfaction"
+
+    def test_an_issue_s_signal_takes_the_indicator_of_its_duplicate(self) -> None:
+        duplicate = signal(
+            STAGING,
+            dimension=Dimension.TECHNICAL,
+            polarity=Polarity.NEGATIVE,
+            indicator=SignalIndicator.CLIENT_DISSATISFACTION,
+        )
+        analysis = build_analysis(
+            _state(relationship_signals=[], client_signals=[duplicate])
+        )
+
+        assert analysis.issues[0].signal.indicator == "client_dissatisfaction"
+        assert analysis.signals == []
+
+    def test_an_indicator_whose_quote_is_not_found_is_dropped_with_it(self) -> None:
+        missing = signal(
+            "The client wants someone else.",
+            indicator=SignalIndicator.CONSULTANT_CHANGE_REQUESTED,
+        )
+        analysis = build_analysis(
+            _state(relationship_signals=[], client_signals=[missing])
+        )
+
+        assert analysis.signals == []
+        assert analysis.quotes_rejected == 1
+
+    def test_a_signal_without_an_indicator_has_none(self) -> None:
+        analysis = build_analysis(_state())
+
+        assert analysis.signals[0].indicator is None
+        assert analysis.issues[0].signal.indicator is None
 
 
 async def test_emit_signals_puts_the_analysis_in_the_state() -> None:

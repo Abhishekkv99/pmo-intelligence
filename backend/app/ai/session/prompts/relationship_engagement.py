@@ -5,9 +5,11 @@ from app.ai.session.prompts.common import (
     QUOTE_RULES,
     SCOPE_RULES,
     evidence_rules,
+    indicator_rules,
     people_block,
 )
 from app.ai.session.state import SessionContext
+from app.models.enums import SignalCategory
 
 SYSTEM = f"""\
 {CALL_INTRO}
@@ -25,6 +27,7 @@ Positive signals matter as much as negative ones. One item per distinct \
 point.
 
 {evidence_rules()}
+{indicator_rules(SignalCategory.RELATIONSHIP_ENGAGEMENT)}
 
 {QUOTE_RULES}
 

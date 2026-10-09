@@ -63,6 +63,11 @@ class Settings(BaseSettings):
     # resolved within this many days of the call, so a blocker raised again
     # is linked to (and reopens) the earlier issue.
     session_resolved_issue_lookback_days: int = 30
+    # Signal embeddings, made after a session's analysis is stored: at most
+    # this many signals per request, and the whole session's embedding stops
+    # after this long (a failure leaves them for the backfill command).
+    signal_embedding_batch_size: int = 100
+    signal_embedding_timeout_seconds: int = 120
 
     # Health model. The weights, decay and thresholds are in the versioned
     # file app/health/config/<version>.json; every snapshot records the

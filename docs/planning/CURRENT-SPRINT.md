@@ -63,7 +63,7 @@
 
 ## Task Checklist
 
->>> CURRENT PHASE: Phase 2
+>>> CURRENT PHASE: Phase 3 (code, tests and docs done; commit next)
 
 ### Phase 0: Plan
 - [x] Plan approved (2026-10-09)
@@ -97,16 +97,17 @@
 - [x] `ARCHITECTURE.md` (health model as built, migration 006, `> Status:`), `.env.example`, `FEATURES.md`, `TESTS.md`, `CHANGELOG.md` (new section "Health model (as built)"; README: no new make target; `DEPLOYMENT.md`'s status waits for the deploy that applies 006, as before)
 
 **Commit checkpoint**
-- [ ] `feat: add the health scoring module and its tables`
+- [x] `feat: add the health scoring module and its tables` (385af31; CI run 37968905020 green; migration 006 applied on staging; ownership taken after 105 s, the old task's release line logged)
 
 ### Phase 3: Indicator tagging and signal embeddings
 **Code work**
-- [ ] `ExtractedSignal.indicator` (`app/ai/session/schemas.py`, not on `Evidence`, which issues share); `prompts/common.py` lists `INDICATOR_MEANINGS` for the client and relationship/engagement prompts; `drafts.py` and `emit.py` carry it, allowing `client_dissatisfaction` and `consultant_change_requested` from the client node and `intent_to_leave` from the relationship/engagement node, and keeping an indicator when the same-quote dedup drops its duplicate; `session_analysis.py` stores it
-- [ ] `app/services/signal_embeddings.py`: embed a session's signals (quote and note) with `AsyncAzureOpenAI.embeddings.create` (replacing the unused `build_embeddings()`) after the analysis commit, only for a `completed` session, in its own try/except so a failure never fails the session; a `processing_costs` row from `usage.total_tokens`; `signal_repo` reads and writes; `app/cli/backfill_signal_embeddings.py` (NULL embeddings, batched); confirm the staging secret's `AZURE_EMBEDDING_DEPLOYMENT` and the Azure deployment
-- [ ] Tests: prompts list the meanings, emit and analysis keep the indicator; embeddings with a mocked client (success, failure non-fatal, cost row); the backfill command
+- [x] `ExtractedSignal.indicator` (`app/ai/session/schemas.py`, not on `Evidence`, which issues share); `prompts/common.py` lists `INDICATOR_MEANINGS` for the client and relationship/engagement prompts; `drafts.py` and `emit.py` carry it, allowing `client_dissatisfaction` and `consultant_change_requested` from the client node and `intent_to_leave` from the relationship/engagement node, and keeping an indicator when the same-quote dedup drops its duplicate; `session_analysis.py` stores it (the meanings are `SIGNAL_INDICATOR_MEANINGS`; which node may set which is `SIGNAL_INDICATORS_BY_CATEGORY` in `enums.py`, read by the prompts and emit)
+- [x] `app/services/signal_embeddings.py`: embed a session's signals (quote and note) with `AsyncAzureOpenAI.embeddings.create` (replacing the unused `build_embeddings()`) after the analysis commit, only for a `completed` session, in its own try/except so a failure never fails the session; a `processing_costs` row from `usage.total_tokens`; `signal_repo` reads and writes; `app/cli/backfill_signal_embeddings.py` (NULL embeddings, batched); confirm the staging secret's `AZURE_EMBEDDING_DEPLOYMENT` and the Azure deployment (2026-10-10: the secret names `text-embedding-3-small-staging`, which `oai-pmo-intelligence-swc` has, DataZoneStandard, Succeeded; `build_embedding_client()` replaces `build_embeddings()`; settings `SIGNAL_EMBEDDING_BATCH_SIZE`, `SIGNAL_EMBEDDING_TIMEOUT_SECONDS`)
+- [x] `make backfill-embeddings ENV=<env>` and `scripts/backfill-embeddings.sh`: a one-off task from the backend's task definition with the command overridden (it has the Azure settings; `admin-cli` has only `DATABASE_URL`), so no Terraform change (user decision 2026-10-10; the task definition and log group are read from the service, checked read-only on staging 2026-10-10: `pmo-intelligence-staging-backend:3`, `/ecs/pmo-intelligence-staging/backend`; not run yet, as the image lacks the command until this phase deploys)
+- [x] Tests: prompts list the meanings, emit and analysis keep the indicator; embeddings with a mocked client (success, failure non-fatal, cost row); the backfill command (unit: `test_session_emit.py` +8, `test_session_prompts.py` +4, `test_backfill_signal_embeddings_cli.py` 4, `test_llm_factory.py` rewritten for the new client; integration: `test_signal_embeddings.py` 10, `test_backfill_signal_embeddings.py` 4, `test_session_service.py` +3, `test_session_analysis.py` asserts the indicator; backend 726 unit and 237 integration pass; ruff, format and mypy clean)
 
 **Doc updates (concurrent)**
-- [ ] `ARCHITECTURE.md` (pipeline, embeddings), `FEATURES.md`, `TESTS.md`, `CHANGELOG.md`, `DEPLOYMENT.md` (the backfill command)
+- [x] `ARCHITECTURE.md` (pipeline, embeddings), `FEATURES.md`, `TESTS.md`, `CHANGELOG.md`, `DEPLOYMENT.md` (the backfill command), `README.md` (the new make target) (also `.env.example`; DEPLOYMENT: new section "10. Backfilling signal embeddings", its `> Status:` line waits for the deploy; TESTS: every row compared with `--collect-only`)
 
 **Commit checkpoint**
 - [ ] `feat: tag critical indicators and embed signals`
@@ -185,16 +186,19 @@
 - Real calls: the staging register (by hand, BACKLOG) and consultants told beforehand (BACKLOG #6); the exit gate needs ten scored placements.
 - Phase 1's Terraform apply needs the user's approval; the fix waits for the evidence.
 
-## Session State (last updated: 2026-10-10 00:30)
+## Session State (last updated: 2026-10-10 01:45)
 - **Sprint**: 2 — Health v1 (PRD Phase 2)
-- **Current phase**: Phase 2 (code, tests and docs done; commit next)
-- **Last completed task**: Phase 2: enumerations, migration 006, `app/models/health.py`, the pure `app/health/` package (config v1, scoring, triggers), settings, tests and docs
-- **Next task**: commit `feat: add the health scoring module and its tables` on the user's approval; push, which deploys the backend and applies migration 006 on staging; read the deploy through to "Took processing ownership" and check the old task's "Released processing ownership" line; update `DEPLOYMENT.md`'s status for 006; then stop before Phase 3
-- **Last commit**: fd2cd77 "fix: hand over processing promptly on deploy" (pushed; CI run 37964809513 green, backend deployed)
-- **Uncommitted changes**: Phase 2: `backend/app/models/{enums,signal,health,__init__}.py`, `backend/alembic/versions/006_create_health_snapshots_and_risk_flags.py`, `backend/app/health/{__init__,config,scoring,triggers}.py`, `backend/app/health/config/v1.json`, `backend/app/config.py`, `backend/tests/unit/test_health_{config,scoring,triggers}.py`, `backend/tests/integration/{test_health_schema,test_migrations}.py`, `.env.example`; docs `ARCHITECTURE`, `planning/CURRENT-SPRINT`, `tracking/{CHANGELOG,FEATURES,TESTS}`; plus Phase 1's measured takeover time in `DEPLOYMENT.md`
+- **Current phase**: Phase 3 — Indicator tagging and signal embeddings (committing)
+- **Phase progress**: 5 of 6 tasks complete (code, tests and docs; the commit checkpoint is ticked after the commit)
+- **Last completed task**: Phase 3: indicator tagging (schema, prompts, emit, storage), signal embeddings after a completed analysis, the backfill command with `make backfill-embeddings`, tests and docs
+- **Next task**: after the commit, push (CI deploys the staging backend only); read the deploy through to "Took processing ownership"; run `make backfill-embeddings ENV=staging ARGS=--dry-run`; update `DEPLOYMENT.md`'s status and tick the commit checkpoint; then stop before Phase 4
+- **Last commit**: 385af31 "feat: add the health scoring module and its tables" (the Phase 3 commit is being made)
+- **Uncommitted changes**: none once the Phase 3 commit is made
 - **Blockers**: none
-- **Tests passing**: 710 unit + 220 integration (backend, run 2026-10-09 Phase 2) + 157 frontend unit + 17 e2e (Sprint 1) = 1104
-- **Files modified this session**: `docs/planning/{CURRENT-SPRINT,BACKLOG,ROADMAP}.md`; Phase 1: the uncommitted files above
+- **Tests passing**: 726 unit + 237 integration (backend, run 2026-10-10 Phase 3) + 157 frontend unit + 17 e2e (Sprint 1) = 1137
+- **Files created this session**: `backend/app/services/signal_embeddings.py`, `backend/app/cli/backfill_signal_embeddings.py`, `scripts/backfill-embeddings.sh`, `backend/tests/unit/{embedding_helpers,test_backfill_signal_embeddings_cli}.py`, `backend/tests/integration/{test_signal_embeddings,test_backfill_signal_embeddings}.py`
+- **Files modified this session**: `backend/app/models/enums.py`, `backend/app/ai/session/{schemas,drafts,emit}.py`, `backend/app/ai/session/prompts/{common,client_signals,relationship_engagement}.py`, `backend/app/services/{session_analysis,session_service}.py`, `backend/app/ai/llm_factory.py`, `backend/app/db/repositories/signal_repo.py`, `backend/app/config.py`, `Makefile`, `.env.example`, `README.md`; tests `backend/tests/unit/{session_pipeline_helpers,test_session_emit,test_session_prompts,test_llm_factory}.py`, `backend/tests/integration/{test_session_service,test_session_analysis}.py`; docs `ARCHITECTURE.md`, `DEPLOYMENT.md`, `planning/CURRENT-SPRINT.md`, `tracking/{CHANGELOG,FEATURES,TESTS}.md`
+- **Key decisions this session**: the backfill runs on staging as a one-off task from the backend's task definition; no automatic catch-up for failed embeddings; one shared `indicator` field with emit filtering by node (all three user decisions 2026-10-10, in the Decisions Log); the Phase 3 judgement calls listed there for approval
 - **Recovery instructions**:
   - Read this file first, then `docs/handover/sprint-01-handover.md`.
   - **Local stack**: `docker compose up --build -d --wait`, `make migrate`, `make test-e2e`. Add `PMO_API_PORT=8100 PMO_WEB_PORT=3100` when another project holds ports 8000/3000.
@@ -209,4 +213,8 @@
 | The backend target group drains for 60 s (was AWS's default 300 s) | User decision 2026-10-09, after the logs showed the drain was the whole takeover delay; an upload still running 60 s into a deploy's drain is cut and must be retried. Alternatives offered: 30 s; 120 s; keep 300 s |
 | The backend container keeps the default `stopTimeout` (30 s) | User decision 2026-10-09; shutdown takes 0.1 s and the queue's grace is 10 s. Alternative offered: 60 s |
 | Judgement calls made while building Phase 2, for approval at the checkpoint | An ended or terminated placement raises no new flags (it is still scored); the enumeration is `SignalIndicator`, not `Indicator`; `SnapshotReason` includes `catch_up` for the takeover's recompute (Phase 4), so no later CHECK change; a repeated blocker's "open more than 10 days" is strictly more than 10 × 24 hours since first seen; the downward-trend evidence is the negative signals said within the trend window |
+| Phase 3: the backfill on staging runs as a one-off task from the backend's task definition, through `make backfill-embeddings ENV=<env>` | User decision 2026-10-10; the `admin-cli` task has only `DATABASE_URL`. Alternatives offered: give `admin-cli` the Azure OpenAI settings (Terraform); local only |
+| Phase 3: a failed embedding call leaves the signals' embeddings NULL until the backfill command is run; no automatic catch-up | User decision 2026-10-10; nothing reads embeddings this sprint. Alternative offered: a takeover requeue step |
+| Phase 3: one shared `ExtractedSignal.indicator` offering all three values; each prompt lists only its own indicators; emit clears an indicator its node may not set and keeps the signal | User decision 2026-10-10 (as planned). Alternative offered: a narrowed schema per node |
+| Judgement calls made while building Phase 3, for approval at the checkpoint | Which extraction may set which indicator is one constant, `SIGNAL_INDICATORS_BY_CATEGORY` in `enums.py`, read by the prompts and emit; when two readings of one quote set different indicators, the first wins (relationship/engagement is read before client); cleared indicators are counted (`indicators_cleared`) and logged, not stored. The embedded text is the quote, then the note on its own line. Embedding settings `SIGNAL_EMBEDDING_BATCH_SIZE` (100 per request) and `SIGNAL_EMBEDDING_TIMEOUT_SECONDS` (120, for the whole session). A session's embeddings and cost rows are one commit, all or nothing; the cost row is service `azure_openai`, operation `signal_embeddings`, tokens in `input_tokens`, and the session page counts it as analysis. The embedding step runs after the job is marked completed (the job's `completed_at` is before it). The backfill goes session by session, oldest call first, with `--dry-run`, and exits 1 when any session fails; on a deployed environment its task runs the service's migration container first |
 | **Audit note (Rule C)** | Sprint 1 recorded that the old task's log "ends without shutdown lines" and guessed the lock was freed by the dropped connection; the lines were there, and the delay was the documented 300 s drain (the ownership module's own docstring named it). Cause: a log was skimmed for a line that `release()` never wrote, and the conclusion went into the backlog untested. Rule to add: before recording a cause, find the log line or timestamp that shows it; when a step leaves no log line, add one rather than infer |

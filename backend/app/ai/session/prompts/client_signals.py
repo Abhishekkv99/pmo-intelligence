@@ -5,9 +5,11 @@ from app.ai.session.prompts.common import (
     QUOTE_RULES,
     SCOPE_RULES,
     evidence_rules,
+    indicator_rules,
     people_block,
 )
 from app.ai.session.state import SessionContext
+from app.models.enums import SignalCategory
 
 SYSTEM = f"""\
 {CALL_INTRO}
@@ -21,6 +23,7 @@ A report that the client manager is unhappy, has escalated, or asked for a \
 change of consultant is severity 3.
 
 {evidence_rules()}
+{indicator_rules(SignalCategory.CLIENT)}
 
 {QUOTE_RULES}
 

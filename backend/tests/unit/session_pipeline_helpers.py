@@ -35,6 +35,7 @@ from app.models.enums import (
     IssueStatus,
     Polarity,
     SessionKind,
+    SignalIndicator,
     SpeakerRole,
 )
 
@@ -149,6 +150,7 @@ CLIENT = SignalsResult(
             dimension=Dimension.DELIVERY,
             polarity=Polarity.NEGATIVE,
             severity=3,
+            indicator=SignalIndicator.CLIENT_DISSATISFACTION,
         )
     ]
 )

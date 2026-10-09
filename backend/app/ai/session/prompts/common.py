@@ -2,8 +2,9 @@
 
 The enumerated values and their meanings come from ``app.models.enums``
 (``SPEAKER_ROLE_MEANINGS``, ``SESSION_KIND_MEANINGS``, ``DIMENSION_MEANINGS``,
-``SEVERITY_MEANINGS``, ``Polarity``); the prompts list them from there and
-never repeat them by hand.
+``SEVERITY_MEANINGS``, ``SIGNAL_INDICATOR_MEANINGS`` with
+``SIGNAL_INDICATORS_BY_CATEGORY``, ``Polarity``); the prompts list them from
+there and never repeat them by hand.
 """
 
 from collections.abc import Mapping
@@ -13,7 +14,10 @@ from app.ai.session.state import SessionContext
 from app.models.enums import (
     DIMENSION_MEANINGS,
     SEVERITY_MEANINGS,
+    SIGNAL_INDICATOR_MEANINGS,
+    SIGNAL_INDICATORS_BY_CATEGORY,
     Polarity,
+    SignalCategory,
     SpeakerRole,
 )
 
@@ -54,6 +58,19 @@ def evidence_rules() -> str:
         "- confidence: 0.0 to 1.0, how sure you are that the quote shows this\n"
         "- quote: see the quote rules\n"
         "- note: one sentence on what it shows and why"
+    )
+
+
+def indicator_rules(category: SignalCategory) -> str:
+    """The indicators one extraction may set, with their meanings."""
+    allowed = {
+        indicator: SIGNAL_INDICATOR_MEANINGS[indicator]
+        for indicator in SIGNAL_INDICATORS_BY_CATEGORY[category]
+    }
+    return (
+        "- indicator: set it only when the quote says outright one of these, "
+        "and leave it null for every other item:\n"
+        f"{bullet_list(allowed, '  ')}"
     )
 
 

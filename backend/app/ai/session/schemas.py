@@ -11,7 +11,13 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-from app.models.enums import Dimension, Polarity, SessionKind, SpeakerRole
+from app.models.enums import (
+    Dimension,
+    Polarity,
+    SessionKind,
+    SignalIndicator,
+    SpeakerRole,
+)
 
 Severity = Literal[1, 2, 3]
 
@@ -91,7 +97,13 @@ class IssuesResult(BaseModel):
 
 
 class ExtractedSignal(Evidence):
-    pass
+    indicator: SignalIndicator | None = Field(
+        default=None,
+        description=(
+            "Set only when the quote says outright one of the indicators this "
+            "prompt lists; null otherwise."
+        ),
+    )
 
 
 class SignalsResult(BaseModel):

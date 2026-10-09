@@ -4,7 +4,7 @@ import uuid
 from collections.abc import Collection, Sequence
 from datetime import datetime
 
-from sqlalchemy import and_, or_, select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.enums import ActionStatus, IssueStatus
@@ -82,6 +82,40 @@ class SignalRepository:
             .order_by(Action.offset_ms, Action.id)
         )
         return list(signals.scalars().all()), list(actions.scalars().all())
+
+    async def without_embedding(
+        self, source_kind: str, source_id: uuid.UUID
+    ) -> list[Signal]:
+        """The signals of one session or message that have no embedding yet."""
+        result = await self.session.execute(
+            select(Signal)
+            .where(
+                Signal.source_kind == source_kind,
+                Signal.source_id == source_id,
+                Signal.embedding.is_(None),
+            )
+            .order_by(Signal.occurred_at, Signal.offset_ms, Signal.id)
+        )
+        return list(result.scalars().all())
+
+    async def sources_without_embedding(self, source_kind: str) -> list[uuid.UUID]:
+        """Sessions (or messages) with at least one signal not yet embedded,
+        oldest first."""
+        result = await self.session.execute(
+            select(Signal.source_id)
+            .where(Signal.source_kind == source_kind, Signal.embedding.is_(None))
+            .group_by(Signal.source_id)
+            .order_by(func.min(Signal.occurred_at), Signal.source_id)
+        )
+        return list(result.scalars().all())
+
+    async def count_without_embedding(self, source_kind: str) -> int:
+        result = await self.session.scalar(
+            select(func.count())
+            .select_from(Signal)
+            .where(Signal.source_kind == source_kind, Signal.embedding.is_(None))
+        )
+        return int(result or 0)
 
     async def closed_by(self, source_id: uuid.UUID) -> list[Action]:
         """Earlier actions that one session or message closed."""

@@ -249,6 +249,18 @@ SIGNAL_INDICATOR_MEANINGS: dict[SignalIndicator, str] = {
     ),
 }
 
+# The indicators each extraction may set: the client node reads the client's
+# view, the relationship/engagement node the consultant's intent to stay.
+# Its prompt lists only these, and emit clears any other.
+SIGNAL_INDICATORS_BY_CATEGORY: dict[SignalCategory, tuple[SignalIndicator, ...]] = {
+    SignalCategory.ISSUE: (),
+    SignalCategory.RELATIONSHIP_ENGAGEMENT: (SignalIndicator.INTENT_TO_LEAVE,),
+    SignalCategory.CLIENT: (
+        SignalIndicator.CLIENT_DISSATISFACTION,
+        SignalIndicator.CONSULTANT_CHANGE_REQUESTED,
+    ),
+}
+
 
 class RiskLevel(enum.StrEnum):
     """A placement's RAG level from its overall score (PRD, "Scoring rules")."""

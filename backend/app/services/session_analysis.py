@@ -8,7 +8,8 @@ failed run leaves nothing half-written and a retry starts clean.
 What is stored:
 - on the transcript: the summary, the class, the project phase and the
   speaker roles; the class becomes the session's kind unless a person set it;
-- the signals, each at the call's time plus its offset in the recording;
+- the signals, each at the call's time plus its offset in the recording,
+  with the indicator it states (for the critical triggers);
 - the issues: an issue the model linked to an earlier one raises that one's
   count (once per call) and last-seen time, reopens it if it was resolved,
   and closes it when the call resolved it; any other is a new issue;
@@ -285,4 +286,5 @@ class SessionAnalysisService:
             + timedelta(milliseconds=offset if offset is not None else 0),
             offset_ms=offset,
             issue_id=issue_id,
+            indicator=draft.indicator,
         )

@@ -4,13 +4,14 @@ from collections.abc import Iterator
 from unittest.mock import patch
 
 import pytest
-from langchain_openai import AzureChatOpenAI, AzureOpenAIEmbeddings
+from langchain_openai import AzureChatOpenAI
+from openai import AsyncAzureOpenAI
 
 from app.ai.llm_factory import (
     EMBEDDING_DIMENSIONS,
     EMBEDDING_MODEL,
     build_chat_llm,
-    build_embeddings,
+    build_embedding_client,
 )
 
 
@@ -19,10 +20,10 @@ def _fresh_factory_caches() -> Iterator[None]:
     """Both builders are cached for the life of the process; tests patch
     settings per case, so the caches are cleared around each one."""
     build_chat_llm.cache_clear()
-    build_embeddings.cache_clear()
+    build_embedding_client.cache_clear()
     yield
     build_chat_llm.cache_clear()
-    build_embeddings.cache_clear()
+    build_embedding_client.cache_clear()
 
 
 class TestBuildChatLLM:
@@ -99,40 +100,41 @@ class TestBuildChatLLM:
         assert llm.root_async_client.timeout == 123
 
 
-class TestBuildEmbeddings:
+class TestBuildEmbeddingClient:
     @patch("app.ai.llm_factory.settings")
-    def test_returns_azure_embeddings_instance(self, mock_settings: object) -> None:
+    def test_returns_an_azure_client_for_the_endpoint(
+        self, mock_settings: object
+    ) -> None:
         mock_settings.azure_openai_endpoint = "https://test.openai.azure.com/"
-        mock_settings.azure_embedding_deployment = "text-embedding-3-small"
         mock_settings.azure_openai_api_key = "test-key"
         mock_settings.azure_openai_api_version = "2025-04-01-preview"
+        mock_settings.azure_openai_timeout_seconds = 300
 
-        embeddings = build_embeddings()
+        client = build_embedding_client()
 
-        assert isinstance(embeddings, AzureOpenAIEmbeddings)
+        assert isinstance(client, AsyncAzureOpenAI)
+        assert str(client.base_url).startswith("https://test.openai.azure.com/")
+        assert client.api_key == "test-key"
 
     @patch("app.ai.llm_factory.settings")
-    def test_embeddings_instance_is_cached(self, mock_settings: object) -> None:
+    def test_the_client_is_cached(self, mock_settings: object) -> None:
         mock_settings.azure_openai_endpoint = "https://test.openai.azure.com/"
-        mock_settings.azure_embedding_deployment = "text-embedding-3-small"
         mock_settings.azure_openai_api_key = "test-key"
         mock_settings.azure_openai_api_version = "2025-04-01-preview"
+        mock_settings.azure_openai_timeout_seconds = 300
 
-        assert build_embeddings() is build_embeddings()
+        assert build_embedding_client() is build_embedding_client()
 
     @patch("app.ai.llm_factory.settings")
     def test_requests_time_out_after_the_configured_seconds(
         self, mock_settings: object
     ) -> None:
         mock_settings.azure_openai_endpoint = "https://test.openai.azure.com/"
-        mock_settings.azure_embedding_deployment = "text-embedding-3-small"
         mock_settings.azure_openai_api_key = "test-key"
         mock_settings.azure_openai_api_version = "2025-04-01-preview"
         mock_settings.azure_openai_timeout_seconds = 123
 
-        embeddings = build_embeddings()
-
-        assert embeddings.request_timeout == 123
+        assert build_embedding_client().timeout == 123
 
 
 class TestConstants:

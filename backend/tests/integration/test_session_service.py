@@ -19,7 +19,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.datastructures import Headers
 
-from app.ai.session.drafts import SessionAnalysis
+from app.ai.session.drafts import SessionAnalysis, SignalDraft
 from app.ai.session.graph import SessionRunResult
 from app.ai.session.state import SessionContext
 from app.models.enums import FolderMatchStatus, JobStatus, SessionStatus
@@ -32,7 +32,8 @@ from app.models.session import (
     SessionTranscript,
     SourceRecording,
 )
-from app.services import session_analysis, session_service
+from app.models.signal import Signal
+from app.services import session_analysis, session_service, signal_embeddings
 from app.services.processing_queue import get_processing_queue
 from app.services.session_service import (
     PlacementChoiceError,
@@ -42,6 +43,7 @@ from app.services.session_service import (
     requeue_waiting_sessions,
     session_job,
 )
+from app.services.signal_embeddings import EMBEDDING_OPERATION
 from app.services.storage.local import LocalStorageBackend
 from app.services.transcription.assemblyai_client import Transcription
 from app.services.upload_service import UploadService
@@ -52,6 +54,7 @@ from app.utils.exceptions import (
     TranscriptionError,
     ValidationError,
 )
+from tests.unit.embedding_helpers import FakeEmbeddingClient
 
 WEBM = b"\x1a\x45\xdf\xa3" + b"\x00" * 60
 # 23:30 UTC on 30 September is 00:30 on 1 October in London (BST).
@@ -583,6 +586,128 @@ class TestSessionRunner:
         job = await _job(db_session, session.id)
         assert job.status == JobStatus.FAILED.value
         assert job.stage == "analyzing"
+
+    async def _transcribed(self, db: AsyncSession, world: World) -> Session:
+        session = await _session(
+            db,
+            world,
+            source="upload",
+            recording_key="sessions/x/a.webm",
+            status="transcribed",
+        )
+        db.add(
+            SessionTranscript(session_id=session.id, full_text="Hello.", utterances=[])
+        )
+        await db.flush()
+        return session
+
+    @staticmethod
+    def _with_a_signal(monkeypatch: pytest.MonkeyPatch, *, usable: bool) -> None:
+        async def fake(context: SessionContext) -> SessionRunResult:
+            draft = SignalDraft(
+                category="client",
+                dimension="delivery",
+                polarity="negative",
+                severity=2,
+                confidence=0.8,
+                quote="Hello.",
+                note=None,
+                speaker_role=None,
+                offset_ms=0,
+            )
+            return SessionRunResult(
+                analysis=SessionAnalysis(summary="A short call.", signals=[draft]),
+                cost_records=[],
+                node_errors=[],
+                succeeded=["summarise"] if usable else [],
+            )
+
+        monkeypatch.setattr(session_analysis, "run_session_pipeline", fake)
+
+    async def test_a_completed_analysis_embeds_its_signals(
+        self,
+        db_session: AsyncSession,
+        world: World,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        self._with_a_signal(monkeypatch, usable=True)
+        client = FakeEmbeddingClient()
+        monkeypatch.setattr(signal_embeddings, "build_embedding_client", lambda: client)
+        session = await self._transcribed(db_session, world)
+
+        await SessionRunner(db_session, storage=FakeStorage(str(tmp_path))).run(
+            session.id
+        )
+
+        await db_session.refresh(session)
+        assert session.status == SessionStatus.COMPLETED.value
+        assert [r["input"] for r in client.embeddings.requests] == [["Hello."]]
+        signal = await db_session.scalar(
+            select(Signal).where(Signal.source_id == session.id)
+        )
+        assert signal is not None
+        assert signal.embedding is not None
+        job = await _job(db_session, session.id)
+        operations = await db_session.scalars(
+            select(ProcessingCost.operation).where(
+                ProcessingCost.processing_job_id == job.id
+            )
+        )
+        assert list(operations) == [EMBEDDING_OPERATION]
+
+    async def test_an_embedding_failure_leaves_the_session_completed(
+        self,
+        db_session: AsyncSession,
+        world: World,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        self._with_a_signal(monkeypatch, usable=True)
+        client = FakeEmbeddingClient(error=RuntimeError("Azure unavailable"))
+        monkeypatch.setattr(signal_embeddings, "build_embedding_client", lambda: client)
+        session = await self._transcribed(db_session, world)
+        session_id = session.id
+
+        await SessionRunner(db_session, storage=FakeStorage(str(tmp_path))).run(
+            session_id
+        )
+
+        stored = await db_session.get(Session, session_id, populate_existing=True)
+        assert stored is not None
+        assert stored.status == SessionStatus.COMPLETED.value
+        assert stored.error_message is None
+        job = await _job(db_session, session_id)
+        assert job.status == JobStatus.COMPLETED.value
+        signal = await db_session.scalar(
+            select(Signal).where(Signal.source_id == session_id)
+        )
+        assert signal is not None
+        assert signal.embedding is None
+
+    async def test_an_analysis_that_produced_nothing_is_not_embedded(
+        self,
+        db_session: AsyncSession,
+        world: World,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        self._with_a_signal(monkeypatch, usable=False)
+        embedded: list[uuid.UUID] = []
+
+        async def record(db: AsyncSession, session_id: uuid.UUID, *args: Any) -> None:
+            embedded.append(session_id)
+
+        monkeypatch.setattr(session_service, "embed_session_signals", record)
+        session = await self._transcribed(db_session, world)
+
+        await SessionRunner(db_session, storage=FakeStorage(str(tmp_path))).run(
+            session.id
+        )
+
+        await db_session.refresh(session)
+        assert session.status == SessionStatus.FAILED.value
+        assert embedded == []
 
     async def test_session_not_waiting_is_left_alone(
         self, db_session: AsyncSession, world: World, tmp_path: Path

@@ -17,10 +17,14 @@ from app.models.enums import (
     SEVERITY_MAX,
     SEVERITY_MEANINGS,
     SEVERITY_MIN,
+    SIGNAL_INDICATOR_MEANINGS,
+    SIGNAL_INDICATORS_BY_CATEGORY,
     SPEAKER_ROLE_MEANINGS,
     Dimension,
     Polarity,
     SessionKind,
+    SignalCategory,
+    SignalIndicator,
     SpeakerRole,
 )
 from tests.unit.session_pipeline_helpers import ROLES, context
@@ -31,6 +35,13 @@ def test_every_enumerated_value_has_a_meaning() -> None:
     assert set(SESSION_KIND_MEANINGS) == set(SessionKind)
     assert set(SPEAKER_ROLE_MEANINGS) == set(SpeakerRole)
     assert set(SEVERITY_MEANINGS) == set(range(SEVERITY_MIN, SEVERITY_MAX + 1))
+    assert set(SIGNAL_INDICATOR_MEANINGS) == set(SignalIndicator)
+
+
+def test_every_indicator_belongs_to_exactly_one_extraction() -> None:
+    assert set(SIGNAL_INDICATORS_BY_CATEGORY) == set(SignalCategory)
+    allowed = [i for group in SIGNAL_INDICATORS_BY_CATEGORY.values() for i in group]
+    assert sorted(allowed) == sorted(SignalIndicator)
 
 
 @pytest.mark.parametrize(
@@ -46,6 +57,23 @@ def test_signal_prompts_list_every_dimension_polarity_and_severity(
         assert polarity.value in system
     for level, meaning in SEVERITY_MEANINGS.items():
         assert f"- {level}: {meaning}" in system
+
+
+@pytest.mark.parametrize(
+    ("system", "category"),
+    [
+        (client_signals.SYSTEM, SignalCategory.CLIENT),
+        (relationship_engagement.SYSTEM, SignalCategory.RELATIONSHIP_ENGAGEMENT),
+        (issues.SYSTEM, SignalCategory.ISSUE),
+    ],
+)
+def test_signal_prompts_list_only_their_own_indicators(
+    system: str, category: SignalCategory
+) -> None:
+    own = SIGNAL_INDICATORS_BY_CATEGORY[category]
+    for indicator, meaning in SIGNAL_INDICATOR_MEANINGS.items():
+        listed = f"- {indicator.value}: {meaning}" in system
+        assert listed == (indicator in own)
 
 
 @pytest.mark.parametrize("system", [roles.SYSTEM, actions.SYSTEM])

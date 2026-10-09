@@ -1,7 +1,7 @@
-"""Shared factory for Azure OpenAI LLM and embedding instances.
+"""Shared factory for the Azure OpenAI chat model and embedding client.
 
 Both builders are cached: the settings they read are fixed for the life of the
-process, and every caller only derives runnables from the instance
+process. Every chat caller only derives runnables from the instance
 (``with_structured_output``, ``ainvoke``), so one client per reasoning effort
 serves the whole pipeline instead of ~15 fresh instances per pipeline run.
 
@@ -10,11 +10,16 @@ OpenAI client unless one is given, which disables the client's own default,
 so without it a connection that dies silently is awaited forever. On
 2026-10-05 one such folder-name call stopped the periodic scanner for 11
 hours.
+
+Embeddings use the ``openai`` package's own client rather than LangChain's
+wrapper: its answer carries the exact token usage for the cost row, and it
+needs no tokenizer download (which the non-root container could not cache).
 """
 
 import functools
 
-from langchain_openai import AzureChatOpenAI, AzureOpenAIEmbeddings
+from langchain_openai import AzureChatOpenAI
+from openai import AsyncAzureOpenAI
 from pydantic import SecretStr
 
 from app.config import settings
@@ -43,12 +48,12 @@ def build_chat_llm(
 
 
 @functools.cache
-def build_embeddings() -> AzureOpenAIEmbeddings:
-    """Create an AzureOpenAIEmbeddings instance for text-embedding-3-small."""
-    return AzureOpenAIEmbeddings(
+def build_embedding_client() -> AsyncAzureOpenAI:
+    """The client for text-embedding-3-small; the deployment is named per call
+    (``model=settings.azure_embedding_deployment``)."""
+    return AsyncAzureOpenAI(
         azure_endpoint=settings.azure_openai_endpoint,
-        azure_deployment=settings.azure_embedding_deployment,
-        api_key=SecretStr(settings.azure_openai_api_key),
+        api_key=settings.azure_openai_api_key,
         api_version=settings.azure_openai_api_version,
         timeout=settings.azure_openai_timeout_seconds,
     )

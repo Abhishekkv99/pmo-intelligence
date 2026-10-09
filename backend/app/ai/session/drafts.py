@@ -21,6 +21,8 @@ class SignalDraft:
     note: str | None
     speaker_role: str | None
     offset_ms: int | None
+    # A ``SignalIndicator`` the quote states outright, for the critical triggers.
+    indicator: str | None = None
 
 
 @dataclass(frozen=True)
@@ -55,3 +57,5 @@ class SessionAnalysis:
     closed_action_ids: list[uuid.UUID] = field(default_factory=list)
     # Items dropped because their quote was not in the transcript.
     quotes_rejected: int = 0
+    # Indicators dropped because their extraction may not set them.
+    indicators_cleared: int = 0

@@ -11,8 +11,10 @@ PMO's media bucket (server side) or download the URL, transcribe with
 AssemblyAI and store the transcript and its cost, then analyse it with the
 session pipeline (``session_analysis``). Status goes ``uploaded`` →
 ``transcribing`` (from the job's start) → ``transcribed`` → ``analyzing`` →
-``completed``, or ``failed`` with the reason. A job that finds its session
-already ``transcribed`` runs only the analysis. A ``processing_jobs`` row
+``completed``, or ``failed`` with the reason. A completed session's signals
+are then embedded (``signal_embeddings``); that step never fails the session.
+A job that finds its session already ``transcribed`` runs only the analysis.
+A ``processing_jobs`` row
 records each run: its stage (``copying``, ``downloading``, ``transcribing``,
 ``analyzing``), timing and error.
 
@@ -59,6 +61,7 @@ from app.services.processing_queue import (
 )
 from app.services.recordings.folder_names import local_day
 from app.services.session_analysis import Pipeline, SessionAnalysisService
+from app.services.signal_embeddings import embed_session_signals
 from app.services.storage import get_storage_backend
 from app.services.storage.base import StorageBackend
 from app.services.transcription.assemblyai_client import transcribe_media
@@ -415,6 +418,8 @@ class SessionRunner:
         await SessionAnalysisService(self.db, pipeline=self._pipeline).analyse(
             session, job
         )
+        if session.status == SessionStatus.COMPLETED.value:
+            await embed_session_signals(self.db, session.id, job.id)
 
 
 async def run_session_job(job: Job) -> None:

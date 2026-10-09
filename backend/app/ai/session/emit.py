@@ -6,7 +6,10 @@ is not found is dropped and counted in ``quotes_rejected``, never stored.
 A found quote gives the item its speaker's role and its moment in the
 recording. An issue or action id the model made up is treated as absent.
 The same quote read twice for the same dimension (two nodes can both see
-it) is kept once.
+it) is kept once, with the indicator any of its readings set.
+
+An indicator is kept only from the extraction allowed to set it
+(``SIGNAL_INDICATORS_BY_CATEGORY``); any other is cleared and the signal kept.
 """
 
 import logging
@@ -20,9 +23,9 @@ from app.ai.session.drafts import (
     SessionAnalysis,
     SignalDraft,
 )
-from app.ai.session.schemas import Evidence, SpeakerAssignment
+from app.ai.session.schemas import Evidence, ExtractedSignal, SpeakerAssignment
 from app.ai.session.state import SessionGraphState
-from app.models.enums import SignalCategory
+from app.models.enums import SIGNAL_INDICATORS_BY_CATEGORY, SignalCategory
 from app.services.quote_check import QuoteMatch, TranscriptIndex, normalise
 
 logger = logging.getLogger(__name__)
@@ -52,7 +55,27 @@ class _Emitter:
             s.speaker: s for s in state.get("speakers", [])
         }
         self.rejected = 0
+        self.indicators_cleared = 0
         self._seen: set[tuple[str, str]] = set()
+        # (quote, dimension) → the indicator a reading of it set.
+        self._indicators: dict[tuple[str, str], str] = {}
+
+    @staticmethod
+    def key(item: Evidence) -> tuple[str, str]:
+        return normalise(item.quote), item.dimension.value
+
+    def note_indicators(
+        self, category: SignalCategory, items: list[ExtractedSignal]
+    ) -> None:
+        """Remember the allowed indicators, so a kept duplicate carries them."""
+        allowed = SIGNAL_INDICATORS_BY_CATEGORY[category]
+        for item in items:
+            if item.indicator is None:
+                continue
+            if item.indicator not in allowed:
+                self.indicators_cleared += 1
+                continue
+            self._indicators.setdefault(self.key(item), item.indicator.value)
 
     def place(self, quote: str) -> QuoteMatch | None:
         match = self.index.find(quote)
@@ -68,7 +91,7 @@ class _Emitter:
         match = self.place(item.quote)
         if match is None:
             return None
-        key = (normalise(item.quote), item.dimension.value)
+        key = self.key(item)
         if key in self._seen:
             return None
         self._seen.add(key)
@@ -82,6 +105,7 @@ class _Emitter:
             note=item.note.strip() or None,
             speaker_role=self.role_of(match),
             offset_ms=match.offset_ms,
+            indicator=self._indicators.get(key),
         )
 
 
@@ -90,6 +114,12 @@ def build_analysis(state: SessionGraphState) -> SessionAnalysis:
     emitter = _Emitter(state)
     earlier_issues = {i.ref: i.issue_id for i in context.earlier_issues}
     open_actions = {a.ref: a.action_id for a in context.open_actions}
+    extracted = (
+        (SignalCategory.RELATIONSHIP_ENGAGEMENT, state.get("relationship_signals", [])),
+        (SignalCategory.CLIENT, state.get("client_signals", [])),
+    )
+    for category, items in extracted:
+        emitter.note_indicators(category, items)
 
     issues: list[IssueDraft] = []
     for item in state.get("issues", []):
@@ -106,10 +136,7 @@ def build_analysis(state: SessionGraphState) -> SessionAnalysis:
         )
 
     signals: list[SignalDraft] = []
-    for category, items in (
-        (SignalCategory.RELATIONSHIP_ENGAGEMENT, state.get("relationship_signals", [])),
-        (SignalCategory.CLIENT, state.get("client_signals", [])),
-    ):
+    for category, items in extracted:
         for evidence in items:
             drafted = emitter.signal(category, evidence)
             if drafted is not None:
@@ -154,6 +181,7 @@ def build_analysis(state: SessionGraphState) -> SessionAnalysis:
         actions=actions,
         closed_action_ids=closed,
         quotes_rejected=emitter.rejected,
+        indicators_cleared=emitter.indicators_cleared,
     )
 
 
@@ -163,5 +191,11 @@ async def emit_signals(state: SessionGraphState) -> dict[str, Any]:
         logger.info(
             "Session pipeline dropped %d item(s) whose quote was not in the transcript",
             analysis.quotes_rejected,
+        )
+    if analysis.indicators_cleared:
+        logger.info(
+            "Session pipeline cleared %d indicator(s) set by an extraction "
+            "not allowed to set them",
+            analysis.indicators_cleared,
         )
     return {"analysis": analysis}
