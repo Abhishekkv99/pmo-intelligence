@@ -2,7 +2,7 @@ import uuid
 from dataclasses import dataclass
 from datetime import date, datetime
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
 
@@ -10,6 +10,7 @@ from app.db.repositories.base import BaseRepository
 from app.models.enums import PlacementStatus
 from app.models.register import Client, Consultant, Placement, Project
 from app.models.user import User
+from app.utils.entitlements import ListScope
 
 
 @dataclass(frozen=True)
@@ -35,13 +36,32 @@ class PlacementRepository(BaseRepository[Placement]):
 
     async def list_rows(self) -> list[PlacementRow]:
         """Every placement, newest start first."""
-        return await self._rows(None)
+        return await self._rows()
 
     async def get_row(self, placement_id: uuid.UUID) -> PlacementRow | None:
-        rows = await self._rows(placement_id)
+        rows = await self._rows(placement_id=placement_id)
         return rows[0] if rows else None
 
-    async def _rows(self, placement_id: uuid.UUID | None) -> list[PlacementRow]:
+    async def active_rows(self, scope: ListScope) -> list[PlacementRow]:
+        """The active placements ``scope`` may see, newest start first."""
+        return await self._rows(scope=scope, active_only=True)
+
+    async def rows_for_consultant(
+        self, consultant_id: uuid.UUID, scope: ListScope
+    ) -> list[PlacementRow]:
+        """The consultant's placements ``scope`` may see, newest start first."""
+        return await self._rows(scope=scope, consultant_id=consultant_id)
+
+    async def _rows(
+        self,
+        *,
+        placement_id: uuid.UUID | None = None,
+        scope: ListScope | None = None,
+        active_only: bool = False,
+        consultant_id: uuid.UUID | None = None,
+    ) -> list[PlacementRow]:
+        if scope is not None and scope.nothing:
+            return []
         ps = aliased(User)
         sme = aliased(User)
         tech_lead = aliased(User)
@@ -57,6 +77,19 @@ class PlacementRepository(BaseRepository[Placement]):
         )
         if placement_id is not None:
             stmt = stmt.where(Placement.id == placement_id)
+        if consultant_id is not None:
+            stmt = stmt.where(Placement.consultant_id == consultant_id)
+        if active_only:
+            stmt = stmt.where(Placement.status == PlacementStatus.ACTIVE.value)
+        if scope is not None and not scope.everything:
+            user_id = scope.named_user_id
+            stmt = stmt.where(
+                or_(
+                    Placement.ps_user_id == user_id,
+                    Placement.sme_user_id == user_id,
+                    Project.tech_lead_user_id == user_id,
+                )
+            )
         result = await self.session.execute(stmt)
         return [PlacementRow(*row) for row in result.all()]
 

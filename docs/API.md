@@ -139,6 +139,7 @@ Reading a session is for anyone whose scope covers its placement (the global rol
 | POST | `/sessions/{session_id}/retry` | `pmo_manager`, `admin` (and session scope); 10/min | — | `202` `SessionCreated`; a `failed` session goes back to `transcribed` when it has a transcript (analysis only), else to `uploaded` (the copy or download is skipped when the recording is stored), and is queued. 409 for any other status |
 
 - **`SessionListItem`**: `{id, placement_id, consultant: {id, name}, client: {id, name}, project: {id, name}, held_at, duration_seconds, kind, status, error_message, signal_count, action_count}`. `kind` is a `SessionKind` (`onboarding | technical | check_in | escalation | other`) or `null` until classified.
+- **An SME** (`sme` role) sees only the Technical signals on the session page, and the list's `signal_count` counts only those for them; the transcript, summary, issues and actions are the same for every reader.
 - **`SessionDetail`**: the list item's fields, plus `kind_overridden`, `session_class` (the pipeline's class), `project_phase`, `source`, `original_filename`, `quotes_rejected`, `has_recording`, `summary`, `speakers` (`{label: {role, name}}`), `utterances` (`[{speaker, text, start_ms, end_ms}]`), `signals`, `issues`, `actions`, `closed_actions`, `cost` (`{transcription_usd, analysis_usd, total_usd}`) and `node_errors` (`[{node, error, ...}]` for the global roles, `null` for everyone else).
 - **Signal**: `{id, category, dimension, polarity, severity, confidence, quote, note, speaker_role, offset_ms, issue_id}`. **Issue**: the issues this call raised or saw again, as they stand now: `{id, topic, status, occurrence_count, first_seen_at, last_seen_at, resolved_at, offset_ms}` (`offset_ms`: where this call first talks about it). **Action**: `{id, description, owner_role, owner: {id, full_name, email} | null, quote, offset_ms, due_text, due_date, status, closed_at}`; `closed_actions` are earlier actions this call said were done.
 - The enumerations are those of `backend/app/models/enums.py`.
@@ -146,6 +147,30 @@ Reading a session is for anyone whose scope covers its placement (the global rol
 - **Upload checks**: an allowed extension (`ALLOWED_EXTENSIONS`), first bytes that match it (422 "The file's content is not WEBM…" otherwise), and at most `MAX_UPLOAD_SIZE_MB` (500). A body over the limit plus 1 MiB is refused with **413** as it arrives, before it is spooled; a file over the limit is refused with 422.
 - **URL checks**: `https` only; every address the host resolves to must be public, on every redirect (422 "The URL points to a private or internal address"); a URL needing sign-in answers 502. The recording type and size are checked again as the job downloads it.
 - **`held_at`** without an offset is a 422; it is stored in UTC. An unknown placement is a 404.
+
+### Risk board and placement health
+The board and the placement (consultant) page read the stored health snapshots and flags; nothing is scored on read. Both routes answer in one of two views, named by `view`:
+- **`full`**: PMO managers and admins, and a PS or tech lead for the placements naming them.
+- **`technical`**: an SME (by role). The Technical score and its own trend (`technical_trend`, from the Technical score alone) are given; `overall`, `risk_level`, `trend`, `trend_delta`, the other five scores and the snapshot's `signal_count` are `null`, flags are `[]`, evidence is Technical only, and the register omits `extension_status`, `rate_band` and `ended_reason` (`null`).
+
+| Method | Path | Auth | Response |
+|--------|------|------|----------|
+| GET | `/risk-board` | any role; cut to the caller's scope | `RiskBoardRow[]`, in board order. Not logged |
+| GET | `/placements/{placement_id}/health` | placement scope (logged) | `PlacementHealth`; writes an `access_log` row (the placement, the path); 404 outside scope, like a missing placement |
+
+- **Board order** (full view): red, amber, green, then not scored (no snapshot yet, or no signal in the lookback); within a level the trend down, flat, up, then none; then the lower overall; then consultant name. **Technical view**: the lower Technical score first, not scored last, then name, so the order cannot reveal the overall ranking. Only active placements are listed. The PS, tech lead, client and risk-level filters are applied by the page.
+- **`RiskBoardRow`**: `{placement_id, view, consultant, client, project, ps, tech_lead, start_date, weeks_in, scored, computed_at, overall, risk_level, trend, trend_delta, technical, technical_trend, technical_trend_delta, open_flags: [{id, trigger, severity, opened_at}], last_call_at, days_since_last_call, next_action: {id, description, owner_role, due_date} | null}`. `consultant`, `client` and `project` are `{id, name}`; `ps` and `tech_lead` are `{id, full_name, email} | null`. `weeks_in` is whole weeks since the start (0 before it); `last_call_at` is the latest completed call and `days_since_last_call` the UK days since it. `next_action` is the open or overdue action with the earliest due date, past dates included; actions without a due date are never shown there.
+- **`PlacementHealth`**: `{placement_id, view, consultant, client, project, weeks_in, register_fields, latest, history, open_flags, sessions, open_issues, actions, other_placements}`.
+  - **`register_fields`**: `{start_date, expected_end_date, status, client_manager_name, ps, sme, tech_lead, extension_status, rate_band, ended_reason}`.
+  - **`latest`** (`null` before the first recompute): `{computed_at, reason, scored, scores: {delivery, technical, relationship, engagement, onboarding, communication}, overall, risk_level, trend, trend_delta, technical_trend, technical_trend_delta, signal_count, weights_version, evidence: [{dimension, signal_count, contributors: [{signal, weight, value}]}]}`; the contributors are the signals that pulled each dimension furthest from the prior, as the recompute stored them.
+  - **`history`**: every snapshot, oldest first: `{computed_at, reason, scored, scores, overall, risk_level, trend, technical_trend}`.
+  - **`open_flags`**: `[{id, trigger, severity, opened_at, evidence: [signal]}]`, evidence newest first.
+  - **Evidence `signal`**: `{id, source_kind, source_id, dimension, polarity, severity, confidence, quote, note, speaker_role, occurred_at, offset_ms, indicator}`; `source_id` is the session (or message) it was said in, `offset_ms` where in the recording.
+  - **`sessions`**: the placement's calls, newest first: `{id, held_at, kind, status, duration_seconds, signal_count, action_count}` (Technical signals only in the technical view); a completed one is a marker on the chart.
+  - **`open_issues`**: `[{id, topic, status, occurrence_count, first_seen_at, last_seen_at}]`, longest open first.
+  - **`actions`**: every action of the placement, open and overdue first by due date (undated last), then done ones, newest closed first: the session page's action fields plus `source_kind` and `source_id`.
+  - **`other_placements`**: the consultant's other placements in the reader's scope, newest start first: `{id, client, project, start_date, expected_end_date, status}`.
+- The enumerations (`RiskLevel`, `Trend`, `RiskTrigger`, `FlagSeverity`, `SnapshotReason`, `HealthView`) are those of `backend/app/models/enums.py`.
 
 ## Common Response Formats
 ### Error Response

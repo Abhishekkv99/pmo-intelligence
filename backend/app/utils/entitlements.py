@@ -151,6 +151,16 @@ def has_global_scope(user: Principal) -> bool:
     return user.role in GLOBAL_ROLES
 
 
+def sees_technical_only(user: Principal) -> bool:
+    """True for an SME: of a placement's health, only the Technical dimension.
+
+    Follows the role, not how a placement names the user (BACKLOG #5). An SME
+    reads the placements naming them, but sees no overall, RAG level, flags or
+    other dimension, and on a session page only its Technical signals.
+    """
+    return user.role == Role.SME.value
+
+
 def can_read_placement(user: Principal, people: PlacementPeople) -> bool:
     """True when ``user`` may read the placement naming ``people``."""
     if has_global_scope(user):

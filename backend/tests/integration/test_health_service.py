@@ -176,6 +176,28 @@ class TestSnapshot:
         assert snapshot.trend == "down"
         assert snapshot.trend_delta is not None
         assert snapshot.trend_delta < -0.5
+        # Both were Delivery signals: Technical sat at 7.0 both times.
+        assert snapshot.technical_trend == "flat"
+        assert snapshot.technical_trend_delta == 0.0
+
+    async def test_the_technical_trend_is_stored_from_the_technical_score(
+        self, db_session: AsyncSession, placement: Placement
+    ) -> None:
+        # Technical 14 days ago 7.9, now 4.8 (worked in test_health_scoring)
+        await _signal(
+            db_session,
+            placement,
+            dimension="technical",
+            polarity="positive",
+            occurred_at=NOW - timedelta(days=20),
+        )
+        await _signal(db_session, placement, dimension="technical", severity=3)
+
+        snapshot = await _recompute(db_session, placement)
+
+        assert snapshot.technical == 4.8
+        assert snapshot.technical_trend == "down"
+        assert snapshot.technical_trend_delta == -3.1
 
     async def test_a_missing_placement_stores_nothing(
         self, db_session: AsyncSession

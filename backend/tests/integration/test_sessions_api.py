@@ -222,6 +222,28 @@ async def anonymous(manager_client: AsyncClient) -> AsyncGenerator[AsyncClient]:
         yield ac
 
 
+async def _technical_signal(
+    db: AsyncSession, placement: Placement, session: Session
+) -> None:
+    db.add(
+        Signal(
+            placement_id=placement.id,
+            source_kind="session",
+            source_id=session.id,
+            category="issue",
+            dimension="technical",
+            polarity="negative",
+            severity=2,
+            confidence=0.9,
+            quote="We are blocked on VPN access.",
+            speaker_role="consultant",
+            occurred_at=CALL + timedelta(milliseconds=1000),
+            offset_ms=1000,
+        )
+    )
+    await db.flush()
+
+
 async def _access_rows(db: AsyncSession) -> list[AccessLog]:
     return list((await db.execute(select(AccessLog))).scalars().all())
 
@@ -356,6 +378,32 @@ class TestDetail:
         assert response.status_code == 200
         assert response.json()["node_errors"] is None
         assert len(await _access_rows(db_session)) == 1
+
+    async def test_an_sme_sees_only_the_technical_signals_and_the_rest_unchanged(
+        self, manager_client: AsyncClient, world: World, db_session: AsyncSession
+    ) -> None:
+        sme = await world.user(Role.SME, "Sam")
+        placement = await world.placement("Priya Shah", sme=sme)
+        session = await world.session(placement)
+        await world.analysed(placement, session)
+        await _technical_signal(db_session, placement, session)
+
+        page = await manager_client.get(
+            f"/api/v1/sessions/{session.id}", headers=_bearer(sme)
+        )
+        listed = await manager_client.get("/api/v1/sessions", headers=_bearer(sme))
+        everything = await manager_client.get("/api/v1/sessions")
+
+        assert page.status_code == 200
+        body = page.json()
+        assert [s["dimension"] for s in body["signals"]] == ["technical"]
+        # The issue comes from an Onboarding signal and is still listed.
+        assert [i["topic"] for i in body["issues"]] == ["VPN access"]
+        assert body["summary"] == "Priya is blocked on VPN access."
+        assert [u["start_ms"] for u in body["utterances"]] == [1000, 5000]
+        assert len(body["actions"]) == 1
+        assert listed.json()[0]["signal_count"] == 1
+        assert everything.json()[0]["signal_count"] == 3
 
     async def test_outside_scope_is_a_404_like_a_missing_session_and_not_logged(
         self, manager_client: AsyncClient, world: World, db_session: AsyncSession

@@ -73,6 +73,25 @@ class HealthRepository:
         )
         return list(result.scalars().all())
 
+    async def open_flags_for(
+        self, placement_ids: Collection[uuid.UUID]
+    ) -> dict[uuid.UUID, list[RiskFlag]]:
+        """Each placement's flags not yet closed, oldest first."""
+        if not placement_ids:
+            return {}
+        result = await self.session.execute(
+            select(RiskFlag)
+            .where(
+                RiskFlag.placement_id.in_(placement_ids),
+                RiskFlag.closed_at.is_(None),
+            )
+            .order_by(RiskFlag.opened_at, RiskFlag.id)
+        )
+        flags: dict[uuid.UUID, list[RiskFlag]] = {}
+        for flag in result.scalars().all():
+            flags.setdefault(flag.placement_id, []).append(flag)
+        return flags
+
     async def add_flag(self, flag: RiskFlag) -> RiskFlag:
         self.session.add(flag)
         await self.session.flush()

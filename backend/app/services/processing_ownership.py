@@ -220,8 +220,9 @@ async def _run_steps(label: str, steps: list[tuple[str, TakeoverStep]]) -> None:
     for name, step in steps:
         try:
             count = await step()
-            if count:
-                logger.info("Takeover %s %s: %d row(s)", label, name, count)
+            # Logged even at zero, so "ran and found nothing" can be told
+            # from "never ran".
+            logger.info("Takeover %s %s: %d row(s)", label, name, count)
         except Exception:
             logger.warning(
                 "Takeover %s %s failed (non-fatal)", label, name, exc_info=True

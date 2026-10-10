@@ -269,6 +269,25 @@ class TestTrend:
         assert result.now.overall == 6.4
         assert result.trend == Trend.DOWN
         assert result.trend_delta == -0.9
+        # Technical had no signal either time: 7.0 both times, flat.
+        assert result.technical_trend == Trend.FLAT
+        assert result.technical_trend_delta == 0.0
+
+    def test_the_technical_trend_reads_the_technical_score_alone(self) -> None:
+        # 14 days ago: the praise 6 days old, weight 0.743: Technical
+        # (7 + 0.743 * 9) / 1.743 = 7.85 -> 7.9. Now: the praise weighs 0.3715
+        # and a fresh severity-3 blocker 1: (7 + 3.3435 + 1) / 2.3715 = 4.78
+        # -> 4.8, down 3.1. A Delivery praise said now lifts the overall.
+        praise = _signal(Dimension.TECHNICAL, Polarity.POSITIVE, days_ago=20)
+        blocker = _signal(Dimension.TECHNICAL, Polarity.NEGATIVE, severity=3)
+        shipped = _signal(Dimension.DELIVERY, Polarity.POSITIVE)
+
+        result = assess([praise, blocker, shipped], _context(), AS_OF, CONFIG, TZ)
+
+        assert result.past.dimensions[Dimension.TECHNICAL].score == 7.9
+        assert result.now.dimensions[Dimension.TECHNICAL].score == 4.8
+        assert result.technical_trend == Trend.DOWN
+        assert result.technical_trend_delta == -3.1
 
     def test_no_trend_until_there_is_a_score_to_compare(self) -> None:
         first_call = _signal(Dimension.RELATIONSHIP, Polarity.NEGATIVE, severity=3)
@@ -277,6 +296,8 @@ class TestTrend:
         assert not result.past.scored
         assert result.trend is None
         assert result.trend_delta is None
+        assert result.technical_trend is None
+        assert result.technical_trend_delta is None
 
     @pytest.mark.parametrize(
         ("now", "past", "trend", "delta"),

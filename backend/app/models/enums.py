@@ -346,6 +346,13 @@ class SnapshotReason(enum.StrEnum):
     CATCH_UP = "catch_up"  # a takeover found the latest snapshot out of date
 
 
+class HealthView(enum.StrEnum):
+    """How much of a placement's health a reader sees (BACKLOG #5)."""
+
+    FULL = "full"  # every dimension, overall, level, trend and flags
+    TECHNICAL = "technical"  # an SME: the Technical score and its trend only
+
+
 def check_in(column: str, values: type[enum.StrEnum]) -> str:
     """SQL for a CHECK constraint limiting ``column`` to ``values``."""
     allowed = ", ".join(f"'{member.value}'" for member in values)

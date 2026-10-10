@@ -52,6 +52,10 @@ class HealthSnapshot(Base, UUIDMixin, TimestampMixin):
         ),
         CheckConstraint(check_in("trend", Trend), name="ck_health_snapshots_trend"),
         CheckConstraint(
+            check_in("technical_trend", Trend),
+            name="ck_health_snapshots_technical_trend",
+        ),
+        CheckConstraint(
             check_in("risk_level", RiskLevel), name="ck_health_snapshots_risk_level"
         ),
         Index(
@@ -83,6 +87,10 @@ class HealthSnapshot(Base, UUIDMixin, TimestampMixin):
     # NULL until there is a score at the start of the trend window to compare.
     trend: Mapped[str | None] = mapped_column(String(10), nullable=True)
     trend_delta: Mapped[float | None] = mapped_column(Float, nullable=True)
+    # The same for the Technical score alone: what an SME sees, since the
+    # overall's trend would reveal how the overall moved.
+    technical_trend: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    technical_trend_delta: Mapped[float | None] = mapped_column(Float, nullable=True)
     risk_level: Mapped[str | None] = mapped_column(String(10), nullable=True)
     signal_count: Mapped[int] = mapped_column(
         Integer, nullable=False, default=0, server_default="0"

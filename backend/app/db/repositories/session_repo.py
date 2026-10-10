@@ -73,17 +73,23 @@ class SessionRepository:
         scope: ListScope,
         *,
         consultant_id: uuid.UUID | None = None,
+        placement_id: uuid.UUID | None = None,
         status: str | None = None,
+        signal_dimension: str | None = None,
     ) -> list[SessionListRow]:
-        """The sessions ``scope`` may see, newest call first, with their counts."""
+        """The sessions ``scope`` may see, newest call first, with their counts.
+
+        ``signal_dimension`` counts only that dimension's signals (an SME's
+        Technical view).
+        """
         if scope.nothing:
             return []
-        signal_counts = (
-            select(Signal.source_id, func.count().label("n"))
-            .where(Signal.source_kind == SourceKind.SESSION.value)
-            .group_by(Signal.source_id)
-            .subquery()
+        counted = select(Signal.source_id, func.count().label("n")).where(
+            Signal.source_kind == SourceKind.SESSION.value
         )
+        if signal_dimension is not None:
+            counted = counted.where(Signal.dimension == signal_dimension)
+        signal_counts = counted.group_by(Signal.source_id).subquery()
         action_counts = (
             select(Action.source_id, func.count().label("n"))
             .where(Action.source_kind == SourceKind.SESSION.value)
@@ -118,10 +124,28 @@ class SessionRepository:
             )
         if consultant_id is not None:
             stmt = stmt.where(Placement.consultant_id == consultant_id)
+        if placement_id is not None:
+            stmt = stmt.where(Session.placement_id == placement_id)
         if status is not None:
             stmt = stmt.where(Session.status == status)
         result = await self.session.execute(stmt)
         return [SessionListRow(*row) for row in result.all()]
+
+    async def last_completed_calls(
+        self, placement_ids: Collection[uuid.UUID]
+    ) -> dict[uuid.UUID, datetime]:
+        """When each placement's latest completed call was held."""
+        if not placement_ids:
+            return {}
+        result = await self.session.execute(
+            select(Session.placement_id, func.max(Session.held_at))
+            .where(
+                Session.placement_id.in_(placement_ids),
+                Session.status == SessionStatus.COMPLETED.value,
+            )
+            .group_by(Session.placement_id)
+        )
+        return {placement_id: held_at for placement_id, held_at in result.all()}
 
     async def costs_by_service(self, session_id: uuid.UUID) -> dict[str, float]:
         """The session's spend so far, in USD, per external service."""

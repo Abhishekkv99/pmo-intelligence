@@ -156,6 +156,24 @@ async def _transcript_columns(url: str) -> set[str]:
         await check.dispose()
 
 
+async def _snapshot_columns(url: str) -> set[str]:
+    check = create_async_engine(url)
+    try:
+        async with check.connect() as conn:
+            rows = await conn.execute(
+                text(
+                    "SELECT column_name FROM information_schema.columns "
+                    "WHERE table_schema = 'public' "
+                    "AND table_name = 'health_snapshots'"
+                )
+            )
+            return {row[0] for row in rows}
+    finally:
+        await check.dispose()
+
+
+TECHNICAL_TREND_COLUMNS = {"technical_trend", "technical_trend_delta"}
+
 MS_TOKEN_COLUMNS = {"ms_access_token", "ms_refresh_token", "ms_token_expires_at"}
 
 
@@ -261,3 +279,19 @@ class TestMigrations:
         columns, indexes = await _signal_columns_and_indexes(fresh_database_url)
         assert "indicator" not in columns
         assert "ix_signals_embedding_hnsw" not in indexes
+
+    async def test_007_adds_the_technical_trend_to_snapshots_and_removes_it(
+        self, fresh_database_url: str
+    ) -> None:
+        assert _alembic(fresh_database_url, "upgrade", "006").returncode == 0
+        assert not TECHNICAL_TREND_COLUMNS & await _snapshot_columns(fresh_database_url)
+
+        upgrade = _alembic(fresh_database_url, "upgrade", "007")
+        assert upgrade.returncode == 0, upgrade.stderr
+        assert TECHNICAL_TREND_COLUMNS.issubset(
+            await _snapshot_columns(fresh_database_url)
+        )
+
+        downgrade = _alembic(fresh_database_url, "downgrade", "006")
+        assert downgrade.returncode == 0, downgrade.stderr
+        assert not TECHNICAL_TREND_COLUMNS & await _snapshot_columns(fresh_database_url)

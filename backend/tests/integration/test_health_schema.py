@@ -118,7 +118,12 @@ class TestSnapshots:
 
     @pytest.mark.parametrize(
         ("field", "value"),
-        [("reason", "manual"), ("trend", "sideways"), ("risk_level", "blue")],
+        [
+            ("reason", "manual"),
+            ("trend", "sideways"),
+            ("technical_trend", "sideways"),
+            ("risk_level", "blue"),
+        ],
     )
     async def test_a_value_outside_its_set_is_refused(
         self, db_session: AsyncSession, field: str, value: object

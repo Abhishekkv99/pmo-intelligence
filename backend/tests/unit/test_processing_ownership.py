@@ -139,9 +139,11 @@ class TestTakeOverProcessing:
 
         assert calls == ["start", "requeue_bad", "requeue_good"]
 
-    async def test_a_step_that_touched_rows_is_logged(
+    async def test_every_step_logs_its_count_zero_included(
         self, caplog: pytest.LogCaptureFixture
     ) -> None:
+        # A zero is logged too, so "ran and found nothing" can be told from
+        # "never ran" (user decision 2026-10-10).
         calls: list[str] = []
         register_takeover_sweep("stuck_sessions", _step(calls, "sweep", result=3))
         register_takeover_requeue("pending", _step(calls, "requeue", result=0))
@@ -152,7 +154,7 @@ class TestTakeOverProcessing:
             await _take_over(ownership, calls)
 
         assert "Takeover sweep stuck_sessions: 3 row(s)" in caplog.text
-        assert "re-queue pending" not in caplog.text
+        assert "Takeover re-queue pending: 0 row(s)" in caplog.text
 
     async def test_steps_run_in_registration_order(self) -> None:
         calls: list[str] = []

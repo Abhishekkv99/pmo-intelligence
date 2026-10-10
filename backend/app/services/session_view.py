@@ -3,7 +3,10 @@
 Scope is decided before these run: the list filters by the caller's
 ``ListScope``, and the session page is reached only through the session
 scope guard. The node errors are for the global roles; everyone who may read
-the session sees the rest, its cost included (PRD, "Pages").
+the session sees the rest, its cost included (PRD, "Pages"), except that an
+SME sees only the Technical signals (``sees_technical_only``), and the list
+counts only those for them. The transcript, summary, issues and actions are
+the same for every reader.
 """
 
 import uuid
@@ -48,7 +51,12 @@ from app.services.media_files import playback_type
 from app.services.media_token import MEDIA_URL_SECONDS, create_media_token
 from app.services.storage import get_storage_backend
 from app.services.storage.base import StorageBackend
-from app.utils.entitlements import Principal, has_global_scope, list_scope
+from app.utils.entitlements import (
+    Principal,
+    has_global_scope,
+    list_scope,
+    sees_technical_only,
+)
 from app.utils.exceptions import NotFoundError
 
 TRANSCRIPTION_SERVICE = "assemblyai"
@@ -101,6 +109,9 @@ class SessionViewService:
             list_scope(user),
             consultant_id=consultant_id,
             status=status.value if status is not None else None,
+            signal_dimension=Dimension.TECHNICAL.value
+            if sees_technical_only(user)
+            else None,
         )
         return [
             SessionListItem(
@@ -154,6 +165,10 @@ class SessionViewService:
         for signal in signals:
             if signal.issue_id is not None and signal.issue_id not in issue_offsets:
                 issue_offsets[signal.issue_id] = signal.offset_ms
+        # The issues above come from every signal; an SME is shown only the
+        # Technical signals themselves.
+        if sees_technical_only(user):
+            signals = [s for s in signals if s.dimension == Dimension.TECHNICAL.value]
 
         transcription = costs.get(TRANSCRIPTION_SERVICE, 0.0)
         total = sum(costs.values())

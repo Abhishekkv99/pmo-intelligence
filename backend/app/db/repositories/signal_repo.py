@@ -4,11 +4,15 @@ import uuid
 from collections.abc import Collection, Sequence
 from datetime import datetime
 
-from sqlalchemy import and_, func, or_, select
+from sqlalchemy import and_, case, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.enums import ActionStatus, Dimension, IssueStatus
 from app.models.signal import Action, Issue, Signal
+
+# An action still to do; ``overdue`` is set once missed commitments are
+# tracked (with Teams chat).
+_NOT_DONE = [ActionStatus.OPEN.value, ActionStatus.OVERDUE.value]
 
 
 class SignalRepository:
@@ -41,9 +45,7 @@ class SignalRepository:
             select(Action)
             .where(
                 Action.placement_id == placement_id,
-                Action.status.in_(
-                    [ActionStatus.OPEN.value, ActionStatus.OVERDUE.value]
-                ),
+                Action.status.in_(_NOT_DONE),
             )
             .order_by(Action.created_at, Action.id)
         )
@@ -62,6 +64,64 @@ class SignalRepository:
             return {}
         result = await self.session.execute(select(Action).where(Action.id.in_(ids)))
         return {action.id: action for action in result.scalars().all()}
+
+    async def signals_by_id(
+        self, ids: Collection[uuid.UUID]
+    ) -> dict[uuid.UUID, Signal]:
+        if not ids:
+            return {}
+        result = await self.session.execute(select(Signal).where(Signal.id.in_(ids)))
+        return {signal.id: signal for signal in result.scalars().all()}
+
+    async def open_issues(self, placement_id: uuid.UUID) -> list[Issue]:
+        """The placement's open issues, longest open first."""
+        result = await self.session.execute(
+            select(Issue)
+            .where(
+                Issue.placement_id == placement_id,
+                Issue.status == IssueStatus.OPEN.value,
+            )
+            .order_by(Issue.first_seen_at, Issue.id)
+        )
+        return list(result.scalars().all())
+
+    async def actions_for_placement(self, placement_id: uuid.UUID) -> list[Action]:
+        """Every action of the placement: open and overdue first, by due date
+        (undated last); then done ones, newest closed first."""
+        not_done = Action.status.in_(_NOT_DONE)
+        result = await self.session.execute(
+            select(Action)
+            .where(Action.placement_id == placement_id)
+            .order_by(
+                case((not_done, 0), else_=1),
+                case((not_done, Action.due_date)).asc().nulls_last(),
+                Action.closed_at.desc().nulls_last(),
+                Action.created_at,
+                Action.id,
+            )
+        )
+        return list(result.scalars().all())
+
+    async def next_due_actions(
+        self, placement_ids: Collection[uuid.UUID]
+    ) -> dict[uuid.UUID, Action]:
+        """Each placement's open or overdue action with the earliest due date
+        (past dates included); actions without one never count."""
+        if not placement_ids:
+            return {}
+        result = await self.session.execute(
+            select(Action)
+            .where(
+                Action.placement_id.in_(placement_ids),
+                Action.status.in_(_NOT_DONE),
+                Action.due_date.is_not(None),
+            )
+            .distinct(Action.placement_id)
+            .order_by(
+                Action.placement_id, Action.due_date, Action.created_at, Action.id
+            )
+        )
+        return {action.placement_id: action for action in result.scalars().all()}
 
     async def add_all(self, rows: Sequence[Signal | Issue | Action]) -> None:
         self.session.add_all(rows)

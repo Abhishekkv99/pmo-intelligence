@@ -95,12 +95,15 @@ class HealthScore:
 
 @dataclass(frozen=True)
 class HealthResult:
-    """The reading now, the one a trend window earlier, and the trend between."""
+    """The reading now, the one a trend window earlier, and the trend between:
+    of the overall, and of the Technical score alone (what an SME sees)."""
 
     now: HealthScore
     past: HealthScore
     trend: Trend | None
     trend_delta: float | None
+    technical_trend: Trend | None = None
+    technical_trend_delta: float | None = None
 
 
 def signal_value(signal: SignalInput, config: HealthConfig) -> float:
@@ -200,9 +203,29 @@ def trend_between(
     now: HealthScore, past: HealthScore, config: HealthConfig
 ) -> tuple[Trend | None, float | None]:
     """Up, flat or down, and by how much; none until both moments are scored."""
-    if now.overall is None or past.overall is None:
+    return _trend(now.overall, past.overall, config)
+
+
+def dimension_trend_between(
+    now: HealthScore, past: HealthScore, dimension: Dimension, config: HealthConfig
+) -> tuple[Trend | None, float | None]:
+    """The same for one dimension's score."""
+    return _trend(
+        _dimension_value(now, dimension), _dimension_value(past, dimension), config
+    )
+
+
+def _dimension_value(score: HealthScore, dimension: Dimension) -> float | None:
+    reading = score.dimensions.get(dimension)
+    return reading.score if reading is not None else None
+
+
+def _trend(
+    now: float | None, past: float | None, config: HealthConfig
+) -> tuple[Trend | None, float | None]:
+    if now is None or past is None:
         return None, None
-    delta = round1(now.overall - past.overall)
+    delta = round1(now - past)
     if delta > config.trend.flat_band:
         return Trend.UP, delta
     if delta < -config.trend.flat_band:
@@ -222,7 +245,17 @@ def assess(
     then = as_of - timedelta(days=config.trend.window_days)
     past = score_at(signals, context.start_date, then, config, tz)
     trend, delta = trend_between(now, past, config)
-    return HealthResult(now=now, past=past, trend=trend, trend_delta=delta)
+    technical, technical_delta = dimension_trend_between(
+        now, past, Dimension.TECHNICAL, config
+    )
+    return HealthResult(
+        now=now,
+        past=past,
+        trend=trend,
+        trend_delta=delta,
+        technical_trend=technical,
+        technical_trend_delta=technical_delta,
+    )
 
 
 def risk_level(

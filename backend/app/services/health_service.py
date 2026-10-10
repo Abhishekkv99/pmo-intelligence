@@ -175,6 +175,10 @@ class HealthService:
                 overall=now.overall,
                 trend=result.trend.value if result.trend else None,
                 trend_delta=result.trend_delta,
+                technical_trend=(
+                    result.technical_trend.value if result.technical_trend else None
+                ),
+                technical_trend_delta=result.technical_trend_delta,
                 risk_level=level.value if level else None,
                 signal_count=now.signal_count,
                 weights_version=config.version,
