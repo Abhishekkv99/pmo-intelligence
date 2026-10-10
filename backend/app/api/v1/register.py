@@ -11,7 +11,7 @@ from fastapi import APIRouter, Depends, Query, Request, UploadFile
 
 from app.db.repositories.placement_repo import PlacementRow
 from app.dependencies import DbSession, PlacementScope, require_roles
-from app.models.enums import ExtensionStatus, PlacementStatus, Role
+from app.models.enums import ExtensionStatus, PlacementStatus, Role, SnapshotReason
 from app.models.register import Client, Consultant
 from app.models.user import User
 from app.rate_limiter import limiter
@@ -33,6 +33,7 @@ from app.schemas.register import (
     ProjectResponse,
     ProjectUpdate,
 )
+from app.services.health_jobs import request_recompute, request_recomputes
 from app.services.register_import import MAX_BYTES, RegisterImport
 from app.services.register_service import ProjectRow, RegisterService
 from app.utils.exceptions import ValidationError
@@ -124,7 +125,11 @@ async def update_project(
 ) -> ProjectResponse:
     service = RegisterService(db)
     project = await service.update_project(project_id, body)
-    return _project(await service.project_row(project))
+    row = await service.project_row(project)
+    placement_ids = await service.active_placement_ids(project.id)
+    await db.commit()
+    request_recomputes(placement_ids, SnapshotReason.REGISTER)
+    return _project(row)
 
 
 # --- Placements ---------------------------------------------------------------
@@ -146,7 +151,10 @@ async def list_placements(
 async def create_placement(body: PlacementCreate, db: DbSession) -> PlacementResponse:
     service = RegisterService(db)
     placement = await service.create_placement(body)
-    return _placement(await service.placement_row(placement.id))
+    row = await service.placement_row(placement.id)
+    await db.commit()
+    request_recompute(placement.id, SnapshotReason.REGISTER)
+    return _placement(row)
 
 
 @router.get("/placements/{placement_id}", response_model=PlacementResponse)
@@ -166,7 +174,10 @@ async def update_placement(
 ) -> PlacementResponse:
     service = RegisterService(db)
     await service.update_placement(placement, body)
-    return _placement(await service.placement_row(placement.id))
+    row = await service.placement_row(placement.id)
+    await db.commit()
+    request_recompute(placement.id, SnapshotReason.REGISTER)
+    return _placement(row)
 
 
 # --- CSV import ---------------------------------------------------------------
@@ -190,7 +201,12 @@ async def import_register(
     if not (file.filename or "").lower().endswith(".csv"):
         raise ValidationError("Upload a .csv file")
     content = await file.read(MAX_BYTES + 1)
-    return await RegisterImport(db).run(content, dry_run=dry_run)
+    importer = RegisterImport(db)
+    result = await importer.run(content, dry_run=dry_run)
+    if result.applied:
+        await db.commit()
+        request_recomputes(importer.changed_placement_ids, SnapshotReason.REGISTER)
+    return result
 
 
 # --- Response mapping ---------------------------------------------------------

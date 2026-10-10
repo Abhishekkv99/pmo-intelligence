@@ -231,7 +231,7 @@ describe("RecordingsTab", () => {
 
     await userEvent.click(screen.getByRole("button", { name: /Scan now/ }));
 
-    expect(success).toHaveBeenCalledWith("A scan is already queued or running");
+    expect(success).toHaveBeenCalledWith("A scan is already waiting to start");
   });
 
   it("shows why the last scan failed", () => {

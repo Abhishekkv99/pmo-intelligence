@@ -16,7 +16,11 @@ last, so newly arrived evidence never waits for a backlog to drain. A job is
 identified by ``(kind, id)`` and is never queued twice while it is pending or
 running, so a double click or an overlapping poll cannot queue the same work
 again - and the priority is deliberately outside that identity, so a job
-cannot sit in the queue twice at two different priorities.
+cannot sit in the queue twice at two different priorities. A job requested
+while the same job is running is remembered and queued once more when it
+finishes: what it was asked to look at may have changed after the run read
+it (a placement edited during its health recompute), so the request is never
+lost, and any number of requests during one run make one more run.
 
 What a job *does* is registered per ``kind`` (``register_runner``) by the
 module that owns the pipeline, so this module depends on none of them.
@@ -59,6 +63,9 @@ class Job:
     kind: str
     id: uuid.UUID
     priority: int = SESSION_PRIORITY
+    # Why it was queued, for a runner that records it (a health recompute's
+    # snapshot reason); like the priority, not part of the job's identity.
+    reason: str | None = None
 
 
 JobKey = tuple[str, uuid.UUID]
@@ -105,6 +112,9 @@ class ProcessingQueue:
         self._seq = itertools.count()
         self._pending: dict[JobKey, tuple[int, int, Job]] = {}
         self._running: dict[JobKey, RunningJob] = {}
+        # Jobs requested while the same job was running: queued again when
+        # it finishes (the latest request's priority and reason).
+        self._rerun: dict[JobKey, Job] = {}
         self._workers: list[asyncio.Task[None]] = []
         # Workers that were cancelled by stop() but had not finished within
         # the grace period - a job blocked on I/O that ignores cancellation
@@ -125,15 +135,30 @@ class ProcessingQueue:
         return key in self._pending or key in self._running
 
     def enqueue(self, job: Job) -> bool:
-        """Queue ``job``; ``False`` if the same job is already pending or running."""
+        """Queue ``job``; ``False`` if the same job is already pending.
+
+        While the same job is running, it is booked to run once more when it
+        finishes (``True``).
+        """
         key = job_key(job)
-        if self.is_queued(job):
+        if key in self._pending:
             logger.info(
-                "Job %s %s is already queued or running; not queued again",
+                "Job %s %s is already queued; not queued again", job.kind, job.id
+            )
+            return False
+        if key in self._running:
+            self._rerun[key] = job
+            logger.info(
+                "Job %s %s is running; it runs once more when it finishes",
                 job.kind,
                 job.id,
             )
-            return False
+            return True
+        self._put(job)
+        return True
+
+    def _put(self, job: Job) -> None:
+        key = job_key(job)
         entry = (job.priority, next(self._seq), job)
         self._pending[key] = entry
         self._queue.put_nowait(entry)
@@ -144,7 +169,6 @@ class ProcessingQueue:
             job.priority,
             len(self._pending),
         )
-        return True
 
     def snapshot(self) -> QueueSnapshot:
         pending = tuple(
@@ -173,7 +197,8 @@ class ProcessingQueue:
     STOP_GRACE_SECONDS: float = 10
 
     async def stop(self) -> None:
-        """Cancel the workers. Pending jobs are dropped, never drained."""
+        """Cancel the workers. Pending jobs and re-runs are dropped, never drained."""
+        self._rerun.clear()
         workers, self._workers = self._workers, []
         if not workers:
             return
@@ -225,6 +250,9 @@ class ProcessingQueue:
                 logger.exception("Processing job %s %s failed", job.kind, job.id)
             finally:
                 self._running.pop(key, None)
+                again = self._rerun.pop(key, None)
+                if again is not None:
+                    self._put(again)
                 self._queue.task_done()
                 # Return what the job freed before the next one allocates.
                 gc.collect()

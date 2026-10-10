@@ -7,7 +7,7 @@ from datetime import datetime
 from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.enums import ActionStatus, IssueStatus
+from app.models.enums import ActionStatus, Dimension, IssueStatus
 from app.models.signal import Action, Issue, Signal
 
 
@@ -82,6 +82,55 @@ class SignalRepository:
             .order_by(Action.offset_ms, Action.id)
         )
         return list(signals.scalars().all()), list(actions.scalars().all())
+
+    async def for_placement(
+        self, placement_id: uuid.UUID, since: datetime
+    ) -> list[Signal]:
+        """The placement's signals said at or after ``since``, oldest first."""
+        result = await self.session.execute(
+            select(Signal)
+            .where(Signal.placement_id == placement_id, Signal.occurred_at >= since)
+            .order_by(Signal.occurred_at, Signal.offset_ms, Signal.id)
+        )
+        return list(result.scalars().all())
+
+    async def open_issues_with_technical_signals(
+        self, placement_id: uuid.UUID
+    ) -> list[tuple[Issue, list[uuid.UUID]]]:
+        """The placement's open issues, each with its Technical signals' ids
+        (whenever said), for the repeated-blocker trigger."""
+        issues = await self.session.execute(
+            select(Issue)
+            .where(
+                Issue.placement_id == placement_id,
+                Issue.status == IssueStatus.OPEN.value,
+            )
+            .order_by(Issue.first_seen_at, Issue.id)
+        )
+        open_issues = list(issues.scalars().all())
+        if not open_issues:
+            return []
+        signals = await self.session.execute(
+            select(Signal.issue_id, Signal.id)
+            .where(
+                Signal.issue_id.in_([issue.id for issue in open_issues]),
+                Signal.dimension == Dimension.TECHNICAL.value,
+            )
+            .order_by(Signal.occurred_at, Signal.id)
+        )
+        technical: dict[uuid.UUID, list[uuid.UUID]] = {}
+        for issue_id, signal_id in signals.all():
+            technical.setdefault(issue_id, []).append(signal_id)
+        return [(issue, technical.get(issue.id, [])) for issue in open_issues]
+
+    async def latest_created_at(self) -> dict[uuid.UUID, datetime]:
+        """When each placement's newest signal was stored."""
+        result = await self.session.execute(
+            select(Signal.placement_id, func.max(Signal.created_at)).group_by(
+                Signal.placement_id
+            )
+        )
+        return {placement_id: at for placement_id, at in result.all()}
 
     async def without_embedding(
         self, source_kind: str, source_id: uuid.UUID

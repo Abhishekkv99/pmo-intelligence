@@ -255,6 +255,10 @@ class RegisterService:
 
     # --- Placements -------------------------------------------------------
 
+    async def active_placement_ids(self, project_id: uuid.UUID) -> list[uuid.UUID]:
+        """The project's active placements, whose health a project edit recomputes."""
+        return await self.placements.active_ids_for_project(project_id)
+
     async def list_placements(self) -> list[PlacementRow]:
         return await self.placements.list_rows()
 

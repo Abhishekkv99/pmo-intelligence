@@ -1,12 +1,13 @@
 import uuid
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
 
 from app.db.repositories.base import BaseRepository
+from app.models.enums import PlacementStatus
 from app.models.register import Client, Consultant, Placement, Project
 from app.models.user import User
 
@@ -70,6 +71,40 @@ class PlacementRepository(BaseRepository[Placement]):
         )
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
+
+    async def active_ids(self) -> list[uuid.UUID]:
+        """Every active placement's id, oldest start first."""
+        result = await self.session.execute(
+            select(Placement.id)
+            .where(Placement.status == PlacementStatus.ACTIVE.value)
+            .order_by(Placement.start_date, Placement.id)
+        )
+        return list(result.scalars().all())
+
+    async def active_ids_for_project(self, project_id: uuid.UUID) -> list[uuid.UUID]:
+        result = await self.session.execute(
+            select(Placement.id)
+            .where(
+                Placement.project_id == project_id,
+                Placement.status == PlacementStatus.ACTIVE.value,
+            )
+            .order_by(Placement.start_date, Placement.id)
+        )
+        return list(result.scalars().all())
+
+    async def register_edits(self) -> list[tuple[uuid.UUID, str, datetime]]:
+        """Every placement with its status and when it or its project was
+        last written, oldest start first."""
+        result = await self.session.execute(
+            select(
+                Placement.id,
+                Placement.status,
+                func.greatest(Placement.updated_at, Project.updated_at),
+            )
+            .join(Project, Project.id == Placement.project_id)
+            .order_by(Placement.start_date, Placement.id)
+        )
+        return [(row[0], row[1], row[2]) for row in result.all()]
 
     async def list_for_consultant(self, consultant_id: uuid.UUID) -> list[Placement]:
         """Every placement of a consultant, newest start first."""

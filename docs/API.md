@@ -78,6 +78,7 @@ PMO managers and admins edit the register; any other role gets `403 {"detail": "
 | PATCH | `/placements/{placement_id}` | `pmo_manager`, `admin` (and placement scope) | any of the above | `PlacementResponse` |
 | POST | `/register/import?dry_run=true` | `pmo_manager`, `admin`; 10/min | multipart `file` (`.csv`, at most 1 MB and 1,000 rows) | `ImportResult` (below) |
 
+- **Health**: creating or editing a placement, editing a project (its active placements) and an applied import (the placements it created or changed) queue a health recompute after the write commits; the answer does not wait for it.
 - **Rules (422)**: `expected_end_date` not before `start_date`; a referenced client, consultant or project must exist; a named person (`tech_lead_user_id`, `ps_user_id`, `sme_user_id`) must be an active user who holds a role, since being named gives that user scoped read of the placement.
 - **`PersonRef`**: `{id, full_name, email}`.
 - **`ConsultantResponse`**: `{id, full_name, email, phone, skills, status, created_at, updated_at}`; `status` is `bench | placed | left`.
@@ -112,7 +113,7 @@ The PMO recordings folder (Admin > Recordings). PMO managers and admins only; an
 |--------|------|------|---------|----------|
 | GET | `/recording-folders` | `pmo_manager`, `admin` | — | `RecordingFolderList` (below): folders that are `matched`, `chosen` or `needs_choice` (unmatched ones are not listed), newest folder date first, each with its recordings |
 | PUT | `/recording-folders/{folder_id}/consultant` | `pmo_manager`, `admin` | `{consultant_id}` | `204`; the folder becomes `chosen` and later scans keep it. Any consultant in the register may be chosen, to settle a folder or correct a wrong match; sessions already made keep their placement. 404 for an unknown folder, 422 for an unknown consultant |
-| POST | `/recordings/scan` | `pmo_manager`, `admin`; 10/min | — | `202 {queued}`; `queued` is false when a scan is already queued or running |
+| POST | `/recordings/scan` | `pmo_manager`, `admin`; 10/min | — | `202 {queued}`; `queued` is false when a scan is already waiting to start. Asked for while a scan runs, another runs after it (`queued` true) |
 | POST | `/recordings/{recording_id}/process` | `pmo_manager`, `admin`; 30/min | `{placement_id?}` | `202` `SessionCreated`; the session's job is queued. 409 `PlacementChoice` (below) when no single placement covers the call; 409 `{detail}` when the folder has no decided consultant, or the recording is already a session; 422 for a placement that is not the folder consultant's; 404 for an unknown recording |
 
 - **`RecordingFolderList`**: `{folders: [RecordingFolderItem], latest_scan: ScanSummary | null, scan_enabled, scan_interval_seconds}`.

@@ -64,7 +64,10 @@ async def choose_folder_consultant(
 )
 @limiter.limit("10/minute")
 async def scan_recordings(request: Request) -> ScanRequested:
-    """Queue a scan now; ``queued`` is false when one is already queued or running."""
+    """Queue a scan now; ``queued`` is false when one is already waiting to start.
+
+    During a running scan another is booked to run after it (``queued`` true).
+    """
     return ScanRequested(queued=request_scan())
 
 

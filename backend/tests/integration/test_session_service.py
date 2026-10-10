@@ -22,7 +22,7 @@ from starlette.datastructures import Headers
 from app.ai.session.drafts import SessionAnalysis, SignalDraft
 from app.ai.session.graph import SessionRunResult
 from app.ai.session.state import SessionContext
-from app.models.enums import FolderMatchStatus, JobStatus, SessionStatus
+from app.models.enums import FolderMatchStatus, JobStatus, SessionStatus, SnapshotReason
 from app.models.processing_cost import ProcessingCost
 from app.models.processing_job import ProcessingJob
 from app.models.register import Client, Consultant, Placement, Project
@@ -34,6 +34,7 @@ from app.models.session import (
 )
 from app.models.signal import Signal
 from app.services import session_analysis, session_service, signal_embeddings
+from app.services.health_jobs import RECOMPUTE_JOB_KIND, recompute_job
 from app.services.processing_queue import get_processing_queue
 from app.services.session_service import (
     PlacementChoiceError,
@@ -655,6 +656,10 @@ class TestSessionRunner:
             )
         )
         assert list(operations) == [EMBEDDING_OPERATION]
+        # Then the placement's health is recomputed
+        assert get_processing_queue().is_queued(
+            recompute_job(session.placement_id, SnapshotReason.CALL)
+        )
 
     async def test_an_embedding_failure_leaves_the_session_completed(
         self,
@@ -668,6 +673,7 @@ class TestSessionRunner:
         monkeypatch.setattr(signal_embeddings, "build_embedding_client", lambda: client)
         session = await self._transcribed(db_session, world)
         session_id = session.id
+        placement_id = session.placement_id
 
         await SessionRunner(db_session, storage=FakeStorage(str(tmp_path))).run(
             session_id
@@ -684,6 +690,11 @@ class TestSessionRunner:
         )
         assert signal is not None
         assert signal.embedding is None
+        # The health recompute is queued all the same
+        [recompute] = [
+            j for j in get_processing_queue().snapshot().pending if j.id == placement_id
+        ]
+        assert recompute == recompute_job(placement_id, SnapshotReason.CALL)
 
     async def test_an_analysis_that_produced_nothing_is_not_embedded(
         self,
@@ -708,6 +719,11 @@ class TestSessionRunner:
         await db_session.refresh(session)
         assert session.status == SessionStatus.FAILED.value
         assert embedded == []
+        assert [
+            j
+            for j in get_processing_queue().snapshot().pending
+            if j.kind == RECOMPUTE_JOB_KIND
+        ] == []
 
     async def test_session_not_waiting_is_left_alone(
         self, db_session: AsyncSession, world: World, tmp_path: Path

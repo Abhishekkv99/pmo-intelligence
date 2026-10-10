@@ -20,6 +20,7 @@ is found by the next, in a dry run as well.
 import csv
 import io
 import logging
+import uuid
 from dataclasses import dataclass, field
 from datetime import date, datetime
 
@@ -105,6 +106,9 @@ class RegisterImport:
     def __init__(self, session: AsyncSession):
         self.session = session
         self.register = RegisterService(session)
+        # The placements an applied import created or changed (empty when it
+        # wrote nothing), whose health the route then recomputes.
+        self.changed_placement_ids: list[uuid.UUID] = []
 
     async def run(self, content: bytes, *, dry_run: bool) -> ImportResult:
         rows = read_rows(content)
@@ -123,6 +127,7 @@ class RegisterImport:
             await savepoint.commit()
         else:
             await savepoint.rollback()
+            self.changed_placement_ids = []
         logger.info(
             "Register import: rows=%d errors=%d dry_run=%s applied=%s",
             len(results),
@@ -304,7 +309,7 @@ class RegisterImport:
         if placement is None:
             row.created_placement = True
             row.changes.append(f"placement from {parsed.start_date}: created")
-            return await repo.create(
+            created = await repo.create(
                 consultant_id=consultant.id,
                 project_id=project.id,
                 start_date=parsed.start_date,
@@ -316,6 +321,8 @@ class RegisterImport:
                 ps_user_id=ps.id if ps else None,
                 sme_user_id=sme.id if sme else None,
             )
+            self._changed(created.id)
+            return created
 
         updates: dict[str, object] = {}
         if parsed.end_date and placement.expected_end_date != parsed.end_date:
@@ -340,7 +347,13 @@ class RegisterImport:
                 old = getattr(placement, key) or "-"
                 row.changes.append(f"placement {key}: {old} -> {value}")
             setattr(placement, key, value)
+        if updates:
+            self._changed(placement.id)
         return placement
+
+    def _changed(self, placement_id: uuid.UUID) -> None:
+        if placement_id not in self.changed_placement_ids:
+            self.changed_placement_ids.append(placement_id)
 
 
 def read_rows(content: bytes) -> list[_Row]:

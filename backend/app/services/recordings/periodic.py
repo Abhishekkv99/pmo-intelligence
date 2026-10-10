@@ -47,7 +47,8 @@ def scan_job() -> Job:
 
 
 def request_scan() -> bool:
-    """Queue a scan; False when one is already queued or running."""
+    """Queue a scan; False when one is already waiting to start (one asked for
+    during a running scan runs after it)."""
     return get_processing_queue().enqueue(scan_job())
 
 

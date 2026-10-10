@@ -13,6 +13,7 @@ session pipeline (``session_analysis``). Status goes ``uploaded`` →
 ``transcribing`` (from the job's start) → ``transcribed`` → ``analyzing`` →
 ``completed``, or ``failed`` with the reason. A completed session's signals
 are then embedded (``signal_embeddings``); that step never fails the session.
+Then the placement's health recompute is queued (``health_jobs``).
 A job that finds its session already ``transcribed`` runs only the analysis.
 A ``processing_jobs`` row
 records each run: its stage (``copying``, ``downloading``, ``transcribing``,
@@ -43,12 +44,14 @@ from app.models.enums import (
     SessionKind,
     SessionSource,
     SessionStatus,
+    SnapshotReason,
 )
 from app.models.processing_cost import ProcessingCost
 from app.models.processing_job import ProcessingJob
 from app.models.register import Placement
 from app.models.session import Session
 from app.services.cost_tracker import calculate_assemblyai_cost
+from app.services.health_jobs import request_recompute
 from app.services.processing_ownership import (
     register_takeover_requeue,
     register_takeover_sweep,
@@ -418,8 +421,13 @@ class SessionRunner:
         await SessionAnalysisService(self.db, pipeline=self._pipeline).analyse(
             session, job
         )
-        if session.status == SessionStatus.COMPLETED.value:
-            await embed_session_signals(self.db, session.id, job.id)
+        if session.status != SessionStatus.COMPLETED.value:
+            return
+        # Read before the embedding step: a failure there rolls back, which
+        # expires the loaded rows
+        session_id, job_id, placement_id = session.id, job.id, session.placement_id
+        await embed_session_signals(self.db, session_id, job_id)
+        request_recompute(placement_id, SnapshotReason.CALL)
 
 
 async def run_session_job(job: Job) -> None:

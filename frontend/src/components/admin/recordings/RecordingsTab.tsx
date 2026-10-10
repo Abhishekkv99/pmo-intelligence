@@ -219,7 +219,7 @@ export function RecordingsTab({ enabled }: { enabled: boolean }) {
                 toast.success(
                   queued
                     ? "Scan queued; new recordings appear in a minute or two"
-                    : "A scan is already queued or running",
+                    : "A scan is already waiting to start",
                 );
               } catch (err) {
                 toast.error(saveErrorMessage(err));

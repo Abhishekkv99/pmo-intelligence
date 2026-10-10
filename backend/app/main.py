@@ -64,6 +64,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     # health check would kill a task that waited minutes to start. Requests
     # meanwhile enqueue into the not-yet-started queue as usual.
     from app.db.session import engine
+    from app.services.health_jobs import (
+        DailyHealthRecompute,
+        register_health_processing,
+    )
     from app.services.processing_ownership import (
         ProcessingOwnership,
         hold_processing,
@@ -79,6 +83,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     # so the first owner already recovers what a previous task left running.
     register_recordings_scan()
     register_session_processing()
+    register_health_processing()
 
     processing_queue = get_processing_queue()
     processing_ownership = ProcessingOwnership(engine)
@@ -93,10 +98,18 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
         periodic_scan = PeriodicRecordingsScan()
         periodic_scan.start()
 
+    # Every task queues the daily recompute at its hour; only the owner runs it.
+    daily_health: DailyHealthRecompute | None = None
+    if settings.health_daily_enabled:
+        daily_health = DailyHealthRecompute()
+        daily_health.start()
+
     yield
 
     if periodic_scan is not None:
         await periodic_scan.stop()
+    if daily_health is not None:
+        await daily_health.stop()
 
     # Shutdown: stop the processing queue last, after every producer, then
     # give up ownership so the next task can take over. No drain: ECS allows

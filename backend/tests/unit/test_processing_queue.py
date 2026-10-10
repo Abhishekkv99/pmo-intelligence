@@ -119,7 +119,7 @@ class TestEnqueue:
         assert queue.enqueue(_session(row_id)) is True
         assert queue.enqueue(Job("health_recompute", row_id)) is True
 
-    async def test_dedupes_a_running_job_and_allows_it_again_after(
+    async def test_a_job_requested_while_it_runs_runs_once_more_after(
         self, started: tuple[ProcessingQueue, _Recorder]
     ) -> None:
         queue, recorder = started
@@ -129,11 +129,59 @@ class TestEnqueue:
         queue.enqueue(job)
         await recorder.started.wait()
         assert queue.snapshot().running[0].job == job
-        assert queue.enqueue(_session(job.id)) is False
+        # Any number of requests during one run make one more run
+        assert queue.enqueue(_session(job.id)) is True
+        assert queue.enqueue(_session(job.id)) is True
+        assert queue.snapshot().depth == 0
 
         recorder.gate.set()
         await _drain(queue)
+        assert [j.id for j in recorder.ran] == [job.id, job.id]
         assert queue.enqueue(_session(job.id)) is True
+
+    async def test_the_run_again_takes_the_latest_request(
+        self, started: tuple[ProcessingQueue, _Recorder]
+    ) -> None:
+        queue, recorder = started
+        recorder.gate = asyncio.Event()
+        job_id = uuid.uuid4()
+
+        queue.enqueue(Job("health_recompute", job_id, pq.BACKLOG_PRIORITY, "daily"))
+        await recorder.started.wait()
+        queue.enqueue(Job("health_recompute", job_id, pq.BACKLOG_PRIORITY, "call"))
+        queue.enqueue(Job("health_recompute", job_id, pq.SESSION_PRIORITY, "register"))
+        recorder.gate.set()
+        await _drain(queue)
+
+        assert [(j.reason, j.priority) for j in recorder.ran] == [
+            ("daily", pq.BACKLOG_PRIORITY),
+            ("register", pq.SESSION_PRIORITY),
+        ]
+
+    async def test_a_failed_run_still_runs_again_when_requested(
+        self, started: tuple[ProcessingQueue, _Recorder]
+    ) -> None:
+        queue, recorder = started
+        recorder.gate = asyncio.Event()
+        job_id = uuid.uuid4()
+        first = Job("health_recompute", job_id, reason="first")
+        recorder.fail_on.add(first)
+
+        queue.enqueue(first)
+        await recorder.started.wait()
+        queue.enqueue(Job("health_recompute", job_id, reason="second"))
+        recorder.gate.set()
+        await _drain(queue)
+
+        assert [j.reason for j in recorder.ran] == ["second"]
+
+    async def test_the_reason_is_not_part_of_a_job_s_identity(self) -> None:
+        queue = ProcessingQueue(concurrency=1, runner=_Recorder())
+        job_id = uuid.uuid4()
+
+        assert queue.enqueue(Job("health_recompute", job_id, reason="call")) is True
+        assert queue.enqueue(Job("health_recompute", job_id, reason="daily")) is False
+        assert queue.snapshot().pending[0].reason == "call"
 
     async def test_snapshot_lists_pending_in_dispatch_order(self) -> None:
         queue = ProcessingQueue(concurrency=2, runner=_Recorder())
@@ -299,6 +347,21 @@ class TestWorker:
         # Neither the cancelled job nor the one behind it ran; the takeover
         # sweeps make their rows retryable.
         assert queue.snapshot().depth == 1
+
+    async def test_stop_drops_a_booked_run_again(self) -> None:
+        recorder = _Recorder()
+        recorder.gate = asyncio.Event()  # never set: the job blocks forever
+        queue = ProcessingQueue(concurrency=1, runner=recorder)
+        await queue.start()
+        job = _session()
+        queue.enqueue(job)
+        await recorder.started.wait()
+        queue.enqueue(_session(job.id))
+
+        await queue.stop()
+
+        assert queue.snapshot().depth == 0
+        assert queue.is_queued(job) is False
 
     async def test_start_is_idempotent_and_capacity_floors_at_one(self) -> None:
         queue = ProcessingQueue(concurrency=0, runner=_Recorder())
