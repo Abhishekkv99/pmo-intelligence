@@ -74,7 +74,7 @@ PMO managers and admins edit the register; any other role gets `403 {"detail": "
 | PATCH | `/projects/{project_id}` | `pmo_manager`, `admin` | any of the above | `ProjectResponse` |
 | GET | `/placements` | `pmo_manager`, `admin` | — | `PlacementResponse[]`, newest start first |
 | POST | `/placements` | `pmo_manager`, `admin` | `{consultant_id, project_id, start_date, expected_end_date?, extension_status?, rate_band?, ps_user_id?, sme_user_id?, status?, ended_reason?}` | `201` `PlacementResponse`; 409 if the consultant already has a placement on the project from that day |
-| GET | `/placements/{placement_id}` | placement scope | — | `PlacementResponse`; 404 outside scope |
+| GET | `/placements/{placement_id}` | placement scope | — | `PlacementResponse`; 404 outside scope. An SME gets `extension_status`, `rate_band` and `ended_reason` as `null` |
 | PATCH | `/placements/{placement_id}` | `pmo_manager`, `admin` (and placement scope) | any of the above | `PlacementResponse` |
 | POST | `/register/import?dry_run=true` | `pmo_manager`, `admin`; 10/min | multipart `file` (`.csv`, at most 1 MB and 1,000 rows) | `ImportResult` (below) |
 

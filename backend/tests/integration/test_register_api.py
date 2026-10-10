@@ -303,6 +303,42 @@ class TestAccess:
         assert own.status_code == 200
         assert other.status_code == 404
 
+    async def test_an_sme_reads_their_placement_without_the_contract_fields(
+        self, manager_client: AsyncClient, db_session: AsyncSession
+    ) -> None:
+        w = await _world(manager_client, db_session)
+        sme = await _user(db_session, "sam", Role.SME)
+        placement_id = w["placement"]["id"]
+        await manager_client.patch(
+            f"/api/v1/placements/{placement_id}",
+            json={
+                "sme_user_id": str(sme.id),
+                "extension_status": "requested",
+                "rate_band": "B",
+            },
+        )
+
+        def bearer(user: User) -> dict[str, str]:
+            token = AuthService.create_access_token(user.id)
+            return {"Authorization": f"Bearer {token}"}
+
+        as_sme = await manager_client.get(
+            f"/api/v1/placements/{placement_id}", headers=bearer(sme)
+        )
+        as_ps = await manager_client.get(
+            f"/api/v1/placements/{placement_id}", headers=bearer(w["ps"])
+        )
+
+        assert as_sme.status_code == 200
+        body = as_sme.json()
+        assert body["extension_status"] is None
+        assert body["rate_band"] is None
+        assert body["ended_reason"] is None
+        assert body["start_date"] == "2026-08-17"
+        assert body["sme"]["full_name"] == "Sam"
+        assert as_ps.json()["extension_status"] == "requested"
+        assert as_ps.json()["rate_band"] == "B"
+
     @pytest.mark.parametrize(
         ("method", "path"),
         [

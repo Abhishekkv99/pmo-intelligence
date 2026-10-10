@@ -61,7 +61,7 @@ FastAPI app in `backend/app/`, layered routes → services → repositories → 
 | Database bootstrap | `app/cli/db_bootstrap.py` | One-off ECS task per deployed environment: creates the `pmo_app` login (random password), makes it owner of the database and `public` schema, creates `vector`, and writes `DATABASE_URL` into the app secret. Idempotent; `--rotate-password` rotates. Run with `make db-bootstrap ENV=<env>` |
 
 **Placement register** (owned here, BACKLOG #3):
-- Edited by `pmo_manager` and `admin` only. A single placement is read by id under placement scope, like every by-id read.
+- Edited by `pmo_manager` and `admin` only. A single placement is read by id under placement scope, like every by-id read; an SME reads it without the contract fields (extension status, rate band, ended reason), as on the placement health page.
 - Unique: a client by its normalised name (case and spacing ignored), a consultant by email (any case), a project by (client, name), a placement by (consultant, project, start date). A duplicate answers 409.
 - People named on a project or placement (tech lead, PS, SME) must be active users with a role, because being named gives scoped read of the placement.
 - Nothing is deleted: a placement ends by `status` (`ended`, `terminated`, with `ended_reason`), a consultant by `left`.

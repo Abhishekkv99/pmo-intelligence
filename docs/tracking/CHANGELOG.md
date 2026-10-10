@@ -13,6 +13,7 @@ All notable changes to this project will be documented in this file.
 - The processing queue remembers a job asked for while it runs and runs it once more when it finishes, so a change made during a run is not lost. "Scan now" during a running scan books another (`queued: true`); `queued` is false only when a scan is already waiting to start, and the Recordings tab says so.
 
 ### Fixed
+- An SME reading a placement by id (`GET /placements/{placement_id}`) no longer sees its extension status, rate band or ended reason, which the placement health page already hides from them.
 - Editing a consultant, client or project on Admin > Register answered 500. The update flushed without reloading the row, so the response read a server-set `updated_at` that had expired, and an async session cannot load it lazily. The row is now reloaded after the flush.
 - After a backend deploy, processing resumes in about 2½ minutes instead of about 6. The old task was signalled only after the load balancer's 300 s default connection drain, and the new task could not take processing ownership until then; the backend target group now drains for 60 s. The old task already shut down cleanly in a fraction of a second; it now also logs "Released processing ownership", so a clean release can be told from a dropped connection.
 - A `transcribed` session counts as in flight on the Recordings tab, so the tab keeps polling every 10 s while it waits for its analysis.

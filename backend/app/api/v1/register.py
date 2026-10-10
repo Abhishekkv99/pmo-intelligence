@@ -2,7 +2,9 @@
 
 Editing the register is for the global roles (PMO manager, admin). Reading a
 single placement by id is scoped like every by-id read: the people it names
-may read it, anyone else gets the same 404 as for a missing placement.
+may read it, anyone else gets the same 404 as for a missing placement. An SME
+reads it without the contract fields (extension status, rate band, ended
+reason), as on the placement health page.
 """
 
 import uuid
@@ -10,7 +12,12 @@ import uuid
 from fastapi import APIRouter, Depends, Query, Request, UploadFile
 
 from app.db.repositories.placement_repo import PlacementRow
-from app.dependencies import DbSession, PlacementScope, require_roles
+from app.dependencies import (
+    DbSession,
+    PlacementScope,
+    get_current_user,
+    require_roles,
+)
 from app.models.enums import ExtensionStatus, PlacementStatus, Role, SnapshotReason
 from app.models.register import Client, Consultant
 from app.models.user import User
@@ -36,6 +43,7 @@ from app.schemas.register import (
 from app.services.health_jobs import request_recompute, request_recomputes
 from app.services.register_import import MAX_BYTES, RegisterImport
 from app.services.register_service import ProjectRow, RegisterService
+from app.utils.entitlements import sees_technical_only
 from app.utils.exceptions import ValidationError
 
 router = APIRouter()
@@ -158,8 +166,13 @@ async def create_placement(body: PlacementCreate, db: DbSession) -> PlacementRes
 
 
 @router.get("/placements/{placement_id}", response_model=PlacementResponse)
-async def get_placement(placement: PlacementScope, db: DbSession) -> PlacementResponse:
-    return _placement(await RegisterService(db).placement_row(placement.id))
+async def get_placement(
+    placement: PlacementScope,
+    db: DbSession,
+    current_user: User = Depends(get_current_user),
+) -> PlacementResponse:
+    row = await RegisterService(db).placement_row(placement.id)
+    return _placement(row, contract=not sees_technical_only(current_user))
 
 
 @router.patch(
@@ -231,7 +244,8 @@ def _project(row: ProjectRow) -> ProjectResponse:
     )
 
 
-def _placement(row: PlacementRow) -> PlacementResponse:
+def _placement(row: PlacementRow, *, contract: bool = True) -> PlacementResponse:
+    """``contract`` False leaves out the contract fields (an SME's read)."""
     p = row.placement
     return PlacementResponse(
         id=p.id,
@@ -244,10 +258,10 @@ def _placement(row: PlacementRow) -> PlacementResponse:
         project=NamedRef(id=row.project.id, name=row.project.name),
         start_date=p.start_date,
         expected_end_date=p.expected_end_date,
-        extension_status=ExtensionStatus(p.extension_status),
-        rate_band=p.rate_band,
+        extension_status=ExtensionStatus(p.extension_status) if contract else None,
+        rate_band=p.rate_band if contract else None,
         status=PlacementStatus(p.status),
-        ended_reason=p.ended_reason,
+        ended_reason=p.ended_reason if contract else None,
         ps=_person(row.ps),
         sme=_person(row.sme),
         tech_lead=_person(row.tech_lead),

@@ -167,7 +167,8 @@ class PlacementResponse(BaseModel):
     project: NamedRef
     start_date: date
     expected_end_date: date | None
-    extension_status: ExtensionStatus
+    # Null for an SME, with rate_band and ended_reason: contract matters.
+    extension_status: ExtensionStatus | None
     rate_band: str | None
     status: PlacementStatus
     ended_reason: str | None

@@ -63,7 +63,7 @@
 
 ## Task Checklist
 
->>> CURRENT PHASE: Phase 5 (in progress)
+>>> CURRENT PHASE: Phase 6 (not started; Phase 5 committed)
 
 ### Phase 0: Plan
 - [x] Plan approved (2026-10-09)
@@ -142,7 +142,7 @@
 - [x] `API.md`, `ARCHITECTURE.md`, `FEATURES.md`, `TESTS.md`, `CHANGELOG.md` (API: new section "Risk board and placement health", the SME note in Sessions; ARCHITECTURE: new section "Health views (as built)", migration 007, `> Status:`; TESTS: every row compared with `--collect-only`; README: no new make target; `.env.example`: no new setting; `DEPLOYMENT.md`'s status waits for the deploy that applies 007)
 
 **Commit checkpoint**
-- [ ] `feat: add the risk board and placement health routes`
+- [x] `feat: add the risk board and placement health routes` (29ce60d); then `fix: hide contract fields from an SME's placement read` (the register read, user decision 2026-10-10)
 
 ### Phase 6: Risk board page
 **Code work**
@@ -190,16 +190,16 @@
 
 ## Session State (last updated: 2026-10-10 10:00)
 - **Sprint**: 2 — Health v1 (PRD Phase 2)
-- **Current phase**: Phase 5 (board and placement health routes) in progress; its design questions answered (Decisions Log, Phase 5 rows)
-- **Phase progress**: Phase 5: code and docs complete; commit to go (waits for the user)
+- **Current phase**: Phase 5 committed (29ce60d); Phase 6 (risk board page) not started (waits for the user)
+- **Phase progress**: Phase 5: all tasks complete; the register read fix committed after it
 - **Last completed task**: read both deploys' logs (2026-10-10, after the user's AWS sign-in): 632fc5d took processing ownership after 155 s, 844aae6 after 150 s, each with the old task's release logged; the 844aae6 takeover's health catch-up wrote no line because no placement exists on staging yet (a takeover step logs only a non-zero count; no WARNING, so it did not fail)
-- **Next task**: commit `feat: add the risk board and placement health routes` when the user approves, push, read the deploy through to "Took processing ownership" (migration 007 applies) and update `DEPLOYMENT.md`'s status; then Phase 6 when the user asks
-- **Last commit**: 844aae6 "feat: recompute health after calls, edits and daily" (pushed; CI run 38028603441 green, backend and frontend deployed)
-- **Uncommitted changes**: all of Phase 5 (files below), plus `DEPLOYMENT.md` (the Phase 4 deploy results), all for the Phase 5 commit
+- **Next task**: push 29ce60d and the fix, read the deploy through to "Took processing ownership" (migration 007 applies) and update `DEPLOYMENT.md`'s status; then Phase 6 when the user asks
+- **Last commit**: the register read fix after 29ce60d "feat: add the risk board and placement health routes" (not yet pushed)
+- **Uncommitted changes**: none
 - **Blockers**: none
-- **Tests passing**: 755 unit + 274 integration (backend, run 2026-10-10 Phase 5) + 157 frontend unit (run 2026-10-10) + 17 e2e (green in CI run 38027538149) = 1203
+- **Tests passing**: 755 unit + 275 integration (backend, run 2026-10-10 after the register read fix) + 157 frontend unit (run 2026-10-10) + 17 e2e (green in CI run 38027538149) = 1204
 - **Files created this session**: `backend/alembic/versions/007_add_snapshot_technical_trend.py`, `backend/app/api/v1/placement_health.py`, `backend/app/schemas/health.py`, `backend/app/services/health_view.py`, `backend/tests/integration/test_placement_health_api.py`
-- **Files modified this session**: `backend/app/api/router.py`, `backend/app/db/repositories/{health,placement,session,signal}_repo.py`, `backend/app/health/scoring.py`, `backend/app/models/{enums,health}.py`, `backend/app/services/{health_service,processing_ownership,session_view}.py`, `backend/app/utils/entitlements.py`, tests `integration/{test_health_schema,test_health_service,test_migrations,test_sessions_api}.py` and `unit/{test_health_scoring,test_processing_ownership}.py`; docs `API.md`, `ARCHITECTURE.md`, `tracking/{CHANGELOG,FEATURES,TESTS}.md`, this file
+- **Files modified this session**: (fix) `backend/app/api/v1/register.py`, `backend/app/schemas/register.py`, `backend/tests/integration/test_register_api.py`; (Phase 5) `backend/app/api/router.py`, `backend/app/db/repositories/{health,placement,session,signal}_repo.py`, `backend/app/health/scoring.py`, `backend/app/models/{enums,health}.py`, `backend/app/services/{health_service,processing_ownership,session_view}.py`, `backend/app/utils/entitlements.py`, tests `integration/{test_health_schema,test_health_service,test_migrations,test_sessions_api}.py` and `unit/{test_health_scoring,test_processing_ownership}.py`; docs `API.md`, `ARCHITECTURE.md`, `tracking/{CHANGELOG,FEATURES,TESTS}.md`, this file
 - **Key decisions this session**: Phase 5: ten design decisions (Decisions Log, "Phase 5" rows), among them the Technical trend stored by migration 007, the SME view by role, server-side board order, one response model with `view`. Earlier, Phase 4: the catch-up covers a missed daily run and every placement without a snapshot; an applied import recomputes what it created or changed; "Scan now" during a scan answers `queued: true`; the register edit bug shipped as its own fix commit first; a takeover step logs a zero count (Phase 5); the Phase 3 and Phase 4 judgement calls approved (user decisions 2026-10-10, in the Decisions Log)
 - **Recovery instructions**:
   - Read this file first, then `docs/handover/sprint-01-handover.md`.
