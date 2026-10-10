@@ -160,6 +160,10 @@ describe("RiskBoard", () => {
     render(<RiskBoard />);
 
     const tr = rowOf("Priya Shah");
+    // The consultant's name opens the placement page.
+    expect(
+      within(tr).getByRole("link", { name: "Priya Shah" }),
+    ).toHaveAttribute("href", "/placements/p1");
     expect(within(tr).getByText("Acme · Data platform")).toBeInTheDocument();
     expect(within(tr).getByText("7")).toBeInTheDocument();
     expect(within(tr).getByTestId("health-badge")).toHaveTextContent("4.6Red");

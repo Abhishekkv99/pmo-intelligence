@@ -212,6 +212,17 @@ class OtherPlacement(BaseModel):
     status: PlacementStatus
 
 
+class RagThresholds(BaseModel):
+    """The RAG thresholds of the health configuration in use.
+
+    The page draws its bands and colours from these, never from constants of
+    its own, so a configuration change never leaves the page wrong.
+    """
+
+    green_from: float
+    amber_from: float
+
+
 class PlacementHealth(BaseModel):
     """The placement (consultant) page."""
 
@@ -232,3 +243,4 @@ class PlacementHealth(BaseModel):
     open_issues: list[OpenIssue]
     actions: list[PlacementAction]
     other_placements: list[OtherPlacement]
+    thresholds: RagThresholds

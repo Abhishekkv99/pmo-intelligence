@@ -1,9 +1,15 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import type { ColumnDef } from "@tanstack/react-table";
-import { ArrowDown, ArrowRight, ArrowUp } from "lucide-react";
 import { DataTable } from "@/components/common/DataTable";
+import {
+  HealthBadge,
+  LEVEL_CLASSES,
+  NotScored,
+  TrendIndicator,
+} from "@/components/health/HealthIndicators";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -17,17 +23,15 @@ import { useRiskBoard } from "@/hooks/useHealth";
 import {
   formatDate,
   formatDaysAgo,
-  formatDelta,
   formatScore,
+  formatUkDate,
   FLAG_SEVERITY_LABELS,
   isOverdue,
+  placementPath,
   RISK_LEVEL_LABELS,
   RISK_LEVELS,
   RISK_TRIGGER_LABELS,
-  TREND_LABELS,
   ukToday,
-  type RiskLevel,
-  type Trend,
 } from "@/lib/health";
 import { cn } from "@/lib/utils";
 import type { FlagSummary, NextAction, RiskBoardRow } from "@/types/health";
@@ -35,17 +39,12 @@ import type { FlagSummary, NextAction, RiskBoardRow } from "@/types/health";
 const ALL = "all";
 const NOT_SCORED = "not_scored";
 
-const LEVEL_CLASSES: Record<RiskLevel, string> = {
-  red: "bg-risk-red text-risk-red-foreground",
-  amber: "bg-risk-amber text-risk-amber-foreground",
-  green: "bg-risk-green text-risk-green-foreground",
-};
-
 /**
  * The risk board: every active placement the user may read, in the server's
  * order (red first, then falling, then lowest overall; not scored last).
  * An SME sees the technical view: the Technical score and its trend, no
- * flags and no risk filter, in the order of their Technical scores.
+ * flags and no risk filter, in the order of their Technical scores. The
+ * consultant's name opens the placement page.
  */
 export function RiskBoard() {
   const { user } = useAuth();
@@ -106,7 +105,12 @@ export function RiskBoard() {
             header: "Health",
             accessorFn: (r) =>
               r.risk_level ? RISK_LEVEL_LABELS[r.risk_level] : "Not scored",
-            cell: ({ row }) => <HealthBadge row={row.original} />,
+            cell: ({ row }) => (
+              <HealthBadge
+                score={row.original.overall}
+                level={row.original.risk_level}
+              />
+            ),
           },
           {
             id: "trend",
@@ -133,7 +137,12 @@ export function RiskBoard() {
         header: "Consultant",
         accessorFn: (r) => r.consultant.name,
         cell: ({ row }) => (
-          <span className="font-medium">{row.original.consultant.name}</span>
+          <Link
+            href={placementPath(row.original.placement_id)}
+            className="font-medium underline-offset-4 hover:underline"
+          >
+            {row.original.consultant.name}
+          </Link>
         ),
       },
       {
@@ -290,64 +299,6 @@ function PeopleFilter({
   );
 }
 
-function NotScored() {
-  return <span className="text-muted-foreground">Not scored</span>;
-}
-
-function HealthBadge({ row }: { row: RiskBoardRow }) {
-  if (row.risk_level === null || row.overall === null) return <NotScored />;
-  return (
-    <Badge
-      className={cn("gap-1.5 tabular-nums", LEVEL_CLASSES[row.risk_level])}
-      data-testid="health-badge"
-    >
-      {formatScore(row.overall)}
-      <span>{RISK_LEVEL_LABELS[row.risk_level]}</span>
-    </Badge>
-  );
-}
-
-const TREND_ICONS: Record<Trend, typeof ArrowUp> = {
-  up: ArrowUp,
-  flat: ArrowRight,
-  down: ArrowDown,
-};
-
-function TrendIndicator({
-  trend,
-  delta,
-}: {
-  trend: Trend | null;
-  delta: number | null;
-}) {
-  if (trend === null) {
-    return (
-      <span className="text-muted-foreground" title="No score 14 days back yet">
-        —
-      </span>
-    );
-  }
-  const Icon = TREND_ICONS[trend];
-  const label =
-    delta === null
-      ? TREND_LABELS[trend]
-      : `${TREND_LABELS[trend]}, ${formatDelta(delta)} over 14 days`;
-  return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-1 tabular-nums",
-        trend === "down" && "text-risk-red",
-        trend === "up" && "text-risk-green",
-      )}
-      title={label}
-      aria-label={label}
-    >
-      <Icon className="h-4 w-4" aria-hidden />
-      {delta !== null && formatDelta(delta)}
-    </span>
-  );
-}
-
 function FlagChips({ flags }: { flags: FlagSummary[] }) {
   if (flags.length === 0) {
     return <span className="text-muted-foreground">—</span>;
@@ -359,7 +310,7 @@ function FlagChips({ flags }: { flags: FlagSummary[] }) {
           key={flag.id}
           variant={flag.severity === "critical" ? "default" : "outline"}
           className={cn(flag.severity === "critical" && LEVEL_CLASSES.red)}
-          title={`${FLAG_SEVERITY_LABELS[flag.severity]}, opened ${formatDate(ukToday(new Date(flag.opened_at)))}`}
+          title={`${FLAG_SEVERITY_LABELS[flag.severity]}, opened ${formatUkDate(flag.opened_at)}`}
           data-testid="flag"
         >
           {RISK_TRIGGER_LABELS[flag.trigger]}

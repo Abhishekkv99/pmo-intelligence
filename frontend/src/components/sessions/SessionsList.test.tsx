@@ -65,7 +65,10 @@ describe("SessionsList", () => {
     const link = screen.getByRole("link", { name: "1 Oct 2026, 10:00" });
     expect(link).toHaveAttribute("href", "/sessions/s1");
     const row = link.closest("tr")!;
-    expect(within(row).getByText("Priya Shah")).toBeInTheDocument();
+    // The consultant's name opens the placement page.
+    expect(
+      within(row).getByRole("link", { name: "Priya Shah" }),
+    ).toHaveAttribute("href", "/placements/p1");
     expect(within(row).getByText("Acme · Data platform")).toBeInTheDocument();
     expect(within(row).getByText("Technical help")).toBeInTheDocument();
     expect(within(row).getByText("20 min")).toBeInTheDocument();

@@ -16,9 +16,9 @@ Six phases, each one or two sprints, each ending with a staging sign-off by the 
 - **Exit gate**: three real recorded PMO calls processed end to end; the PMO manager agrees the signals and summary are right. **Not run**: Sprint 1 closed 2026-10-09 without it (gate calls dropped, register import postponed; see the Sprint 1 handover)
 
 ## Milestone 2: Health v1 (Sprint 2, 2026-10-12 – 2026-10-23)
-- [ ] Signal store, scoring module, snapshots, triggers, flags
-- [ ] Risk board and consultant page
-- [ ] Daily recompute
+- [x] Signal store, scoring module, snapshots, triggers, flags (Sprint 2 Phases 2 to 5, 2026-10-10)
+- [x] Risk board and consultant page (Sprint 2 Phases 6 and 7, 2026-10-11; the consultant page is per placement)
+- [x] Daily recompute (Sprint 2 Phase 4, 2026-10-10; turned on on staging at Phase 8)
 - **Exit gate**: ten placements scored from their sessions; the PMO manager agrees with the ranking, or the weights are tuned until they do
 
 ## Milestone 3: Teams Chat

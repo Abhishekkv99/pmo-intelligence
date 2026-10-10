@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/select";
 import { useSessions } from "@/hooks/useSessions";
 import { ROUTES } from "@/lib/constants";
+import { placementPath } from "@/lib/health";
 import { formatUkDateTime, SESSION_STATUSES } from "@/lib/recordings";
 import { humanize } from "@/lib/register";
 import { formatDuration, SESSION_KIND_LABELS } from "@/lib/sessions";
@@ -24,7 +25,8 @@ const ALL = "all";
 /**
  * Every session the user may read, newest call first: PMO managers and
  * admins see all of them, everyone else those of the placements naming them.
- * A row opens the session page.
+ * The call time opens the session page; the consultant's name opens the
+ * placement page.
  */
 export function SessionsList() {
   const { sessions, isLoading, error } = useSessions();
@@ -67,6 +69,14 @@ export function SessionsList() {
         id: "consultant",
         header: "Consultant",
         accessorFn: (s) => s.consultant.name,
+        cell: ({ row }) => (
+          <Link
+            href={placementPath(row.original.placement_id)}
+            className="underline-offset-4 hover:underline"
+          >
+            {row.original.consultant.name}
+          </Link>
+        ),
       },
       {
         id: "placement",

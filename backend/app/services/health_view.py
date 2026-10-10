@@ -25,6 +25,7 @@ from app.db.repositories.placement_repo import PlacementRepository, PlacementRow
 from app.db.repositories.session_repo import SessionRepository
 from app.db.repositories.signal_repo import SignalRepository
 from app.db.repositories.user_repo import UserRepository
+from app.health.config import load_health_config
 from app.health.scoring import local_date
 from app.models.enums import (
     ActionStatus,
@@ -62,6 +63,7 @@ from app.schemas.health import (
     PlacementAction,
     PlacementHealth,
     PlacementSession,
+    RagThresholds,
     RegisterFields,
     RiskBoardRow,
     SnapshotDetail,
@@ -223,6 +225,7 @@ class HealthViewService:
                 for other in others
                 if other.placement.id != placement.id
             ],
+            thresholds=_thresholds(),
         )
 
     async def _owners(
@@ -246,6 +249,12 @@ class HealthViewService:
 def _weeks_in(start: date, today: date) -> int:
     """Whole weeks since the start; 0 before it."""
     return max(0, (today - start).days // 7)
+
+
+def _thresholds() -> RagThresholds:
+    """The RAG thresholds of the configuration in use, for the page's bands."""
+    rag = load_health_config(settings.health_config_version).rag
+    return RagThresholds(green_from=rag.green_min, amber_from=rag.amber_min)
 
 
 def _person(user: User | None) -> PersonView | None:

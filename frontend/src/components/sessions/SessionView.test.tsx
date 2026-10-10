@@ -134,7 +134,10 @@ describe("SessionView", () => {
     expect(
       screen.getByRole("heading", { name: "Priya Shah" }),
     ).toBeInTheDocument();
-    expect(screen.getByText(/Acme · Data platform/)).toBeInTheDocument();
+    // The client · project line opens the placement page.
+    expect(
+      screen.getByRole("link", { name: "Acme · Data platform" }),
+    ).toHaveAttribute("href", "/placements/p1");
     expect(
       screen.getByText("Priya is blocked on VPN access."),
     ).toBeInTheDocument();

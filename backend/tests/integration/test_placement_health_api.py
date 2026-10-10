@@ -633,6 +633,8 @@ class TestPlacementHealth:
         assert [p["id"] for p in body["other_placements"]] == [str(made["other"].id)]
         assert body["other_placements"][0]["client"]["name"] == "Globex"
         assert body["other_placements"][0]["status"] == "ended"
+        # The v1 configuration's RAG thresholds, for the page's bands.
+        assert body["thresholds"] == {"green_from": 7.0, "amber_from": 5.0}
 
         rows = await _access_rows(db_session)
         assert [(r.user_id, r.placement_id, r.route) for r in rows] == [
@@ -690,6 +692,8 @@ class TestPlacementHealth:
         assert [s["signal_count"] for s in body["sessions"]] == [1, 0]
         # The SME is not named on the consultant's other placement.
         assert body["other_placements"] == []
+        # Configuration, not data about the placement: given in every view.
+        assert body["thresholds"] == {"green_from": 7.0, "amber_from": 5.0}
         assert len(await _access_rows(db_session)) == 1
 
     async def test_other_placements_are_cut_to_the_readers_scope(

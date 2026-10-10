@@ -25,6 +25,7 @@ import {
 import { retrySession, setSessionKind, useSession } from "@/hooks/useSessions";
 import { ApiError } from "@/lib/api";
 import { ROUTES } from "@/lib/constants";
+import { placementPath } from "@/lib/health";
 import { formatUkDateTime, formatUsd, isInFlight } from "@/lib/recordings";
 import { humanize } from "@/lib/register";
 import { hasGlobalRole } from "@/lib/roles";
@@ -119,8 +120,14 @@ function Header({
         )}
       </div>
       <p className="text-sm text-muted-foreground">
-        {session.client.name} · {session.project.name} ·{" "}
-        {formatUkDateTime(session.held_at)} (UK) ·{" "}
+        <Link
+          href={placementPath(session.placement_id)}
+          className="underline-offset-4 hover:underline"
+          title="Open the placement's health"
+        >
+          {session.client.name} · {session.project.name}
+        </Link>{" "}
+        · {formatUkDateTime(session.held_at)} (UK) ·{" "}
         {formatDuration(session.duration_seconds)}
         {session.project_phase ? ` · ${session.project_phase}` : ""}
       </p>

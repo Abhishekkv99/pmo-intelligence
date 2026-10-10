@@ -6,6 +6,7 @@ export const ROUTES = {
   login: "/login",
   actions: "/actions",
   sessions: "/sessions",
+  placements: "/placements",
   admin: "/admin",
   settings: "/settings",
   ssoCallback: "/auth/callback/microsoft",
