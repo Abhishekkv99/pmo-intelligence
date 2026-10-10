@@ -246,6 +246,35 @@ class TestPartialUpdate:
         assert response.json()["ended_reason"] == "Client cut the budget"
 
 
+class TestEditOtherRecords:
+    @pytest.mark.parametrize(
+        ("resource", "body", "field"),
+        [
+            ("consultant", {"phone": "07700 900123"}, "phone"),
+            ("client", {"industry": "Banking"}, "industry"),
+            ("project", {"client_manager_name": "Dana Lee"}, "client_manager_name"),
+        ],
+    )
+    async def test_an_edit_answers_the_saved_record(
+        self,
+        manager_client: AsyncClient,
+        db_session: AsyncSession,
+        resource: str,
+        body: dict[str, Any],
+        field: str,
+    ) -> None:
+        w = await _world(manager_client, db_session)
+        record = w[resource]
+
+        response = await manager_client.patch(
+            f"/api/v1/{resource}s/{record['id']}", json=body
+        )
+
+        assert response.status_code == 200, response.text
+        assert response.json()[field] == body[field]
+        assert response.json()["updated_at"]
+
+
 class TestAccess:
     async def test_scoped_user_reads_their_placement_only(
         self,

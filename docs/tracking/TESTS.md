@@ -1,15 +1,15 @@
 # Test Tracking
 
 ## Summary
-Counts are taken from the test run output, never estimated. Last run 2026-10-10 (Sprint 2 Phase 3, indicator tagging and signal embeddings): backend unit (726) and integration (237) in full, every row compared with `pytest --collect-only`; frontend unit and e2e unchanged since Sprint 1 Phase 5, when they were run: frontend unit in full (157 pass with `--maxWorkers=4`; with the default worker count and the compose stack running, a dialog test in `UsersTab` or `PlacementDialog` sometimes passes the 5 s test timeout); e2e against the compose stack on ports 8100/3100, twice, 17 of 17.
+Counts are taken from the test run output, never estimated. Last run 2026-10-10 (Sprint 2, the register edit fix): backend unit (726) and integration (240) in full, every row compared with `pytest --collect-only`; frontend unit and e2e unchanged since Sprint 1 Phase 5, when they were run: frontend unit in full (157 pass with `--maxWorkers=4`; with the default worker count and the compose stack running, a dialog test in `UsersTab` or `PlacementDialog` sometimes passes the 5 s test timeout); e2e against the compose stack on ports 8100/3100, twice, 17 of 17.
 
 | Layer | Count |
 |-------|-------|
 | Unit (backend) | 726 |
-| Integration (backend, testcontainers pgvector) | 237 |
+| Integration (backend, testcontainers pgvector) | 240 |
 | Frontend unit (Vitest) | 157 |
 | Frontend e2e (Playwright, against the compose stack) | 17 (1 setup + 16) |
-| **Total** | **1137** |
+| **Total** | **1140** |
 
 ## How to run
 - Backend unit: `cd backend && uv run pytest tests/unit`
@@ -86,7 +86,7 @@ Counts are taken from the test run output, never estimated. Last run 2026-10-10 
 | `test_migrations.py` | 7 | `alembic upgrade head` on an empty DB, `alembic check` (no drift), downgrade and re-upgrade; 002 drops the Microsoft token columns and its downgrade restores them; 003 adds the session and recordings tables and the `processing_costs.session_id` key, and its downgrade removes them; 004 adds and removes `recording_scans`; 005 adds and removes `signals`, `issues`, `actions` and `session_transcripts.project_phase`; 006 adds and removes `health_snapshots`, `risk_flags`, `signals.indicator` and the HNSW index |
 | `test_recordings_api.py` | 15 | The folder list (decided and undecided folders, unmatched left out, recordings with name or S3 time and their session, candidates, the last scan, the scan settings); choosing a consultant makes the folder `chosen`, an unknown consultant 422, an unknown folder 404; Scan now queues one scan; Process creates and queues the session, answers 409 with the placement choices and accepts one, and refuses a second Process; upload stores and queues (time kept as an instant, in UTC), `held_at` without a zone 422; a URL session is checked and queued; a metadata-address URL is refused and nothing is created; scoped roles get 403 on every route |
 | `test_recordings_scanner.py` | 9 | Recordings are allowed files directly in a folder (notes, nested files and objects under the prefix ignored); a first scan catalogs folders and recordings, matches by name, offers a choice for a shared first name, leaves a nameless folder unmatched, reads the call time from the name; nothing is processed or queued; a new file in a known room is added once; an unmatched folder matches once the consultant is registered; chosen and matched folders are never re-matched; a failed listing is recorded and changes nothing; the takeover sweep fails scans left running; only calls from the earliest date on are cataloged (an old room is left out, an ongoing one keeps its recent call) |
-| `test_register_api.py` | 20 | Register routes: a manager builds a placement; names tidied; uniqueness (client name, consultant email, project per client, placement key) answers 409; end before start, inactive or role-less people and unknown references answer 422; required fields cannot be cleared; partial PATCH with null clearing; ending a placement; a PS reads only their own placement by id (404 otherwise) and cannot list or edit (403); the user list has no secrets |
+| `test_register_api.py` | 23 | Register routes: a manager builds a placement; names tidied; a consultant, client or project edit answers the saved record (200, with `updated_at`); uniqueness (client name, consultant email, project per client, placement key) answers 409; end before start, inactive or role-less people and unknown references answer 422; required fields cannot be cleared; partial PATCH with null clearing; ending a placement; a PS reads only their own placement by id (404 otherwise) and cannot list or edit (403); the user list has no secrets |
 | `test_register_import.py` | 10 | CSV import: a dry run previews and writes nothing; Confirm writes and a re-import is unchanged (rows reuse what earlier rows created); any row error writes nothing; filled cells overwrite, empty cells keep; a consultant entered by name gains the email; two consultants with one name need an email; people must be users with a role, a different role warns; not a `.csv` is 422; scoped roles cannot import |
 | `test_placement_scope.py` | 10 | Who can read a placement (each role); denial identical to a missing row; `access_log` rows only for permitted logged reads |
 | `test_processing_ownership.py` | 7 | Advisory lock acquire, hold, heartbeat, release (logged once, only when held) |

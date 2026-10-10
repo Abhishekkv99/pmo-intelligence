@@ -113,6 +113,9 @@ class RegisterService:
         if "status" in fields:
             consultant.status = fields["status"].value
         await self.session.flush()
+        # The flush expires the server-set updated_at; reload it here, since
+        # the response reads it and a lazy load cannot run under async
+        await self.session.refresh(consultant)
         return consultant
 
     async def _assert_consultant_email_free(
@@ -154,6 +157,9 @@ class RegisterService:
         if "industry" in fields:
             client.industry = fields["industry"] or None
         await self.session.flush()
+        # The flush expires the server-set updated_at; reload it here, since
+        # the response reads it and a lazy load cannot run under async
+        await self.session.refresh(client)
         return client
 
     async def _assert_client_name_free(
@@ -227,6 +233,9 @@ class RegisterService:
         if "start_date" in fields:
             project.start_date = fields["start_date"]
         await self.session.flush()
+        # The flush expires the server-set updated_at; reload it here, since
+        # the response reads it and a lazy load cannot run under async
+        await self.session.refresh(project)
         return project
 
     async def _assert_project_name_free(
