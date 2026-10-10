@@ -14,8 +14,15 @@ transcribed (its recording stored, nothing else), for testing retry: a retry
 runs the real job, which fails again at transcription on a stack without an
 AssemblyAI key.
 
+With ``--health`` the analysed session is dated relative to today, for the
+risk board: the placement started 60 days ago and ends in 20 without a
+confirmed extension, the call was 3 days ago and also carries a client
+dissatisfaction signal, its action is due in 2 days, and the placement's
+health is recomputed directly (amber, with the client dissatisfaction and
+contract horizon flags).
+
 Usage (in the backend container):
-    python -m app.cli.seed_e2e_session --run abc123 [--failed]
+    python -m app.cli.seed_e2e_session --run abc123 [--failed | --health]
 
 Prints one JSON line: ``{"session_id", "placement_id", "consultant"}``.
 """
@@ -25,22 +32,28 @@ import asyncio
 import json
 import sys
 import uuid
-from datetime import UTC, date, datetime, timedelta
+from dataclasses import dataclass
+from datetime import UTC, date, datetime, time, timedelta
+from zoneinfo import ZoneInfo
 
 from app.config import settings
 from app.db.session import async_session_factory
 from app.models.enums import (
     ActionStatus,
+    ExtensionStatus,
     IssueStatus,
     SessionKind,
     SessionSource,
     SessionStatus,
+    SignalIndicator,
+    SnapshotReason,
     SourceKind,
 )
 from app.models.processing_cost import ProcessingCost
 from app.models.register import Client, Consultant, Placement, Project
 from app.models.session import Session, SessionTranscript
 from app.models.signal import Action, Issue, Signal
+from app.services.health_service import HealthService
 from app.services.register_service import normalize_name
 from app.services.storage import get_storage_backend
 from app.services.upload_service import session_media_key
@@ -55,11 +68,46 @@ UTTERANCES = [
     ("B", "I am still blocked on VPN access to the client network.", 5_000, 9_000),
     ("A", "I will chase the client's IT team for the VPN today.", 10_000, 14_000),
     ("B", "The team lead has been really supportive so far.", 15_000, 19_000),
+    ("B", "My manager says the client is not happy with the pace.", 20_000, 24_000),
 ]
 # Each found in the transcript above, at the offset used below.
 ISSUE_QUOTE = "still blocked on VPN access to the client network"
 RELATIONSHIP_QUOTE = "The team lead has been really supportive so far."
 ACTION_QUOTE = "I will chase the client's IT team for the VPN today."
+CLIENT_QUOTE = "the client is not happy with the pace"
+
+
+@dataclass(frozen=True)
+class SeedDates:
+    """When the seeded placement runs, its call was held and its action is due."""
+
+    start: date
+    expected_end: date | None
+    held_at: datetime
+    due: date
+
+
+# The analysed session of the session page tests, at fixed dates.
+FIXED_DATES = SeedDates(
+    start=date(2026, 9, 1),
+    expected_end=None,
+    held_at=HELD_AT,
+    due=date(2026, 10, 1),
+)
+
+
+def health_dates(today: date) -> SeedDates:
+    """The --health dates around ``today`` (a UK date): started 60 days ago,
+    ending in 20, the call 3 days ago at noon UK time, the action due in 2."""
+    noon = datetime.combine(
+        today - timedelta(days=3), time(12), tzinfo=ZoneInfo("Europe/London")
+    )
+    return SeedDates(
+        start=today - timedelta(days=60),
+        expected_end=today + timedelta(days=20),
+        held_at=noon.astimezone(UTC),
+        due=today + timedelta(days=2),
+    )
 
 
 def _refuse_outside_development() -> str | None:
@@ -70,7 +118,14 @@ def _refuse_outside_development() -> str | None:
     return None
 
 
-async def seed(run: str, *, failed: bool = False) -> dict[str, str]:
+async def seed(
+    run: str, *, failed: bool = False, health: bool = False
+) -> dict[str, str]:
+    dates = FIXED_DATES
+    if health:
+        tz = ZoneInfo(settings.health_timezone)
+        dates = health_dates(datetime.now(tz).date())
+    held_at = dates.held_at
     async with async_session_factory() as db:
         client_name = f"E2E Session Client {run}"
         client = Client(name=client_name, normalized_name=normalize_name(client_name))
@@ -85,7 +140,11 @@ async def seed(run: str, *, failed: bool = False) -> dict[str, str]:
         placement = Placement(
             consultant_id=consultant.id,
             project_id=project.id,
-            start_date=date(2026, 9, 1),
+            start_date=dates.start,
+            expected_end_date=dates.expected_end,
+            extension_status=ExtensionStatus.DUE.value
+            if health
+            else ExtensionStatus.NOT_DUE.value,
         )
         db.add(placement)
         await db.flush()
@@ -94,7 +153,7 @@ async def seed(run: str, *, failed: bool = False) -> dict[str, str]:
             id=uuid.uuid4(),
             placement_id=placement.id,
             kind=SessionKind.TECHNICAL.value,
-            held_at=HELD_AT,
+            held_at=held_at,
             duration_seconds=1_200.0,
             source=SessionSource.UPLOAD.value,
             original_filename="Recording 2026-10-01 10-00-00.webm",
@@ -145,8 +204,8 @@ async def seed(run: str, *, failed: bool = False) -> dict[str, str]:
         issue = Issue(
             placement_id=placement.id,
             topic="VPN access to the client network",
-            first_seen_at=HELD_AT,
-            last_seen_at=HELD_AT,
+            first_seen_at=held_at,
+            last_seen_at=held_at,
             status=IssueStatus.OPEN.value,
         )
         db.add(issue)
@@ -159,7 +218,7 @@ async def seed(run: str, *, failed: bool = False) -> dict[str, str]:
                 source_kind=SourceKind.SESSION.value,
                 source_id=session.id,
                 speaker_role="consultant",
-                occurred_at=HELD_AT + timedelta(milliseconds=offset),
+                occurred_at=held_at + timedelta(milliseconds=offset),
                 **fields,
             )
 
@@ -195,7 +254,7 @@ async def seed(run: str, *, failed: bool = False) -> dict[str, str]:
                     quote=ACTION_QUOTE,
                     offset_ms=10_000,
                     due_text="today",
-                    due_date=date(2026, 10, 1),
+                    due_date=dates.due,
                     status=ActionStatus.OPEN.value,
                 ),
                 ProcessingCost(
@@ -212,7 +271,23 @@ async def seed(run: str, *, failed: bool = False) -> dict[str, str]:
                 ),
             ]
         )
+        if health:
+            db.add(
+                signal(
+                    category="client",
+                    dimension="delivery",
+                    polarity="negative",
+                    severity=3,
+                    confidence=0.9,
+                    quote=CLIENT_QUOTE,
+                    note="The client manager is unhappy with the pace.",
+                    offset_ms=20_000,
+                    indicator=SignalIndicator.CLIENT_DISSATISFACTION.value,
+                )
+            )
         await db.commit()
+        if health:
+            await HealthService(db).recompute(placement.id, SnapshotReason.CALL)
         return _ids(session, placement, consultant)
 
 
@@ -231,17 +306,25 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--run", required=True, help="a suffix that makes the names unique"
     )
-    parser.add_argument(
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument(
         "--failed",
         action="store_true",
         help="a session that failed before transcription, to retry",
+    )
+    mode.add_argument(
+        "--health",
+        action="store_true",
+        help="an analysed session dated around today, its placement recomputed",
     )
     args = parser.parse_args(argv)
     refusal = _refuse_outside_development()
     if refusal:
         print(refusal, file=sys.stderr)
         return 2
-    print(json.dumps(asyncio.run(seed(args.run, failed=args.failed))))
+    print(
+        json.dumps(asyncio.run(seed(args.run, failed=args.failed, health=args.health)))
+    )
     return 0
 
 

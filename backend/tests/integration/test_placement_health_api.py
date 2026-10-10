@@ -214,12 +214,13 @@ class World:
         severity: str = "critical",
         evidence: list[uuid.UUID] | None = None,
         closed: bool = False,
+        opened_days_ago: int = 2,
     ) -> RiskFlag:
         flag = RiskFlag(
             placement_id=placement.id,
             trigger=trigger,
             severity=severity,
-            opened_at=NOW - timedelta(days=2),
+            opened_at=NOW - timedelta(days=opened_days_ago),
             evidence_signal_ids=evidence or [],
             closed_at=NOW - timedelta(days=1) if closed else None,
         )
@@ -367,6 +368,34 @@ class TestRiskBoard:
             "owner_role": "consultant",
             "due_date": "2026-10-18",
         }
+
+    async def test_flags_are_listed_critical_first_then_oldest_then_prd_order(
+        self, manager_client: AsyncClient, world: World
+    ) -> None:
+        placement = await world.placement("Priya Shah")
+        # Added in an order that matches none of the rules below.
+        await world.flag(
+            placement, "contract_horizon", severity="high", opened_days_ago=9
+        )
+        await world.flag(placement, "intent_to_leave", opened_days_ago=1)
+        await world.flag(placement, "client_dissatisfaction", opened_days_ago=1)
+        await world.flag(
+            placement, "downward_trend", severity="high", opened_days_ago=1
+        )
+
+        [row] = (await manager_client.get("/api/v1/risk-board")).json()
+        page = await manager_client.get(f"/api/v1/placements/{placement.id}/health")
+
+        # Critical before high; the older high first; the two critical flags
+        # opened together in the PRD's trigger order.
+        expected = [
+            "client_dissatisfaction",
+            "intent_to_leave",
+            "contract_horizon",
+            "downward_trend",
+        ]
+        assert [f["trigger"] for f in row["open_flags"]] == expected
+        assert [f["trigger"] for f in page.json()["open_flags"]] == expected
 
     async def test_a_row_without_calls_or_dated_actions_has_none(
         self, manager_client: AsyncClient, world: World

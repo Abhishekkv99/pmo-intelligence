@@ -30,6 +30,8 @@ interface DataTableProps<T> {
   /** Filters and buttons shown beside the search box. */
   toolbar?: ReactNode;
   isLoading?: boolean;
+  /** False keeps the rows in the order given: headers do not sort. */
+  sortable?: boolean;
 }
 
 /**
@@ -43,6 +45,7 @@ export function DataTable<T>({
   emptyMessage,
   toolbar,
   isLoading = false,
+  sortable = true,
 }: DataTableProps<T>) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [search, setSearch] = useState("");
@@ -56,6 +59,7 @@ export function DataTable<T>({
     state: { sorting, globalFilter: search },
     onSortingChange: setSorting,
     onGlobalFilterChange: setSearch,
+    enableSorting: sortable,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),

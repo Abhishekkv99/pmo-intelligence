@@ -63,7 +63,7 @@
 
 ## Task Checklist
 
->>> CURRENT PHASE: Phase 6 (not started; Phase 5 committed)
+>>> CURRENT PHASE: Phase 6 (code and docs done; commit waits for the user)
 
 ### Phase 0: Plan
 - [x] Plan approved (2026-10-09)
@@ -142,16 +142,16 @@
 - [x] `API.md`, `ARCHITECTURE.md`, `FEATURES.md`, `TESTS.md`, `CHANGELOG.md` (API: new section "Risk board and placement health", the SME note in Sessions; ARCHITECTURE: new section "Health views (as built)", migration 007, `> Status:`; TESTS: every row compared with `--collect-only`; README: no new make target; `.env.example`: no new setting; `DEPLOYMENT.md`'s status waits for the deploy that applies 007)
 
 **Commit checkpoint**
-- [x] `feat: add the risk board and placement health routes` (29ce60d); then `fix: hide contract fields from an SME's placement read` (the register read, user decision 2026-10-10)
+- [x] `feat: add the risk board and placement health routes` (29ce60d); then `fix: hide contract fields from an SME's placement read` (2ec8369, the register read, user decision 2026-10-10); both pushed, CI run 38073001881 green, backend deployed; migration 007 applied; ownership taken after 150 s, the old task's release logged; every takeover step logged its count (all 0)
 
 ### Phase 6: Risk board page
 **Code work**
-- [ ] `src/app/page.tsx` with `components/health/RiskBoard.tsx` (keeps the `h2` "Risk board"), `hooks/useHealth.ts` (30 s polling), `lib/health.ts`, `types/health.ts`; filters PS, tech lead, client, risk level; red first, then trend; "Not scored" last; the SME view; dark mode
-- [ ] E2E seed (`seed_e2e_session.py --health`): dates relative to today, an indicator signal and a placement ending within 30 days, recomputed directly; `tests/e2e/risk-board.spec.ts`
-- [ ] Tests: components (sorting, filters, the SME view), e2e
+- [x] `src/app/page.tsx` with `components/health/RiskBoard.tsx` (keeps the `h2` "Risk board"), `hooks/useHealth.ts` (30 s polling), `lib/health.ts`, `types/health.ts`; filters PS, tech lead, client, risk level; red first, then trend; "Not scored" last; the SME view; dark mode (user decisions 2026-10-11 in the Decisions Log; also `DataTable`'s `sortable` option and the `--risk-*` theme tokens in `globals.css`; found on the way: open flags tied on a random id, now ordered critical first in `health_repo`)
+- [x] E2E seed (`seed_e2e_session.py --health`): dates relative to today, an indicator signal and a placement ending within 30 days, recomputed directly; `tests/e2e/risk-board.spec.ts` (`health_dates`: started 60 days back, ends in 20, the call at noon UK time 3 days back, the action due in 2; a fifth utterance carries the client quote)
+- [x] Tests: components (sorting, filters, the SME view), e2e (frontend: `RiskBoard.test.tsx` 9, `lib/health.test.ts` 6, `DataTable.test.tsx` +1, 173 pass with `--maxWorkers=4`; backend: `test_seed_e2e_session.py` +4, `test_placement_health_api.py` +1 for the flag order, 759 unit and 276 integration pass; e2e 19 of 19 with one worker as CI; lint, types and formatting clean on both sides)
 
 **Doc updates (concurrent)**
-- [ ] `ARCHITECTURE.md` (frontend), `FEATURES.md`, `TESTS.md`, `CHANGELOG.md`
+- [x] `ARCHITECTURE.md` (frontend), `FEATURES.md`, `TESTS.md`, `CHANGELOG.md` (also `API.md`: the flag order; ARCHITECTURE: the Risk board row, the E2E seed row, the flag order, `> Status:`; README: no new make target; TESTS: every row compared with `--collect-only`)
 
 **Commit checkpoint**
 - [ ] `feat: add the risk board`
@@ -188,18 +188,18 @@
 - Real calls: the staging register (by hand, BACKLOG) and consultants told beforehand (BACKLOG #6); the exit gate needs ten scored placements.
 - Phase 1's Terraform apply needs the user's approval; the fix waits for the evidence.
 
-## Session State (last updated: 2026-10-10 10:00)
+## Session State (last updated: 2026-10-11 01:00)
 - **Sprint**: 2 — Health v1 (PRD Phase 2)
-- **Current phase**: Phase 5 committed (29ce60d); Phase 6 (risk board page) not started (waits for the user)
-- **Phase progress**: Phase 5: all tasks complete; the register read fix committed after it
+- **Current phase**: Phase 6 (risk board page): code and docs done, commit waits for the user
+- **Phase progress**: Phase 6: 3 of 3 code tasks and the docs complete; commit to go
 - **Last completed task**: read both deploys' logs (2026-10-10, after the user's AWS sign-in): 632fc5d took processing ownership after 155 s, 844aae6 after 150 s, each with the old task's release logged; the 844aae6 takeover's health catch-up wrote no line because no placement exists on staging yet (a takeover step logs only a non-zero count; no WARNING, so it did not fail)
-- **Next task**: push 29ce60d and the fix, read the deploy through to "Took processing ownership" (migration 007 applies) and update `DEPLOYMENT.md`'s status; then Phase 6 when the user asks
-- **Last commit**: the register read fix after 29ce60d "feat: add the risk board and placement health routes" (not yet pushed)
-- **Uncommitted changes**: none
+- **Next task**: commit `feat: add the risk board`, push, read the deploy through; then Phase 7 when the user asks
+- **Last commit**: 2ec8369 "fix: hide contract fields from an SME's placement read", after 29ce60d "feat: add the risk board and placement health routes" (both pushed; CI run 38073001881 green, backend deployed, migration 007 applied, ownership after 150 s)
+- **Uncommitted changes**: all of Phase 6, plus `DEPLOYMENT.md` (the Phase 5 deploy results), for the Phase 6 commit
 - **Blockers**: none
-- **Tests passing**: 755 unit + 275 integration (backend, run 2026-10-10 after the register read fix) + 157 frontend unit (run 2026-10-10) + 17 e2e (green in CI run 38027538149) = 1204
-- **Files created this session**: `backend/alembic/versions/007_add_snapshot_technical_trend.py`, `backend/app/api/v1/placement_health.py`, `backend/app/schemas/health.py`, `backend/app/services/health_view.py`, `backend/tests/integration/test_placement_health_api.py`
-- **Files modified this session**: (fix) `backend/app/api/v1/register.py`, `backend/app/schemas/register.py`, `backend/tests/integration/test_register_api.py`; (Phase 5) `backend/app/api/router.py`, `backend/app/db/repositories/{health,placement,session,signal}_repo.py`, `backend/app/health/scoring.py`, `backend/app/models/{enums,health}.py`, `backend/app/services/{health_service,processing_ownership,session_view}.py`, `backend/app/utils/entitlements.py`, tests `integration/{test_health_schema,test_health_service,test_migrations,test_sessions_api}.py` and `unit/{test_health_scoring,test_processing_ownership}.py`; docs `API.md`, `ARCHITECTURE.md`, `tracking/{CHANGELOG,FEATURES,TESTS}.md`, this file
+- **Tests passing**: 759 unit + 276 integration (backend, run 2026-10-11) + 173 frontend unit (`--maxWorkers=4`, 2026-10-11) + 19 e2e (one worker, local stack, 2026-10-11) = 1227
+- **Files created this session**: (Phase 6) `frontend/src/components/health/{RiskBoard,RiskBoard.test}.tsx`, `frontend/src/hooks/useHealth.ts`, `frontend/src/lib/{health,health.test}.ts`, `frontend/src/types/health.ts`, `frontend/tests/e2e/risk-board.spec.ts`; (Phase 5) `backend/alembic/versions/007_add_snapshot_technical_trend.py`, `backend/app/api/v1/placement_health.py`, `backend/app/schemas/health.py`, `backend/app/services/health_view.py`, `backend/tests/integration/test_placement_health_api.py`
+- **Files modified this session**: (Phase 6) `frontend/src/app/{page.tsx,globals.css}`, `frontend/src/components/common/DataTable{,.test}.tsx`, `frontend/src/lib/constants.ts`, `backend/app/cli/seed_e2e_session.py`, `backend/app/db/repositories/health_repo.py`, `backend/tests/unit/test_seed_e2e_session.py`, `backend/tests/integration/test_placement_health_api.py`, docs `API.md`, `ARCHITECTURE.md`, `tracking/{CHANGELOG,FEATURES,TESTS}.md`; (fix) `backend/app/api/v1/register.py`, `backend/app/schemas/register.py`, `backend/tests/integration/test_register_api.py`; (Phase 5) `backend/app/api/router.py`, `backend/app/db/repositories/{health,placement,session,signal}_repo.py`, `backend/app/health/scoring.py`, `backend/app/models/{enums,health}.py`, `backend/app/services/{health_service,processing_ownership,session_view}.py`, `backend/app/utils/entitlements.py`, tests `integration/{test_health_schema,test_health_service,test_migrations,test_sessions_api}.py` and `unit/{test_health_scoring,test_processing_ownership}.py`; docs `API.md`, `ARCHITECTURE.md`, `tracking/{CHANGELOG,FEATURES,TESTS}.md`, this file
 - **Key decisions this session**: Phase 5: ten design decisions (Decisions Log, "Phase 5" rows), among them the Technical trend stored by migration 007, the SME view by role, server-side board order, one response model with `view`. Earlier, Phase 4: the catch-up covers a missed daily run and every placement without a snapshot; an applied import recomputes what it created or changed; "Scan now" during a scan answers `queued: true`; the register edit bug shipped as its own fix commit first; a takeover step logs a zero count (Phase 5); the Phase 3 and Phase 4 judgement calls approved (user decisions 2026-10-10, in the Decisions Log)
 - **Recovery instructions**:
   - Read this file first, then `docs/handover/sprint-01-handover.md`.
@@ -239,4 +239,11 @@
 | Phase 5: "days since the last call" counts from the latest completed session's call, in UK days | As planned ("the last processed call") |
 | Judgement calls made while building Phase 5 (approved by the user 2026-10-10 with the commit) | An SME's board sorts lowest Technical score first, not scored last, then name; `weeks_in` is 0 before the start; the page's register block is `register_fields` (`register` shadows a `BaseModel` attribute); the page's completed sessions are the chart's call markers (no separate list); `HealthView` lives in `enums.py` and `sees_technical_only` in `entitlements.py` |
 | The register read `GET /placements/{placement_id}` gave an SME the extension status, rate band and ended reason the health page hides; fixed as its own `fix:` commit straight after the Phase 5 commit (it uses Phase 5's `sees_technical_only`), pushed with it | User decision 2026-10-10. Alternatives offered: fold into Phase 5; backlog it |
+| Phase 6: the board shows the PRD columns (consultant, client · project, weeks in, health, trend, flags, last call, next action); PS and tech lead only feed the filters; the risk filter offers Not scored | User decision 2026-10-11. Alternative offered: PS and tech lead columns too |
+| Phase 6: the board keeps the server's order; headers do not re-sort (`DataTable` `sortable={false}`) | User decision 2026-10-11. Alternative offered: clickable headers with custom sorts |
+| Phase 6: RAG colours are theme tokens (`--risk-red`, `--risk-amber`, `--risk-green` and foregrounds, light and dark) | User decision 2026-10-11. Alternative offered: Tailwind palette classes |
+| Phase 6: an SME's Technical score is a plain number (no RAG colour) | User decision 2026-10-11. Alternative offered: coloured by the RAG thresholds |
+| Phase 6: open flags are listed critical first, then oldest opened, then the PRD's trigger order, in the repository, so the board and the page agree | User decision 2026-10-11, after the risk-board e2e saw two flags opened together in either order. Alternatives offered: oldest first then PRD order; PRD order only |
+| Phase 6: the two `sessions.spec.ts` tests that fail locally under parallel workers (not in CI) go to BACKLOG Tech Debt with their causes | User decision 2026-10-11. Alternatives offered: fix now as its own commit; fold into Phase 6 |
+| **Audit note (Rule C, Sprint 2 Phase 6)** | Phase 4 and 5's open-flag queries ordered by `opened_at`, then id, though a recompute opens every flag at the same moment, so the tie fell to a random UUID; the e2e saw both orders. Cause: the Sprint 1 rule (ties on a meaningful column before the id) was applied to signals but not checked on the new queries. Rule to add: when a query's first sort key is a time written in bulk (one `as_of` for many rows), name the meaningful tie-breaker in the query |
 | **Audit note (Rule C)** | Sprint 1 recorded that the old task's log "ends without shutdown lines" and guessed the lock was freed by the dropped connection; the lines were there, and the delay was the documented 300 s drain (the ownership module's own docstring named it). Cause: a log was skimmed for a line that `release()` never wrote, and the conclusion went into the backlog untested. Rule to add: before recording a cause, find the log line or timestamp that shows it; when a step leaves no log line, add one rather than infer |

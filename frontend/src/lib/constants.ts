@@ -32,4 +32,5 @@ export const API_ROUTES = {
   sessionUpload: "/sessions/upload",
   sessionUrl: "/sessions/url",
   sessions: "/sessions",
+  riskBoard: "/risk-board",
 } as const;

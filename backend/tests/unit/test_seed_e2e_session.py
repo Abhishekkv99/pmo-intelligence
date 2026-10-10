@@ -1,5 +1,7 @@
 """The end-to-end seed: development only, and its quotes pass the real check."""
 
+from datetime import UTC, date, datetime
+
 import pytest
 
 from app.cli import seed_e2e_session as seed
@@ -40,6 +42,7 @@ class TestQuotes:
             (seed.ISSUE_QUOTE, 5_000),
             (seed.ACTION_QUOTE, 10_000),
             (seed.RELATIONSHIP_QUOTE, 15_000),
+            (seed.CLIENT_QUOTE, 20_000),
         ],
     )
     def test_every_quote_is_in_the_transcript_where_it_is_placed(
@@ -48,3 +51,24 @@ class TestQuotes:
         match = transcript.find(quote)
         assert match is not None
         assert match.offset_ms == offset_ms
+
+
+class TestHealthDates:
+    def test_dates_sit_around_today_for_the_board(self) -> None:
+        dates = seed.health_dates(date(2026, 10, 20))
+
+        assert dates.start == date(2026, 8, 21)
+        assert dates.expected_end == date(2026, 11, 9)
+        assert dates.due == date(2026, 10, 22)
+        # Noon in London (BST) three days before.
+        assert dates.held_at == datetime(2026, 10, 17, 11, 0, tzinfo=UTC)
+
+    def test_the_call_is_at_noon_uk_time_in_winter_too(self) -> None:
+        dates = seed.health_dates(date(2026, 12, 10))
+
+        assert dates.held_at == datetime(2026, 12, 7, 12, 0, tzinfo=UTC)
+
+    def test_health_and_failed_cannot_be_combined(self) -> None:
+        with pytest.raises(SystemExit) as exit_:
+            seed.main(["--run", "x", "--health", "--failed"])
+        assert exit_.value.code == 2

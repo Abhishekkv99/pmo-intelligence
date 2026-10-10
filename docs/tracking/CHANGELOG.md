@@ -8,6 +8,7 @@ All notable changes to this project will be documented in this file.
 - Sign-in no longer stores users' Microsoft access and refresh tokens, and asks Microsoft for identity scopes only (`openid email profile`, no `offline_access`). Migration 002 drops `users.ms_access_token`, `ms_refresh_token` and `ms_token_expires_at`; the unused `refresh_microsoft_token` is removed.
 
 ### Changed
+- Open flags are listed critical first, then the oldest, then in the PRD's trigger order; flags opened together came back in a random order.
 - An SME sees only the Technical signals on a session page, and the sessions list counts only those for them (the transcript, summary, issues and actions are unchanged). Of a placement's health an SME sees only the Technical score and its own trend.
 - A takeover step logs its count even when it is zero ("Takeover re-queue health catch-up: 0 row(s)"), so a step that ran and found nothing can be told from one that never ran.
 - The processing queue remembers a job asked for while it runs and runs it once more when it finishes, so a change made during a run is not lost. "Scan now" during a running scan books another (`queued: true`); `queued` is false only when a scan is already waiting to start, and the Recordings tab says so.
@@ -21,6 +22,8 @@ All notable changes to this project will be documented in this file.
 - `APP_DEBUG` now defaults to off, so a backend container that does not set it (the migration container, a one-off ECS task) no longer echoes every SQL statement into its logs. Compose and `.env.example` turn it on for development.
 
 ### Added
+- Risk board page (home): every active placement in your scope with its health in its RAG colour, trend, open flags, weeks in, last call and next action, red first; filters for placement specialist, tech lead, client and risk level, and a search. An SME sees the Technical score and its trend only. It refreshes every 30 s.
+- `python -m app.cli.seed_e2e_session --health` (development and CI only) writes an analysed call dated around today and recomputes its placement, for the risk board's end-to-end tests.
 - Risk board API (`GET /risk-board`, any role, cut to the caller's scope): every active placement with its latest snapshot (overall, RAG level, trend, Technical score and trend), open flags, weeks in, days since the last completed call, the next dated open action, and its PS and tech lead for the board's filters; red first, then falling, then lowest overall, then name; not scored last. An SME's board is the technical view, ordered by Technical score.
 - Placement health API (`GET /placements/{placement_id}/health`, placement scope, writes an `access_log` row): the latest snapshot with each dimension's top contributors resolved to their quotes, every snapshot for the chart, open flags with their evidence quotes, the calls, open issues, every action (open first by due date), the register fields and the consultant's other placements in the reader's scope. An SME gets the technical view, without extension status, rate band or ended reason.
 - Migration 007: `health_snapshots.technical_trend` and `technical_trend_delta`, the Technical score's change over the trend window, filled by every recompute.

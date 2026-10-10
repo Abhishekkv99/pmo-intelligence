@@ -6,6 +6,12 @@
 
 @theme inline {
   --color-background: var(--background);
+  --color-risk-red: var(--risk-red);
+  --color-risk-red-foreground: var(--risk-red-foreground);
+  --color-risk-amber: var(--risk-amber);
+  --color-risk-amber-foreground: var(--risk-amber-foreground);
+  --color-risk-green: var(--risk-green);
+  --color-risk-green-foreground: var(--risk-green-foreground);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
@@ -80,6 +86,13 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+  /* RAG levels (risk board, health chart) */
+  --risk-red: oklch(0.577 0.215 27.3);
+  --risk-red-foreground: oklch(0.985 0 0);
+  --risk-amber: oklch(0.769 0.165 70.1);
+  --risk-amber-foreground: oklch(0.205 0 0);
+  --risk-green: oklch(0.596 0.145 163.2);
+  --risk-green-foreground: oklch(0.985 0 0);
 }
 
 .dark {
@@ -114,6 +127,12 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
+  --risk-red: oklch(0.704 0.191 22.2);
+  --risk-red-foreground: oklch(0.145 0 0);
+  --risk-amber: oklch(0.828 0.169 81.2);
+  --risk-amber-foreground: oklch(0.145 0 0);
+  --risk-green: oklch(0.765 0.159 162.5);
+  --risk-green-foreground: oklch(0.145 0 0);
 }
 
 @layer base {

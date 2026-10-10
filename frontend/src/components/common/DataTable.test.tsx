@@ -57,6 +57,22 @@ describe("DataTable", () => {
     expect(cellTexts()).toEqual(["BenBristol", "AshaLeeds"]);
   });
 
+  it("keeps the given order with plain headers when not sortable", () => {
+    render(
+      <DataTable
+        columns={columns}
+        data={data}
+        searchPlaceholder="Search"
+        emptyMessage="Nobody"
+        sortable={false}
+      />,
+    );
+
+    expect(screen.queryByRole("button", { name: "City" })).toBeNull();
+    expect(screen.getByRole("columnheader", { name: "City" })).toBeVisible();
+    expect(cellTexts()).toEqual(["AshaLeeds", "BenBristol"]);
+  });
+
   it("shows the empty message, or loading while loading", () => {
     const { rerender } = render(
       <DataTable

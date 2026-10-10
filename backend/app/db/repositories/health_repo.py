@@ -3,11 +3,32 @@
 import uuid
 from collections.abc import Collection
 from datetime import datetime
+from typing import Any
 
-from sqlalchemy import func, select
+from sqlalchemy import case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.enums import FlagSeverity, RiskTrigger
 from app.models.health import HealthSnapshot, RiskFlag
+
+_SEVERITY_RANK = {
+    FlagSeverity.CRITICAL.value: 0,
+    FlagSeverity.HIGH.value: 1,
+    FlagSeverity.MEDIUM.value: 2,
+}
+_TRIGGER_RANK = {trigger.value: rank for rank, trigger in enumerate(RiskTrigger)}
+
+
+def _flag_order() -> list[Any]:
+    """Critical first, then oldest opened, then the PRD's trigger order; the
+    subject and id only separate flags of one trigger opened together."""
+    return [
+        case(_SEVERITY_RANK, value=RiskFlag.severity, else_=len(_SEVERITY_RANK)),
+        RiskFlag.opened_at,
+        case(_TRIGGER_RANK, value=RiskFlag.trigger, else_=len(_TRIGGER_RANK)),
+        RiskFlag.subject_key,
+        RiskFlag.id,
+    ]
 
 
 class HealthRepository:
@@ -65,18 +86,18 @@ class HealthRepository:
         return {placement_id: at for placement_id, at in result.all()}
 
     async def open_flags(self, placement_id: uuid.UUID) -> list[RiskFlag]:
-        """The placement's flags not yet closed, oldest first."""
+        """The placement's flags not yet closed, critical first (``_flag_order``)."""
         result = await self.session.execute(
             select(RiskFlag)
             .where(RiskFlag.placement_id == placement_id, RiskFlag.closed_at.is_(None))
-            .order_by(RiskFlag.opened_at, RiskFlag.id)
+            .order_by(*_flag_order())
         )
         return list(result.scalars().all())
 
     async def open_flags_for(
         self, placement_ids: Collection[uuid.UUID]
     ) -> dict[uuid.UUID, list[RiskFlag]]:
-        """Each placement's flags not yet closed, oldest first."""
+        """Each placement's flags not yet closed, critical first."""
         if not placement_ids:
             return {}
         result = await self.session.execute(
@@ -85,7 +106,7 @@ class HealthRepository:
                 RiskFlag.placement_id.in_(placement_ids),
                 RiskFlag.closed_at.is_(None),
             )
-            .order_by(RiskFlag.opened_at, RiskFlag.id)
+            .order_by(*_flag_order())
         )
         flags: dict[uuid.UUID, list[RiskFlag]] = {}
         for flag in result.scalars().all():
