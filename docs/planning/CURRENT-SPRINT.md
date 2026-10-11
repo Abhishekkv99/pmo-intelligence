@@ -205,14 +205,14 @@ Asked by the user 2026-10-11 to unblock the exit gates: enter a placement from o
 - Real calls: the staging register (by hand, BACKLOG) and consultants told beforehand (BACKLOG #6); the exit gate needs ten scored placements.
 - Phase 1's Terraform apply needs the user's approval; the fix waits for the evidence.
 
-## Session State (last updated: 2026-10-11 22:08)
+## Session State (last updated: 2026-10-11 22:22)
 - **Sprint**: 2 — Health v1 (PRD Phase 2)
 - **Current phase**: Sprint 2 complete; the post-sprint quick add is deployed to staging (73045d8)
 - **Phase progress**: post-sprint quick add: done and deployed
-- **Last completed task**: the quick add deployed (2026-10-11 16:35 UTC, CI run 38155560169): migration 008 applied on staging, ownership after 150 s
+- **Last completed task**: the Placements table's Client and Project columns split (2026-10-11); the register e2e specs pass against the rebuilt stack, frontend 201 unit, lint clean
 - **Next task**: the user enters placements with the quick add on Admin > Register, renames each client's "To be confirmed" project when known, processes real calls and runs the exit gates (BACKLOG); then Sprint 3 with `/sprint-start`
 - **Last commit**: 73045d8 "feat: add quick add and remove the CSV import" (pushed 2026-10-11; CI run 38155560169 green, both sides deployed). Before it 3018a13 "docs: record the sprint 2 close"
-- **Uncommitted changes**: `DEPLOYMENT.md` (the 73045d8 deploy) and this file
+- **Uncommitted changes**: `frontend/src/components/admin/register/PlacementsTable.tsx`, `frontend/tests/e2e/admin-register.spec.ts`, docs `ARCHITECTURE.md`, `tracking/{CHANGELOG,FEATURES}.md`, this file
 - **Blockers**: none
 - **Tests passing**: 763 unit + 277 integration (backend, one full run 2026-10-11) + 201 frontend unit (`--maxWorkers=4`) + 21 e2e (one worker, rebuilt local stack) = 1262
 - **Files created this session**: (Phase 7) `frontend/src/app/placements/[placementId]/page.tsx`, `frontend/src/components/health/{PlacementHealthView,PlacementHealthView.test,DimensionScores,HealthChart,HealthChart.test,FlagList,EvidenceItem,HealthIndicators}.tsx`, `frontend/src/hooks/useHealth.test.ts`, `frontend/tests/e2e/placement-health.spec.ts`; (Phase 6) `frontend/src/components/health/{RiskBoard,RiskBoard.test}.tsx`, `frontend/src/hooks/useHealth.ts`, `frontend/src/lib/{health,health.test}.ts`, `frontend/src/types/health.ts`, `frontend/tests/e2e/risk-board.spec.ts`; (Phase 5) `backend/alembic/versions/007_add_snapshot_technical_trend.py`, `backend/app/api/v1/placement_health.py`, `backend/app/schemas/health.py`, `backend/app/services/health_view.py`, `backend/tests/integration/test_placement_health_api.py`
@@ -287,3 +287,4 @@ Asked by the user 2026-10-11 to unblock the exit gates: enter a placement from o
 | Quick add: a line whose consultant, project and start date already have a placement updates its end date and stack, else "unchanged"; pasting a line twice changes nothing; one error line writes nothing | User decision 2026-10-11, the CSV import's rule. Alternative offered: an error on that line |
 | The CSV import is removed (the Import tab, `POST /register/import`, its service and tests); its matching rules live on in the quick add. A deviation from the PRD ("Placement register (admin pages, CSV import)") and from BACKLOG question 3's "a one-off CSV seed" | User decision 2026-10-11, answering whether the import should gain the Stack column. Alternatives offered: an optional stack column; no stack in the import |
 | The quick add is built now as standalone work, tracked in this file, before Sprint 3 | User decision 2026-10-11. Alternative offered: as part of Sprint 3 |
+| Quick add follow-up: the Placements table shows Client and Project as separate columns (was one "Client / project" column); the quick-add line format is unchanged | User decision 2026-10-11 ("project will have separate column"). Alternatives offered: a project part in the pasted line; a project field in the box |

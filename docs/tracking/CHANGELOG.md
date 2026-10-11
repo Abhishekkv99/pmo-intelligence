@@ -11,6 +11,7 @@ All notable changes to this project will be documented in this file.
 - The register's CSV import: the Admin > Import tab, `POST /register/import` and its template. Placements are entered with the quick add or the placement dialog.
 
 ### Changed
+- The Placements table on Admin > Register shows the client and the project in separate columns.
 - Open flags are listed critical first, then the oldest, then in the PRD's trigger order; flags opened together came back in a random order.
 - An SME sees only the Technical signals on a session page, and the sessions list counts only those for them (the transcript, summary, issues and actions are unchanged). Of a placement's health an SME sees only the Technical score and its own trend.
 - A takeover step logs its count even when it is zero ("Takeover re-queue health catch-up: 0 row(s)"), so a step that ran and found nothing can be told from one that never ran.

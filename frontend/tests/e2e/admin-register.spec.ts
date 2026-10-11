@@ -53,8 +53,19 @@ test.describe("Admin register", () => {
     await expect(summary).toContainText("Saved.", { timeout: 15_000 });
 
     await page.getByLabel("Search placements").fill(consultant);
-    const row = page.getByRole("row").filter({ hasText: consultant });
-    await expect(row).toContainText(`${client} / To be confirmed`);
-    await expect(row).toContainText("DS");
+    // The placements table's row: the quick-add result above it names the
+    // consultant too, but has no project cell.
+    const row = page
+      .getByRole("row")
+      .filter({ hasText: consultant })
+      .filter({
+        has: page.getByRole("cell", { name: "To be confirmed", exact: true }),
+      });
+    await expect(
+      row.getByRole("cell", { name: client, exact: true }),
+    ).toBeVisible();
+    await expect(
+      row.getByRole("cell", { name: "DS", exact: true }),
+    ).toBeVisible();
   });
 });

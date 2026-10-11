@@ -61,11 +61,8 @@ export function PlacementsTable() {
           </div>
         ),
       },
-      {
-        id: "project",
-        header: "Client / project",
-        accessorFn: (p) => `${p.client.name} / ${p.project.name}`,
-      },
+      { id: "client", header: "Client", accessorFn: (p) => p.client.name },
+      { id: "project", header: "Project", accessorFn: (p) => p.project.name },
       {
         id: "stack",
         header: "Stack",
