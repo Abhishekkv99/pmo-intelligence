@@ -63,7 +63,7 @@
 
 ## Task Checklist
 
->>> CURRENT PHASE: Post-sprint: quick add and the CSV import removed (built and tested; the commit waits for the user). Sprint 2 complete (2026-10-11): audit PASSED, handover written, closing commit 8594604 pushed; the exit gate moved to BACKLOG
+>>> CURRENT PHASE: Post-sprint: quick add and the CSV import removed, deployed to staging 2026-10-11 (73045d8). Sprint 2 complete (2026-10-11): audit PASSED, handover written, closing commit 8594604 pushed; the exit gate moved to BACKLOG
 
 ### Phase 0: Plan
 - [x] Plan approved (2026-10-09)
@@ -194,7 +194,7 @@ Asked by the user 2026-10-11 to unblock the exit gates: enter a placement from o
 - [x] `API.md`, `ARCHITECTURE.md` (register, migrations, frontend, `> Status:`), `FEATURES.md`, `TESTS.md`, `CHANGELOG.md`, `ROADMAP.md` (Milestone 1's "CSV import" noted as removed), `BACKLOG.md` (question 3 and the seeding item), `DEPLOYMENT.md` (`> Status:` after the deploy applies 008); README: no new make target (all but `DEPLOYMENT.md`, whose status waits for the deploy that applies 008; also `TESTS.md` rows and totals; BACKLOG gains the project-name tech debt item)
 
 **Commit checkpoint**
-- [ ] `feat: add quick add and remove the CSV import`
+- [x] `feat: add quick add and remove the CSV import` (73045d8, pushed 2026-10-11; CI run 38155560169 green, backend and frontend deployed; migration "upgrade 007 -> 008" ran; ownership taken after 150 s, the four takeover steps logged 0 rows)
 
 ### Alongside: real calls on staging
 - [ ] The user seeds the register on Admin > Register; the next scan matches the folders; settle any folder that names more than one consultant (not done this sprint; in BACKLOG, Medium Priority)
@@ -205,14 +205,14 @@ Asked by the user 2026-10-11 to unblock the exit gates: enter a placement from o
 - Real calls: the staging register (by hand, BACKLOG) and consultants told beforehand (BACKLOG #6); the exit gate needs ten scored placements.
 - Phase 1's Terraform apply needs the user's approval; the fix waits for the evidence.
 
-## Session State (last updated: 2026-10-11 21:56)
+## Session State (last updated: 2026-10-11 22:08)
 - **Sprint**: 2 — Health v1 (PRD Phase 2)
-- **Current phase**: Post-sprint standalone work (Sprint 2 is complete): quick add from one line, a Stack column on placements, the CSV import removed; plan approved 2026-10-11, building
-- **Phase progress**: post-sprint quick add: code, tests and docs done; the commit checkpoint remains
-- **Last completed task**: the quick add built and tested (2026-10-11): backend 763 unit + 277 integration, frontend 201, e2e 21 against the rebuilt stack with migration 008; `make lint` clean
-- **Next task**: the user approves the commit `feat: add quick add and remove the CSV import`; after the push, read the deploy through to "Took processing ownership" and the migration log ("upgrade 007 -> 008"), then update DEPLOYMENT's `> Status:`; then the user enters placements with the quick add and runs the exit gates (BACKLOG)
-- **Last commit**: 8594604 "docs: complete sprint 2 audit and handover" (pushed 2026-10-11; CI run 38125354977 green: Detect Changes, Backend CI, Frontend CI, E2E; Deploy to staging skipped). Before it 8b5b37c "feat: turn on the daily health recompute in staging" (CI run 38121090742 green)
-- **Uncommitted changes**: the quick add (backend, frontend, tests) and docs `API.md`, `ARCHITECTURE.md`, `planning/{BACKLOG,ROADMAP}.md`, `tracking/{CHANGELOG,FEATURES,TESTS}.md`, this file
+- **Current phase**: Sprint 2 complete; the post-sprint quick add is deployed to staging (73045d8)
+- **Phase progress**: post-sprint quick add: done and deployed
+- **Last completed task**: the quick add deployed (2026-10-11 16:35 UTC, CI run 38155560169): migration 008 applied on staging, ownership after 150 s
+- **Next task**: the user enters placements with the quick add on Admin > Register, renames each client's "To be confirmed" project when known, processes real calls and runs the exit gates (BACKLOG); then Sprint 3 with `/sprint-start`
+- **Last commit**: 73045d8 "feat: add quick add and remove the CSV import" (pushed 2026-10-11; CI run 38155560169 green, both sides deployed). Before it 3018a13 "docs: record the sprint 2 close"
+- **Uncommitted changes**: `DEPLOYMENT.md` (the 73045d8 deploy) and this file
 - **Blockers**: none
 - **Tests passing**: 763 unit + 277 integration (backend, one full run 2026-10-11) + 201 frontend unit (`--maxWorkers=4`) + 21 e2e (one worker, rebuilt local stack) = 1262
 - **Files created this session**: (Phase 7) `frontend/src/app/placements/[placementId]/page.tsx`, `frontend/src/components/health/{PlacementHealthView,PlacementHealthView.test,DimensionScores,HealthChart,HealthChart.test,FlagList,EvidenceItem,HealthIndicators}.tsx`, `frontend/src/hooks/useHealth.test.ts`, `frontend/tests/e2e/placement-health.spec.ts`; (Phase 6) `frontend/src/components/health/{RiskBoard,RiskBoard.test}.tsx`, `frontend/src/hooks/useHealth.ts`, `frontend/src/lib/{health,health.test}.ts`, `frontend/src/types/health.ts`, `frontend/tests/e2e/risk-board.spec.ts`; (Phase 5) `backend/alembic/versions/007_add_snapshot_technical_trend.py`, `backend/app/api/v1/placement_health.py`, `backend/app/schemas/health.py`, `backend/app/services/health_view.py`, `backend/tests/integration/test_placement_health_api.py`
