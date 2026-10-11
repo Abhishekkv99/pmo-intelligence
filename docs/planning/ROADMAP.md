@@ -19,7 +19,7 @@ Six phases, each one or two sprints, each ending with a staging sign-off by the 
 - [x] Signal store, scoring module, snapshots, triggers, flags (Sprint 2 Phases 2 to 5, 2026-10-10)
 - [x] Risk board and consultant page (Sprint 2 Phases 6 and 7, 2026-10-11; the consultant page is per placement)
 - [x] Daily recompute (Sprint 2 Phase 4, 2026-10-10; on in staging since 2026-10-11, Phase 8)
-- **Exit gate**: ten placements scored from their sessions; the PMO manager agrees with the ranking, or the weights are tuned until they do
+- **Exit gate**: ten placements scored from their sessions; the PMO manager agrees with the ranking, or the weights are tuned until they do. **Not run**: Sprint 2 closed 2026-10-11 without it, since the staging register is still empty and no real call has been processed (see the Sprint 2 handover; in BACKLOG)
 
 ## Milestone 3: Teams Chat
 - [ ] Graph connector (RSC or application permission), poller, message store

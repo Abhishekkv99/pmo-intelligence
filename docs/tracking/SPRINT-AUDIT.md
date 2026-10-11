@@ -2,14 +2,12 @@
 
 > **This file is a MANDATORY artifact.** It must be filled out BEFORE the handover document is created.
 
-## Sprint: 01 (Register and Sessions)
-## Date: 2026-10-09 (first pass, and a second pass at the sprint close)
+## Sprint: 02 (Health v1)
+## Date: 2026-10-11
 
-The Sprint 0 report is in git history (`5434bec`, "docs: complete sprint 0 audit and handover") and summarised in `docs/handover/sprint-00-handover.md`.
+The Sprint 1 report is in git history (`957e497`, "docs: complete sprint 1 audit and handover") and summarised in `docs/handover/sprint-01-handover.md`.
 
-**Status**: PASSED. The sprint closed without its exit gate (gate calls dropped, register import postponed; user decision 2026-10-09), so the second pass covers the sprint-close changes instead: the plan, BACKLOG, ROADMAP, the ARCHITECTURE and DEPLOYMENT status lines and the handover.
-
-**Second pass (2026-10-09)**: the code is unchanged since the first pass except `test_recordings_periodic.py` (S1-13), and CI run 37936852284 on that code passed backend checks (unit, integration), frontend checks and e2e; test counts are unchanged (5 tests in that file). Resource counts in DEPLOYMENT.md re-read with `terraform state list`: 7, 34, 61 managed, as stated. The closing docs' path references resolve. One more finding (S1-14).
+**Status**: PASSED. The sprint closed without its exit gate (ten placements scored from real sessions and reviewed by the PMO manager), because the staging register is still empty and no real call has been processed; user decision 2026-10-11. The gate is in BACKLOG (High Priority), with Sprint 1's gate, which the same calls can serve.
 
 ---
 
@@ -18,56 +16,52 @@ The Sprint 0 report is in git history (`5434bec`, "docs: complete sprint 0 audit
 Check each item. Mark `[x]` only after actually verifying (not from memory).
 
 ### Test Counts
-- [x] Backend tests verified by running test command → count matches TESTS.md (`uv run pytest tests/unit`: 624 passed; `uv run pytest tests/integration`: 201 passed; per-file counts from `pytest --collect-only` match all 46 unit and 19 integration rows)
-- [x] Frontend tests verified by running test command → count matches TESTS.md (`vitest run --maxWorkers=4`: 30 files, 157 passed, per-file counts from the JSON report match every row; `make test-e2e` on the compose stack: 17 passed)
-- [x] Grand total matches (624 + 201 + 157 + 17 = 999, as in TESTS.md)
+- [x] Backend tests verified by running test command → count matches TESTS.md (`uv run pytest -q -rf`: 1035 passed in 264 s, no failure; `pytest --collect-only`: 759 unit and 276 integration in 76 files; every one of the 76 backend rows of TESTS.md matches its file, the five names shared by the unit and integration folders included)
+- [x] Frontend tests verified by running test command → count matches TESTS.md (`pnpm test -- --maxWorkers=4`: 35 files, 199 passed; `vitest list --json` per file matches every row; `playwright test --workers=1` against the rebuilt compose stack: 21 passed, and each spec's count matches its row)
+- [x] Grand total matches (759 + 276 + 199 + 21 = 1255, as in TESTS.md)
 
 ### Lint
-- [x] Linter passes with no errors (`make lint` exit 0: ruff check, ruff format check, mypy strict on `app`; eslint, `tsc --noEmit`, Prettier check)
+- [x] Linter passes with no errors (`make lint` exit 0: ruff check, ruff format check on 214 files, mypy strict on 123 source files; eslint, `tsc --noEmit`, Prettier check)
 
 ### Documentation Verification
-- [x] CHANGELOG.md has entry for this sprint (`[Unreleased]`: every Sprint 1 commit's deliverable, under Security, Fixed and Added)
-- [x] FEATURES.md has all new features logged (Sprint 1 section; fixed during the sprint: finding S1-6)
-- [x] TESTS.md row counts match actual test output (fixed: finding S1-9)
-- [x] BACKLOG.md completed items checked off (questions 2 and 3 decided; the token, debug, AssemblyAI key and manual redeploy items ticked; new items: the takeover delay, the Vitest timeouts)
-- [x] ROADMAP.md completed milestones checked off (Milestone 1: register, ingestion, pipeline and session page ticked; its exit gate is open)
-- [x] ARCHITECTURE.md reflects current state (backend, session pipeline, frontend, local development, CI/CD and infrastructure sections match the files; status line to be moved to "Sprint 1 complete" with the handover)
-- [x] API.md accurately describes endpoints (all 38 `/api/v1` routes of the live app are listed, and every listed route exists)
-- [x] .env.example lists all env vars (every field of `Settings` is present, and nothing else)
-- [x] No tooling or authorship traces in any committed file (`git grep` of tracked files against the pre-commit hook's pattern: none; no tool configuration files tracked; the 18 Sprint 1 commit messages are clean)
-- [x] Git commits follow conventional commit format (18 commits since `5434bec`: 13 `feat`, 3 `fix`, 1 `ci`, 1 `docs`, all listed types)
-- [x] Dependency lists current (no package added or removed this sprint; `pyproject.toml` changed only in mypy's ignore list)
+- [x] CHANGELOG.md has entry for this sprint (`[Unreleased]`: every Sprint 2 deliverable under Changed, Fixed and Added, the daily recompute's Terraform variable included)
+- [x] FEATURES.md has all new features logged (the "Sprint 2: Health v1" section has a row for each deliverable of the 10 code commits, operator features included: the drain, the backfill command, the takeover counts, the daily run's variable)
+- [x] TESTS.md row counts match actual test output (all rows, above; its summary line now names this run)
+- [x] BACKLOG.md completed items checked off (the takeover delay ticked in Phase 1; open questions 5 and 7 decided at planning; new: the Phase 2 exit gate and the still open Phase 1 gate in High Priority, the two `sessions.spec.ts` local failures in Tech Debt from Phase 6)
+- [x] ROADMAP.md completed milestones checked off (Milestone 2's three items ticked in the phase commits that delivered them; its exit gate marked not run)
+- [x] ARCHITECTURE.md reflects current state (backend, session pipeline, health model, recompute, views, frontend and infrastructure sections compared with the code; `config/v1.json` matches every stated value; status line moved to "Sprint 2 complete")
+- [x] API.md accurately describes endpoints (40 live `/api/v1` routes from the app, 40 listed, none missing either way)
+- [x] .env.example lists all env vars (63 `Settings` fields, 63 keys, none missing either way)
+- [x] No tooling or authorship traces in any committed file (`git grep` of tracked files with the pre-commit hook's pattern and for the rules folder's path: none; no tool configuration file tracked; the 11 Sprint 2 commit messages are clean)
+- [x] Git commits follow conventional commit format (11 commits since `957e497`: 7 `feat`, 3 `fix`, 1 `docs`, all listed types)
+- [x] Dependency lists current (no package added or removed: `pyproject.toml`, `uv.lock`, `package.json` and `pnpm-lock.yaml` unchanged since `957e497`)
 
-**File paths**: 761 path references in README.md, ARCHITECTURE.md, API.md, DEPLOYMENT.md, TESTS.md, FEATURES.md, CHANGELOG.md, BACKLOG.md, ROADMAP.md, TEAMS-GRAPH-SETUP.md and the Sprint 0 handover were checked against the tracked files. All resolve except `backend/.env` and `infra/environments/staging/terraform.tfvars` (git-ignored files the reader creates) and the glob `src/**/*.test.ts(x)`.
+**File paths**: 995 backtick path references in README.md, ARCHITECTURE.md, API.md, DEPLOYMENT.md, TESTS.md, FEATURES.md, CHANGELOG.md, BACKLOG.md, ROADMAP.md, CURRENT-SPRINT.md, TEAMS-GRAPH-SETUP.md and the Sprint 1 handover were checked against the tracked files and folders (bare names against the folder their row names). All resolve except non-paths (a CIDR, a date format, a media type, a secret name, the repository name, an S3 prefix), the git-ignored `backend/.env` and `.terraform/`, and `docs/handover/sprint-02-handover.md`, written after this audit.
+
+**Commands**: run during the audit or this sprint's last session: `make lint`, the suites above (`make test` and `make test-e2e` run their commands), `make migrate`, `make backfill-embeddings ENV=staging ARGS=--dry-run` (exit 0; finding S2-6), `terraform plan` and `apply` for staging. The README's command table has a row for the one make target added this sprint (`backfill-embeddings`). Every log line DEPLOYMENT.md and CHANGELOG.md quote was compared with the code's format strings (finding S2-8).
 
 ---
 
 ## Findings
 
-Findings S1-1 to S1-11 were recorded in `docs/planning/CURRENT-SPRINT.md` as they happened (or, S1-3, in its Research Findings) and were fixed then. S1-12 was found in Phase 5 and moved to the backlog by the user. S1-13 was found by the first pass and fixed in it; S1-14 at the sprint close. Every finding has a local rule and a Learnings Log line.
+Findings S2-1 to S2-7 were recorded in `docs/planning/CURRENT-SPRINT.md` (Decisions Log, "Audit note" rows) as they happened, and fixed then. S2-8 was found by this audit and fixed in it. Every finding has a local rule and a Learnings Log line.
 
 | # | What was wrong | Root cause | Rule added/updated |
 |---|---------------|-----------|-------------------|
-| S1-1 | A read straight after a save sometimes missed the new row (flaky register e2e), and a failed commit would still have answered success | The request session copied from Interview Intelligence committed after the response, FastAPI's documented default for a yield dependency | Code style: check copied infrastructure code against the framework's behaviour; a committing yield dependency uses `scope="function"`, with a test over every route |
-| S1-2 | Two register e2e steps failed at random | Test-side: the first import after a restart is slow, and back-to-back runs hit the import's 10/minute limit as one e2e user | Testing: a step that waits on a server job gets the cold-start allowance; read the backend log (429, 5xx) before changing a flaky test |
-| S1-3 | The survey reported mis-decoded dashes (`U+FFFD`) in folder names, and a repair step was planned | The cp1252 Windows console rendered the AWS CLI's UTF-8 output; read with boto3, the keys hold real en dashes | Infra and tooling: read non-ASCII data with a UTF-8 reader, never from the console's rendering |
-| S1-4 | Local uploads had never worked (500 on the first write) | The copied Dockerfile switched to a non-root user without creating and chowning the volume's mount point; unit and integration tests write to a temporary directory | Infra and tooling: create and chown every path a non-root container writes to; an e2e test writes through it |
-| S1-5 | `make dev-build && make migrate && make test-e2e` sat for 27 minutes | `dev-build` runs compose attached and never returns | Infra and tooling: chain only commands that return; start the stack detached when later steps depend on it |
-| S1-6 | FEATURES.md was missed by the first three Phase 3 commits | The doc list was re-read only for the docs the change obviously touched | Sprint workflow: walk the phase's doc list item by item before every commit |
-| S1-7 | Every backend deploy waits about 6.5 minutes (370–390 s, three deploys) before the new task takes processing ownership | The old task's lock appears to be freed by Postgres dropping its connection, not by a clean release; the log calls the wait "normal during a deploy", so it went unnoticed until a deploy was watched to the end. Fix in BACKLOG (tech debt) | Infra and tooling: after a backend deploy, read the log through to "Took processing ownership" and record the wait |
-| S1-8 | The session page never started polling after a Retry when it had first loaded a failed session | SWR schedules its refresh timer only when `refreshInterval` changes; a function answering 0 never set one. The interval's unit test passed; only the retry e2e showed it | Code style: an interval that can be 0 lives in state, set from `onSuccess` |
-| S1-9 | TESTS.md said 28 tests for `test_db_session_scope.py`; there were 34 after Phase 3 | The file is parametrised by route, and its row was not recounted when routes were added in another file | Sprint workflow: recount every TESTS.md row against `--collect-only` and Vitest's report |
-| S1-10 | A new session-page integration test failed about one full run in two | Two seeded signals had equal `occurred_at`, so their order fell back to random ids | Testing: seed distinct sort keys; code style: ordered queries break ties on a meaningful column (offset) before the id |
-| S1-11 | An e2e run reported a fixed failure as still failing | It ran against the frontend image built before the change | Infra and tooling: rebuild the changed service before e2e |
-| S1-12 | One or two dialog tests (`UsersTab`, `PlacementDialog`) pass Vitest's 5 s limit in full runs with the default worker count while the compose stack runs | CPU contention: about 0.8 s alone, all 157 pass with `--maxWorkers=4`. Fix in BACKLOG (user decision) | Testing: re-run a timed-out test alone and with `--maxWorkers=4` before treating it as a regression |
-| S1-13 | One backend unit test failed once in the audit run (623 of 624) and could not be named or reproduced in eight more runs | The audit command kept only the run's last line. The likely cause, `test_recordings_periodic.py`'s fixed 0.18 s sleep expecting three ticks of a 0.05 s loop, was changed to wait for the ticks themselves | Testing: no fixed sleeps for async ticks; keep failure names (`-rf`, never cut a run to one line) |
-| S1-14 | Asked whether to push, the user was told the test commit would deploy nothing; it redeploys the staging backend. Corrected before the push, and the redeploy watched (375 s to processing ownership) | The answer was given from memory of the deploy rule ("only the changed side"), without reading which paths count as the backend side | Git workflow: read the deploy filter before saying what a push deploys; `backend/**` includes tests |
+| S2-1 | Sprint 1 recorded that the old task's log "ends without shutdown lines" and that the lock was freed by Postgres dropping the connection; the lines were there, and the 370–390 s takeover delay was the target group's default 300 s drain, which the ownership module's own docstring named | A log was skimmed for a line `release()` never wrote, and the guess went into the backlog untested | Infra and tooling: record a cause only with the log line or timestamp that shows it; where a step writes no log line, add one rather than infer |
+| S2-2 | Editing a consultant, client or project on Admin > Register answered 500 since Sprint 1 Phase 2 (fixed in 632fc5d) | Route tests covered create, list and the placement edit, whose response happens to re-select its row; nothing called the other three `PATCH` routes | Testing: every route is called by a test through the client that reads its response |
+| S2-3 | After the 844aae6 deploy the health catch-up left no log line, so a step that ran and found nothing could not be told from one that never ran | A takeover step logged only when it handled a row | Code style: every startup and takeover step logs its outcome, zero included (done in Phase 5) |
+| S2-4 | The risk-board e2e saw a placement's two flags in either order | A recompute opens every flag at one `as_of`, so the open-flag query's tie on `opened_at` fell to a random UUID; the Sprint 1 tie-breaker rule was applied to signals but not checked on the new queries | Code style: when the first sort key is a time written in bulk, name a meaningful tie-breaker (severity, then the enumeration's order) before the id |
+| S2-5 | The health chart's three RAG bands never rendered; no warning | Recharts 2.15 reads a chart's children with a `react-is` that predates React 19's element type and drops a Fragment. Caught only because the chart's unit test counted the reference areas | Testing: a chart's unit test renders the SVG and counts every kind of mark; code style: a Recharts chart's children are never a Fragment |
+| S2-6 | `make backfill-embeddings` failed at once ("Error handling -chdir option") | `MSYS_NO_PATHCONV=1` was exported for the whole command; the script hands a POSIX path to Windows Terraform's `-chdir`, which works only through Git Bash's conversion, and it already sets the variable for its one `aws logs` call | Infra and tooling: set `MSYS_NO_PATHCONV=1` on the one command whose argument needs it, never exported |
+| S2-7 | The 8b5b37c checkpoint was announced, and its sprint-file line committed, as running no CI job beyond Detect Changes; CI ran Backend CI, Frontend CI and E2E too (the deploy was skipped, as said) | Only the deploy filter in `ci.yml` was read; on `develop` the test filters compare with `main` | Git workflow: read both filters before saying what a push runs, and state the test jobs and the deploy apart |
+| S2-8 | DEPLOYMENT.md, section 11, told operators to look for `Takeover requeue health catch-up: N row(s)`; the code logs `Takeover re-queue …`. Fixed in this audit | The line was written in Phase 4 from the function's docstring wording, not from the format string (`_run_steps("re-queue", …)`) | Sprint workflow: copy a quoted log line from the code's format string or a real log, never from memory |
 
 ---
 
 ## Audit Result
-- [x] All checklist items verified (first pass and the sprint-close second pass)
-- [x] All findings fixed or moved to the backlog by the user (S1-7, S1-12)
-- [x] Every finding has a rule (16 rules for 14 findings)
-- [x] Learnings Log updated (14 lines)
-- [x] **AUDIT PASSED** → handover document can be created
+- [x] All checklist items verified
+- [x] All findings fixed (S2-1 to S2-7 during the sprint, S2-8 in this audit); the exit gate moved to the backlog by the user
+- [x] Every finding has a rule (9 rules for 8 findings: infra and tooling 2, testing 2, code style 3, git workflow 1, sprint workflow 1)
+- [x] Learnings Log updated (8 lines)
+- [x] **AUDIT COMPLETE** — **AUDIT PASSED** → handover document can be created
