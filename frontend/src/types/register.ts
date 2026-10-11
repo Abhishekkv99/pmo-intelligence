@@ -52,6 +52,8 @@ export interface Placement {
   expected_end_date: string | null;
   extension_status: ExtensionStatus;
   rate_band: string | null;
+  /** The consultant's stack on this engagement, e.g. DS. */
+  stack: string | null;
   status: PlacementStatus;
   ended_reason: string | null;
   ps: PersonRef | null;
@@ -71,30 +73,32 @@ export interface UserListItem {
   signed_in_with_microsoft: boolean;
 }
 
-export type ImportOutcome = "create" | "update" | "unchanged" | "error";
+export type QuickAddOutcome = "create" | "update" | "unchanged" | "error";
 
-export interface ImportRowResult {
-  /** Line number in the file; the header is line 1. */
-  row: number;
-  outcome: ImportOutcome;
+export interface QuickAddLineResult {
+  /** Position among the lines sent, from 1. */
+  line: number;
+  text: string;
+  outcome: QuickAddOutcome;
+  stack: string | null;
   consultant: string | null;
   client: string | null;
-  project: string | null;
+  start_date: string | null;
+  expected_end_date: string | null;
   changes: string[];
-  warnings: string[];
   errors: string[];
 }
 
-export interface ImportResult {
+export interface QuickAddResult {
   dry_run: boolean;
-  /** True only when this call wrote the rows: a Confirm with no row errors. */
+  /** True only when this call wrote the lines: a Confirm with no line errors. */
   applied: boolean;
   summary: {
-    rows: number;
+    lines: number;
     created: number;
     updated: number;
     unchanged: number;
     errors: number;
   };
-  rows: ImportRowResult[];
+  lines: QuickAddLineResult[];
 }

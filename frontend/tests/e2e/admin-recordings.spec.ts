@@ -16,22 +16,18 @@ const WEBM = Buffer.concat([
 ]);
 
 test("uploads a recording for a placement", async ({ page }) => {
-  // A placement to upload for, through the register import.
-  const csv = [
-    "consultant_full_name,consultant_email,client_name,project_name,client_manager_name,tech_lead_email,ps_email,sme_email,start_date,expected_end_date,extension_status,rate_band",
-    `${consultant},rhea.${run}@example.com,Recordings Client ${run},Platform,,,,,2026-08-01,,,`,
-  ].join("\r\n");
-  await page.goto("/admin?tab=import");
-  await page.getByLabel("CSV file").setInputFiles({
-    name: "register.csv",
-    mimeType: "text/csv",
-    buffer: Buffer.from(csv),
-  });
+  // A placement to upload for, through the register's quick add.
+  await page.goto("/admin?tab=register");
+  await page
+    .getByLabel("Quick add lines")
+    .fill(
+      `PRJ ITC DS - ${consultant} - Recordings Client ${run} - 1/8/2026 - 1/8/2027`,
+    );
   await page.getByRole("button", { name: "Preview" }).click();
-  const summary = page.getByTestId("import-summary");
+  const summary = page.getByTestId("quick-add-summary");
   await expect(summary).toContainText("1 new", { timeout: 15_000 });
-  await page.getByRole("button", { name: "Confirm import" }).click();
-  await expect(summary).toContainText("Imported.", { timeout: 15_000 });
+  await page.getByRole("button", { name: "Confirm" }).click();
+  await expect(summary).toContainText("Saved.", { timeout: 15_000 });
 
   await page.goto("/admin?tab=recordings");
   await expect(page.getByText(/Automatic scan is off/)).toBeVisible();

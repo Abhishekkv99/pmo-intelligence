@@ -67,6 +67,11 @@ export function PlacementsTable() {
         accessorFn: (p) => `${p.client.name} / ${p.project.name}`,
       },
       {
+        id: "stack",
+        header: "Stack",
+        accessorFn: (p) => p.stack ?? "—",
+      },
+      {
         id: "dates",
         header: "Dates",
         accessorFn: (p) => p.start_date,
@@ -136,7 +141,7 @@ export function PlacementsTable() {
         data={visible}
         isLoading={isLoading}
         searchPlaceholder="Search placements"
-        emptyMessage="No placements yet. Add one, or import the register from a CSV."
+        emptyMessage="No placements yet. Add one, or paste a line in Quick add."
         toolbar={
           <>
             <Select value={status} onValueChange={setStatus}>

@@ -4,6 +4,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ClientsTable } from "./ClientsTable";
 import { ConsultantsTable } from "./ConsultantsTable";
 import { PlacementsTable } from "./PlacementsTable";
+import { QuickAddCard } from "./QuickAddCard";
 import { ProjectsTable } from "./ProjectsTable";
 
 /** The placement register: placements first, then the records they hang off. */
@@ -16,7 +17,8 @@ export function RegisterTab() {
         <TabsTrigger value="clients">Clients</TabsTrigger>
         <TabsTrigger value="projects">Projects</TabsTrigger>
       </TabsList>
-      <TabsContent value="placements">
+      <TabsContent value="placements" className="space-y-4">
+        <QuickAddCard />
         <PlacementsTable />
       </TabsContent>
       <TabsContent value="consultants">

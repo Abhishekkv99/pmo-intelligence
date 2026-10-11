@@ -23,9 +23,6 @@ vi.mock("./ProcessingStatusPanel", () => ({
 vi.mock("./register/RegisterTab", () => ({
   RegisterTab: () => <div data-testid="register-tab" />,
 }));
-vi.mock("./register/ImportTab", () => ({
-  ImportTab: () => <div data-testid="import-tab" />,
-}));
 vi.mock("./users/UsersTab", () => ({
   UsersTab: () => <div data-testid="users-tab" />,
 }));
@@ -78,9 +75,9 @@ describe("AdminView", () => {
     signInAs("admin");
     render(<AdminView />);
 
-    await userEvent.click(screen.getByRole("tab", { name: "Import" }));
+    await userEvent.click(screen.getByRole("tab", { name: "Recordings" }));
 
-    expect(replace).toHaveBeenCalledWith("/admin?tab=import", {
+    expect(replace).toHaveBeenCalledWith("/admin?tab=recordings", {
       scroll: false,
     });
   });
@@ -91,7 +88,6 @@ describe("AdminView", () => {
 
     expect(screen.getAllByRole("tab").map((t) => t.textContent)).toEqual([
       "Register",
-      "Import",
       "Users and roles",
       "Recordings",
       "Processing",

@@ -2,23 +2,20 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const post = vi.fn();
 const patch = vi.fn();
-const postFormData = vi.fn();
 
 vi.mock("@/lib/api", () => ({
   api: {
     post: (...args: unknown[]) => post(...args),
     patch: (...args: unknown[]) => patch(...args),
-    postFormData: (...args: unknown[]) => postFormData(...args),
   },
 }));
 
-import { importRegister, saveRecord } from "./useRegister";
+import { quickAdd, saveRecord } from "./useRegister";
 
 describe("register mutations", () => {
   beforeEach(() => {
     post.mockReset();
     patch.mockReset();
-    postFormData.mockReset();
   });
 
   it("creates with POST when there is no id", async () => {
@@ -34,18 +31,15 @@ describe("register mutations", () => {
     expect(patch).toHaveBeenCalledWith("/clients/c1", { name: "Barclays" });
   });
 
-  it("sends the file with the dry-run flag", async () => {
-    const file = new File(["a,b"], "register.csv", { type: "text/csv" });
+  it("sends the quick-add lines with the dry-run flag", async () => {
+    const lines = ["PRJ ITC DS - Asha Rao - WTW - 1/9/2026 - 1/3/2027"];
 
-    await importRegister(file, true);
+    await quickAdd(lines, true);
 
-    const [path, form, options] = postFormData.mock.calls[0] as [
-      string,
-      FormData,
-      { params: Record<string, string> },
-    ];
-    expect(path).toBe("/register/import");
-    expect(form.get("file")).toBe(file);
-    expect(options.params).toEqual({ dry_run: "true" });
+    expect(post).toHaveBeenCalledWith(
+      "/register/quick-add",
+      { lines },
+      { params: { dry_run: "true" } },
+    );
   });
 });

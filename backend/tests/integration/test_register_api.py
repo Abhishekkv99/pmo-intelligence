@@ -60,6 +60,7 @@ async def _world(client: AsyncClient, db: AsyncSession) -> dict[str, Any]:
             "project_id": project["id"],
             "start_date": "2026-08-17",
             "expected_end_date": "2027-02-17",
+            "stack": " DS ",
             "ps_user_id": str(ps.id),
         },
     )
@@ -89,6 +90,7 @@ class TestCreateAndList:
         assert placement["sme"] is None
         assert placement["extension_status"] == "not_due"
         assert placement["status"] == "active"
+        assert placement["stack"] == "DS"
 
         listed = (await manager_client.get("/api/v1/placements")).json()
         assert [p["id"] for p in listed] == [placement["id"]]
@@ -223,13 +225,15 @@ class TestPartialUpdate:
         path = f"/api/v1/placements/{w['placement']['id']}"
 
         response = await manager_client.patch(
-            path, json={"extension_status": "requested", "ps_user_id": None}
+            path,
+            json={"extension_status": "requested", "ps_user_id": None, "stack": ""},
         )
 
         body = response.json()
         assert response.status_code == 200
         assert body["extension_status"] == "requested"
         assert body["ps"] is None
+        assert body["stack"] is None
         assert body["expected_end_date"] == "2027-02-17"
 
     async def test_ending_a_placement(
@@ -334,6 +338,8 @@ class TestAccess:
         assert body["extension_status"] is None
         assert body["rate_band"] is None
         assert body["ended_reason"] is None
+        # The stack is not a contract field
+        assert body["stack"] == "DS"
         assert body["start_date"] == "2026-08-17"
         assert body["sme"]["full_name"] == "Sam"
         assert as_ps.json()["extension_status"] == "requested"

@@ -39,6 +39,7 @@ const schema = z
     extension_status: z.enum(EXTENSION_STATUSES),
     status: z.enum(PLACEMENT_STATUSES),
     rate_band: z.string().max(50),
+    stack: z.string().max(50),
     ps_user_id: z.string(),
     sme_user_id: z.string(),
     ended_reason: z.string().max(2000),
@@ -85,6 +86,7 @@ export function PlacementDialog({
       extension_status: placement?.extension_status ?? "not_due",
       status: placement?.status ?? "active",
       rate_band: placement?.rate_band ?? "",
+      stack: placement?.stack ?? "",
       ps_user_id: placement?.ps?.id ?? NONE,
       sme_user_id: placement?.sme?.id ?? NONE,
       ended_reason: placement?.ended_reason ?? "",
@@ -101,6 +103,7 @@ export function PlacementDialog({
         extension_status: values.extension_status,
         status: values.status,
         rate_band: orNull(values.rate_band),
+        stack: orNull(values.stack),
         ps_user_id: orNull(values.ps_user_id),
         sme_user_id: orNull(values.sme_user_id),
         ended_reason: orNull(values.ended_reason),
@@ -188,6 +191,7 @@ export function PlacementDialog({
           noneLabel="None"
         />
         <TextField control={form.control} name="rate_band" label="Rate band" />
+        <TextField control={form.control} name="stack" label="Stack" />
       </FieldGrid>
       <TextAreaField
         control={form.control}

@@ -52,6 +52,8 @@ export interface RiskBoardRow {
   project: NamedRef;
   ps: PersonView | null;
   tech_lead: PersonView | null;
+  /** The placement's stack (DS), for the board's filter. */
+  stack: string | null;
   start_date: string;
   weeks_in: number;
   /** False with no snapshot yet, or no signal in the lookback. */
@@ -174,6 +176,7 @@ export interface RegisterFields {
   start_date: string;
   expected_end_date: string | null;
   status: PlacementStatus;
+  stack: string | null;
   client_manager_name: string | null;
   ps: PersonView | null;
   sme: PersonView | null;

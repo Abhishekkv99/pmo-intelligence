@@ -104,6 +104,7 @@ function health(overrides: Partial<PlacementHealth> = {}): PlacementHealth {
       start_date: "2026-08-18",
       expected_end_date: "2026-11-30",
       status: "active",
+      stack: "DS",
       client_manager_name: "Dana Lee",
       ps: { id: "u1", full_name: "Pat Jones", email: "pat@x.com" },
       sme: null,
@@ -256,6 +257,7 @@ describe("PlacementHealthView", () => {
     expect(register).toHaveTextContent("Expected end30 Nov 2026");
     expect(register).toHaveTextContent("Extensiondue");
     expect(register).toHaveTextContent("Rate bandB");
+    expect(register).toHaveTextContent("StackDS");
     expect(register).toHaveTextContent("PSPat Jones");
     expect(register).toHaveTextContent("SME—");
     expect(register).toHaveTextContent("Tech leadlee@x.com");

@@ -25,7 +25,7 @@ export const API_ROUTES = {
   clients: "/clients",
   projects: "/projects",
   placements: "/placements",
-  registerImport: "/register/import",
+  registerQuickAdd: "/register/quick-add",
   users: "/users",
   recordingFolders: "/recording-folders",
   recordingsScan: "/recordings/scan",

@@ -54,6 +54,7 @@ export function RiskBoard() {
   const [ps, setPs] = useState(ALL);
   const [techLead, setTechLead] = useState(ALL);
   const [client, setClient] = useState(ALL);
+  const [stack, setStack] = useState(ALL);
   const [level, setLevel] = useState(ALL);
 
   const options = useMemo(() => filterOptions(rows ?? []), [rows]);
@@ -66,9 +67,10 @@ export function RiskBoard() {
           (ps === ALL || r.ps?.id === ps) &&
           (techLead === ALL || r.tech_lead?.id === techLead) &&
           (client === ALL || r.client.id === client) &&
+          (stack === ALL || r.stack === stack) &&
           (technical || level === ALL || levelKey(r) === level),
       ),
-    [rows, ps, techLead, client, level, technical],
+    [rows, ps, techLead, client, stack, level, technical],
   );
 
   const columns = useMemo<ColumnDef<RiskBoardRow>[]>(() => {
@@ -221,6 +223,13 @@ export function RiskBoard() {
               onChange={setClient}
               options={options.clients}
             />
+            <PeopleFilter
+              label="Stack filter"
+              all="All stacks"
+              value={stack}
+              onChange={setStack}
+              options={options.stacks}
+            />
             {!technical && (
               <Select value={level} onValueChange={setLevel}>
                 <SelectTrigger className="w-40" aria-label="Risk level filter">
@@ -254,11 +263,13 @@ function filterOptions(rows: RiskBoardRow[]) {
   const ps = new Map<string, string>();
   const techLeads = new Map<string, string>();
   const clients = new Map<string, string>();
+  const stacks = new Map<string, string>();
   for (const r of rows) {
     if (r.ps) ps.set(r.ps.id, r.ps.full_name ?? r.ps.email);
     if (r.tech_lead)
       techLeads.set(r.tech_lead.id, r.tech_lead.full_name ?? r.tech_lead.email);
     clients.set(r.client.id, r.client.name);
+    if (r.stack) stacks.set(r.stack, r.stack);
   }
   const sorted = (m: Map<string, string>): Option[] =>
     [...m.entries()].sort((a, b) => a[1].localeCompare(b[1]));
@@ -266,6 +277,7 @@ function filterOptions(rows: RiskBoardRow[]) {
     ps: sorted(ps),
     techLeads: sorted(techLeads),
     clients: sorted(clients),
+    stacks: sorted(stacks),
   };
 }
 

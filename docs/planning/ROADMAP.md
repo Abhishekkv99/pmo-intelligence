@@ -10,7 +10,7 @@ Six phases, each one or two sprints, each ending with a staging sign-off by the 
 - **Exit gate**: staging URL signs in; CI green; the permission request has a ticket number. **Met 2026-10-08**: SSO sign-in on staging, CI green on `develop`, and the Teams app approved without a ticket number (see the Sprint 0 handover)
 
 ## Milestone 1: Register and Sessions
-- [x] Placement register (admin pages, CSV import) (Sprint 1 Phase 2, 2026-10-08)
+- [x] Placement register (admin pages, CSV import) (Sprint 1 Phase 2, 2026-10-08; the CSV import was replaced on 2026-10-11 by the quick add, one line per placement in the Teams chat name format)
 - [x] Session ingestion: upload, URL and S3 folder; transcription (Sprint 1 Phase 3, 2026-10-09)
 - [x] Session pipeline and session page (Sprint 1 Phases 4 and 5, 2026-10-09)
 - **Exit gate**: three real recorded PMO calls processed end to end; the PMO manager agrees the signals and summary are right. **Not run**: Sprint 1 closed 2026-10-09 without it (gate calls dropped, register import postponed; see the Sprint 1 handover)

@@ -1,8 +1,8 @@
 """The placement register: consultants, clients, projects and placements.
 
 Owned here (BACKLOG #3): PMO managers and admins create and edit it on the
-admin pages, and seed it once from a CSV (``register_import``). The rules in
-this module apply to both:
+admin pages, or enter placements as lines in the Teams chat name format
+(``register_quick_add``). The rules in this module apply to both:
 
 - a client is unique by its normalised name, a consultant by email, a project
   by (client, name), a placement by (consultant, project, start date);
@@ -284,6 +284,7 @@ class RegisterService:
             expected_end_date=data.expected_end_date,
             extension_status=data.extension_status.value,
             rate_band=data.rate_band or None,
+            stack=data.stack or None,
             ps_user_id=data.ps_user_id,
             sme_user_id=data.sme_user_id,
             status=data.status.value,
@@ -317,7 +318,7 @@ class RegisterService:
         for key, value in fields.items():
             if key in ("extension_status", "status"):
                 value = value.value
-            elif key in ("rate_band", "ended_reason"):
+            elif key in ("rate_band", "stack", "ended_reason"):
                 value = value or None
             setattr(placement, key, value)
         await self.session.flush()

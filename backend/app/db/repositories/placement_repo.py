@@ -148,3 +148,21 @@ class PlacementRepository(BaseRepository[Placement]):
         )
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
+
+    async def list_for_consultant_client_start(
+        self, consultant_id: uuid.UUID, client_id: uuid.UUID, start_date: date
+    ) -> list[Placement]:
+        """The consultant's placements at this client from this date, on any
+        of its projects (the quick add's key, so renaming a project keeps it)."""
+        stmt = (
+            select(Placement)
+            .join(Project, Project.id == Placement.project_id)
+            .where(
+                Placement.consultant_id == consultant_id,
+                Project.client_id == client_id,
+                Placement.start_date == start_date,
+            )
+            .order_by(Placement.created_at, Placement.id)
+        )
+        result = await self.session.execute(stmt)
+        return list(result.scalars().all())

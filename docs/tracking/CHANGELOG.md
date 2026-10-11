@@ -7,6 +7,9 @@ All notable changes to this project will be documented in this file.
 ### Security
 - Sign-in no longer stores users' Microsoft access and refresh tokens, and asks Microsoft for identity scopes only (`openid email profile`, no `offline_access`). Migration 002 drops `users.ms_access_token`, `ms_refresh_token` and `ms_token_expires_at`; the unused `refresh_microsoft_token` is removed.
 
+### Removed
+- The register's CSV import: the Admin > Import tab, `POST /register/import` and its template. Placements are entered with the quick add or the placement dialog.
+
 ### Changed
 - Open flags are listed critical first, then the oldest, then in the PRD's trigger order; flags opened together came back in a random order.
 - An SME sees only the Technical signals on a session page, and the sessions list counts only those for them (the transcript, summary, issues and actions are unchanged). Of a placement's health an SME sees only the Technical score and its own trend.
@@ -22,6 +25,8 @@ All notable changes to this project will be documented in this file.
 - `APP_DEBUG` now defaults to off, so a backend container that does not set it (the migration container, a one-off ECS task) no longer echoes every SQL statement into its logs. Compose and `.env.example` turn it on for development.
 
 ### Added
+- Quick add on Admin > Register > Placements: paste one placement per line as the consultant's Teams chat is named, `PRJ ITC DS - Zeeshan Abbas Jaffar - WTW - 21/9/2026 - 21/03/2027` (hyphens or en dashes; dates D/M/YYYY or D-M-YY), Preview, then Confirm. It finds or creates the client and consultant, and creates the placement under the client's project "To be confirmed" (rename it on the Projects tab) or updates the end date and stack of the one already there. `POST /register/quick-add`.
+- Migration 008: `placements.stack`, the consultant's stack on the engagement (DS). Shown in the Placements table and dialog, the placement page, and as a filter on the risk board.
 - Terraform variable `health_daily_enabled` (default off) sets `HEALTH_DAILY_ENABLED` on the backend container, like `recordings_scan_enabled`; true for staging, so the daily health recompute runs there at 06:00 UK.
 - Placement page (`/placements/{id}`, from the consultant's name on the risk board and the sessions list, and from the client · project line on a session page): the overall score in its RAG colour with its trend, the six dimension scores as tiles coloured by the same thresholds, the health chart over the placement's life (the overall after every recompute, the green, amber and red bands behind it, a line at each call), the open flags with the quotes behind them, the quotes that moved each score with the weight the recompute gave them, the calls, the open issues, every action (overdue marked, done ones muted) and the consultant's other placements; every quote links to its call. An SME sees the Technical score, trend and evidence only. It refreshes every 10 s while a call of the placement is being processed, else every 30 s.
 - The placement health API returns `thresholds` (`green_from`, `amber_from`) from the health configuration in use, so the page's bands and colours follow a configuration change.

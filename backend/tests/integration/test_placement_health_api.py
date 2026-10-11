@@ -95,6 +95,7 @@ class World:
             expected_end_date=date(2027, 3, 31),
             extension_status="due",
             rate_band="B",
+            stack="DS",
             ps_user_id=ps.id if ps else None,
             sme_user_id=sme.id if sme else None,
             status=status,
@@ -346,6 +347,7 @@ class TestRiskBoard:
         assert row["project"]["name"] == "Data platform"
         assert row["ps"]["full_name"] == "Pat"
         assert row["tech_lead"]["full_name"] == "Lee"
+        assert row["stack"] == "DS"
         assert row["start_date"] == "2026-09-01"
         assert row["weeks_in"] == 7
         assert row["scored"] is True
@@ -589,6 +591,7 @@ class TestPlacementHealth:
         register = body["register_fields"]
         assert register["extension_status"] == "due"
         assert register["rate_band"] == "B"
+        assert register["stack"] == "DS"
         assert register["client_manager_name"] == "Morgan"
         assert register["ps"]["full_name"] == "Pat"
 
@@ -659,6 +662,7 @@ class TestPlacementHealth:
         assert register["extension_status"] is None
         assert register["rate_band"] is None
         assert register["ended_reason"] is None
+        assert register["stack"] == "DS"
         assert register["start_date"] == "2026-09-01"
         assert register["sme"]["full_name"] == "Sam"
 

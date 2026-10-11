@@ -243,6 +243,7 @@ function RegisterLine({ fields }: { fields: RegisterFields }) {
         : "open-ended",
     ],
   ];
+  if (fields.stack) items.push(["Stack", fields.stack]);
   if (fields.extension_status) {
     items.push(["Extension", humanize(fields.extension_status).toLowerCase()]);
   }

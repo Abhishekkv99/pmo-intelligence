@@ -1,4 +1,4 @@
-"""The placement register: consultants, clients, projects, placements, CSV import.
+"""The placement register: consultants, clients, projects, placements, quick add.
 
 Editing the register is for the global roles (PMO manager, admin). Reading a
 single placement by id is scoped like every by-id read: the people it names
@@ -9,7 +9,7 @@ reason), as on the placement health page.
 
 import uuid
 
-from fastapi import APIRouter, Depends, Query, Request, UploadFile
+from fastapi import APIRouter, Depends, Query, Request
 
 from app.db.repositories.placement_repo import PlacementRow
 from app.dependencies import (
@@ -29,7 +29,6 @@ from app.schemas.register import (
     ConsultantCreate,
     ConsultantResponse,
     ConsultantUpdate,
-    ImportResult,
     NamedRef,
     PersonRef,
     PlacementConsultant,
@@ -39,12 +38,13 @@ from app.schemas.register import (
     ProjectCreate,
     ProjectResponse,
     ProjectUpdate,
+    QuickAddRequest,
+    QuickAddResult,
 )
 from app.services.health_jobs import request_recompute, request_recomputes
-from app.services.register_import import MAX_BYTES, RegisterImport
+from app.services.register_quick_add import QuickAdd
 from app.services.register_service import ProjectRow, RegisterService
 from app.utils.entitlements import sees_technical_only
-from app.utils.exceptions import ValidationError
 
 router = APIRouter()
 
@@ -193,32 +193,30 @@ async def update_placement(
     return _placement(row)
 
 
-# --- CSV import ---------------------------------------------------------------
+# --- Quick add ----------------------------------------------------------------
 
 
-@router.post("/register/import", response_model=ImportResult, dependencies=EDITORS)
+@router.post("/register/quick-add", response_model=QuickAddResult, dependencies=EDITORS)
 @limiter.limit("10/minute")
-async def import_register(
+async def quick_add(
     request: Request,
-    file: UploadFile,
+    body: QuickAddRequest,
     db: DbSession,
     dry_run: bool = Query(
         True, description="Preview only; set false to write (Confirm)"
     ),
-) -> ImportResult:
-    """Import placements from a CSV. Always 200: ``applied`` says if it wrote.
+) -> QuickAddResult:
+    """Add placements from lines in the Teams chat name format. Always 200:
+    ``applied`` says if it wrote.
 
-    A dry run never writes. A Confirm writes every row, or none when any row
-    has an error; the rows say why.
+    A dry run never writes. A Confirm writes every line, or none when any line
+    has an error; the lines say why.
     """
-    if not (file.filename or "").lower().endswith(".csv"):
-        raise ValidationError("Upload a .csv file")
-    content = await file.read(MAX_BYTES + 1)
-    importer = RegisterImport(db)
-    result = await importer.run(content, dry_run=dry_run)
+    adder = QuickAdd(db)
+    result = await adder.run(body.lines, dry_run=dry_run)
     if result.applied:
         await db.commit()
-        request_recomputes(importer.changed_placement_ids, SnapshotReason.REGISTER)
+        request_recomputes(adder.changed_placement_ids, SnapshotReason.REGISTER)
     return result
 
 
@@ -260,6 +258,7 @@ def _placement(row: PlacementRow, *, contract: bool = True) -> PlacementResponse
         expected_end_date=p.expected_end_date,
         extension_status=ExtensionStatus(p.extension_status) if contract else None,
         rate_band=p.rate_band if contract else None,
+        stack=p.stack,
         status=PlacementStatus(p.status),
         ended_reason=p.ended_reason if contract else None,
         ps=_person(row.ps),

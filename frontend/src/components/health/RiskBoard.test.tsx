@@ -37,6 +37,7 @@ function row(overrides: Partial<RiskBoardRow>): RiskBoardRow {
     project: { id: "pr1", name: "Data platform" },
     ps: { id: "u1", full_name: "Pat Jones", email: "pat@x.com" },
     tech_lead: { id: "u2", full_name: "Lee Tan", email: "lee@x.com" },
+    stack: "DS",
     start_date: "2026-09-01",
     weeks_in: 7,
     scored: true,
@@ -80,6 +81,7 @@ const UNSCORED: Partial<RiskBoardRow> = {
   client: { id: "cl2", name: "Globex" },
   ps: null,
   tech_lead: null,
+  stack: "BD",
   scored: false,
   computed_at: null,
   overall: null,
@@ -233,6 +235,21 @@ describe("RiskBoard", () => {
     await user.click(screen.getByRole("option", { name: "Globex" }));
 
     expect(consultantsInOrder()).toEqual(["Ann Brooks"]);
+  });
+
+  it("filters by stack", async () => {
+    const user = userEvent.setup();
+    render(<RiskBoard />);
+
+    await user.click(screen.getByRole("combobox", { name: "Stack filter" }));
+    expect(screen.getAllByRole("option").map((o) => o.textContent)).toEqual([
+      "All stacks",
+      "BD",
+      "DS",
+    ]);
+    await user.click(screen.getByRole("option", { name: "DS" }));
+
+    expect(consultantsInOrder()).toEqual(["Priya Shah", "Zoe Green"]);
   });
 
   it("gives an SME the Technical score only, with no flags or risk filter", () => {

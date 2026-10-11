@@ -6,14 +6,12 @@ import { EmptyState } from "@/components/common/EmptyState";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { hasGlobalRole } from "@/lib/roles";
 import { RecordingsTab } from "./recordings/RecordingsTab";
-import { ImportTab } from "./register/ImportTab";
 import { RegisterTab } from "./register/RegisterTab";
 import { UsersTab } from "./users/UsersTab";
 import { ProcessingStatusPanel } from "./ProcessingStatusPanel";
 
 export const ADMIN_TABS = [
   { value: "register", label: "Register" },
-  { value: "import", label: "Import" },
   { value: "users", label: "Users and roles" },
   { value: "recordings", label: "Recordings" },
   { value: "processing", label: "Processing" },
@@ -55,9 +53,6 @@ export function AdminView() {
           </TabsList>
           <TabsContent value="register">
             <RegisterTab />
-          </TabsContent>
-          <TabsContent value="import">
-            <ImportTab />
           </TabsContent>
           <TabsContent value="users">
             <UsersTab />

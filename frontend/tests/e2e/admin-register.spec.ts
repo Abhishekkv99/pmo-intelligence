@@ -9,21 +9,6 @@ import { test, expect } from "@playwright/test";
  */
 const run = Date.now().toString(36);
 
-const COLUMNS = [
-  "consultant_full_name",
-  "consultant_email",
-  "client_name",
-  "project_name",
-  "client_manager_name",
-  "tech_lead_email",
-  "ps_email",
-  "sme_email",
-  "start_date",
-  "expected_end_date",
-  "extension_status",
-  "rate_band",
-];
-
 test.describe("Admin register", () => {
   test("adds a client through the dialog", async ({ page }) => {
     const name = `Client ${run}`;
@@ -45,49 +30,31 @@ test.describe("Admin register", () => {
     await expect(page.getByRole("alert")).toContainText("already exists");
   });
 
-  test("previews and imports a CSV, then lists the placement", async ({
+  test("previews and saves a quick-add line, then lists the placement", async ({
     page,
   }) => {
     const consultant = `Asha ${run}`;
-    const csv = [
-      COLUMNS.join(","),
-      [
-        consultant,
-        `asha.${run}@example.com`,
-        `Import Client ${run}`,
-        "Payments",
-        "",
-        "",
-        "",
-        "",
-        "17/08/2026",
-        "2027-02-17",
-        "",
-        "",
-      ].join(","),
-    ].join("\r\n");
+    const client = `Quick Client ${run}`;
+    const line = `PRJ ITC DS - ${consultant} - ${client} - 17/8/2026 - 17/02/2027`;
 
-    await page.goto("/admin?tab=import");
-    await page.getByLabel("CSV file").setInputFiles({
-      name: "register.csv",
-      mimeType: "text/csv",
-      buffer: Buffer.from(csv),
-    });
+    await page.goto("/admin?tab=register");
+    await page.getByLabel("Quick add lines").fill(line);
     await page.getByRole("button", { name: "Preview" }).click();
 
-    // The first import after a container restart is slow (a cold backend),
-    // so the import steps get the allowance auth.setup.ts gives the first page.
-    const summary = page.getByTestId("import-summary");
+    // The first write after a container restart is slow (a cold backend), so
+    // these steps get the allowance auth.setup.ts gives the first page.
+    const summary = page.getByTestId("quick-add-summary");
     await expect(summary).toContainText("Preview, nothing written yet.", {
       timeout: 15_000,
     });
     await expect(summary).toContainText("1 new");
 
-    await page.getByRole("button", { name: "Confirm import" }).click();
-    await expect(summary).toContainText("Imported.", { timeout: 15_000 });
+    await page.getByRole("button", { name: "Confirm" }).click();
+    await expect(summary).toContainText("Saved.", { timeout: 15_000 });
 
-    await page.getByRole("tab", { name: "Register" }).click();
     await page.getByLabel("Search placements").fill(consultant);
-    await expect(page.getByText(consultant, { exact: true })).toBeVisible();
+    const row = page.getByRole("row").filter({ hasText: consultant });
+    await expect(row).toContainText(`${client} / To be confirmed`);
+    await expect(row).toContainText("DS");
   });
 });

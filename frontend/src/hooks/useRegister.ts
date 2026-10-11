@@ -6,7 +6,7 @@ import { API_ROUTES } from "@/lib/constants";
 import type {
   Client,
   Consultant,
-  ImportResult,
+  QuickAddResult,
   Placement,
   Project,
 } from "@/types/register";
@@ -53,14 +53,17 @@ export function saveRecord<T>(
     : api.patch<T>(`${path}/${id}`, body);
 }
 
-/** Preview (`dryRun`) or apply a register CSV. Always resolves for row errors. */
-export function importRegister(
-  file: File,
+/**
+ * Preview (`dryRun`) or apply quick-add lines in the Teams chat name format.
+ * Always resolves for line errors; the lines say why.
+ */
+export function quickAdd(
+  lines: string[],
   dryRun: boolean,
-): Promise<ImportResult> {
-  const form = new FormData();
-  form.append("file", file);
-  return api.postFormData<ImportResult>(API_ROUTES.registerImport, form, {
-    params: { dry_run: String(dryRun) },
-  });
+): Promise<QuickAddResult> {
+  return api.post<QuickAddResult>(
+    API_ROUTES.registerQuickAdd,
+    { lines },
+    { params: { dry_run: String(dryRun) } },
+  );
 }

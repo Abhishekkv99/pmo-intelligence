@@ -130,6 +130,7 @@ class PlacementCreate(BaseModel):
     expected_end_date: date | None = None
     extension_status: ExtensionStatus = ExtensionStatus.NOT_DUE
     rate_band: ShortText | None = None
+    stack: ShortText | None = None
     ps_user_id: uuid.UUID | None = None
     sme_user_id: uuid.UUID | None = None
     status: PlacementStatus = PlacementStatus.ACTIVE
@@ -143,6 +144,7 @@ class PlacementUpdate(BaseModel):
     expected_end_date: date | None = None
     extension_status: ExtensionStatus | None = None
     rate_band: ShortText | None = None
+    stack: ShortText | None = None
     ps_user_id: uuid.UUID | None = None
     sme_user_id: uuid.UUID | None = None
     status: PlacementStatus | None = None
@@ -170,6 +172,7 @@ class PlacementResponse(BaseModel):
     # Null for an SME, with rate_band and ended_reason: contract matters.
     extension_status: ExtensionStatus | None
     rate_band: str | None
+    stack: str | None
     status: PlacementStatus
     ended_reason: str | None
     ps: PersonRef | None
@@ -179,33 +182,43 @@ class PlacementResponse(BaseModel):
     updated_at: datetime
 
 
-# --- CSV import ---------------------------------------------------------------
+# --- Quick add ----------------------------------------------------------------
+
+QuickAddLine = Annotated[str, StringConstraints(max_length=500)]
 
 
-class ImportRowResult(BaseModel):
-    """What one CSV row did, or would do on Confirm."""
+class QuickAddRequest(BaseModel):
+    """Lines in the Teams chat name format; blank lines are skipped."""
 
-    row: int = Field(description="Line number in the file; the header is line 1")
+    lines: list[QuickAddLine] = Field(min_length=1, max_length=200)
+
+
+class QuickAddLineResult(BaseModel):
+    """What one line did, or would do on Confirm."""
+
+    line: int = Field(description="Position among the lines sent, from 1")
+    text: str
     outcome: str = Field(description="create, update, unchanged or error")
+    stack: str | None
     consultant: str | None
     client: str | None
-    project: str | None
+    start_date: date | None
+    expected_end_date: date | None
     changes: list[str]
-    warnings: list[str]
     errors: list[str]
 
 
-class ImportSummary(BaseModel):
-    rows: int
+class QuickAddSummary(BaseModel):
+    lines: int
     created: int
     updated: int
     unchanged: int
     errors: int
 
 
-class ImportResult(BaseModel):
+class QuickAddResult(BaseModel):
     dry_run: bool
-    # True only when this call wrote the rows: a Confirm with no row errors.
+    # True only when this call wrote the lines: a Confirm with no line errors.
     applied: bool
-    summary: ImportSummary
-    rows: list[ImportRowResult]
+    summary: QuickAddSummary
+    lines: list[QuickAddLineResult]

@@ -57,6 +57,7 @@ class RiskBoardRow(BaseModel):
     # For the board's filters.
     ps: PersonView | None
     tech_lead: PersonView | None
+    stack: str | None
     start_date: date
     weeks_in: int
     # False when there is no snapshot yet, or no signal in the lookback.
@@ -191,6 +192,7 @@ class RegisterFields(BaseModel):
     start_date: date
     expected_end_date: date | None
     status: PlacementStatus
+    stack: str | None
     client_manager_name: str | None
     ps: PersonView | None
     sme: PersonView | None

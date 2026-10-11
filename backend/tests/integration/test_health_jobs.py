@@ -34,7 +34,6 @@ from app.services.processing_queue import (
     get_processing_queue,
     set_processing_queue,
 )
-from app.services.register_import import COLUMNS
 
 # Friday 9 October 2026, 13:00 in London: today's 06:00 run was at 05:00 UTC
 NOW = datetime(2026, 10, 9, 12, 0, tzinfo=UTC)
@@ -305,36 +304,23 @@ class TestRegisterHooks:
         assert uuid.UUID(ended["id"]) not in queued
         assert uuid.UUID(other["placement"]["id"]) not in queued
 
-    async def test_an_applied_import_queues_the_placements_it_created_or_changed(
+    async def test_an_applied_quick_add_queues_the_placements_it_created_or_changed(
         self, manager_client: AsyncClient
     ) -> None:
-        def row(**values: str) -> str:
-            base = {
-                "consultant_full_name": "Vibin Cholayil",
-                "consultant_email": "vibin@example.com",
-                "client_name": "Barclays",
-                "project_name": "Payments",
-                "start_date": "2026-08-17",
-            }
-            base.update(values)
-            return ",".join(base.get(column, "") for column in COLUMNS)
+        def line(name: str, end: str = "17/02/2027") -> str:
+            return f"PRJ ITC DS - {name} - Barclays - 17/8/2026 - {end}"
 
-        def csv(*rows: str) -> bytes:
-            return ("\r\n".join([",".join(COLUMNS), *rows]) + "\r\n").encode()
-
-        async def run(content: bytes, *, dry_run: bool) -> dict[str, Any]:
+        async def run(lines: list[str], *, dry_run: bool) -> dict[str, Any]:
             response = await manager_client.post(
-                "/api/v1/register/import",
+                "/api/v1/register/quick-add",
                 params={"dry_run": str(dry_run).lower()},
-                files={"file": ("register.csv", content, "text/csv")},
+                json={"lines": lines},
             )
             assert response.status_code == 200, response.text
             body: dict[str, Any] = response.json()
             return body
 
-        first = csv(
-            row(), row(consultant_full_name="Ann Lee", consultant_email="a@x.com")
-        )
+        first = [line("Vibin Cholayil"), line("Ann Lee")]
         assert (await run(first, dry_run=True))["applied"] is False
         assert _queued_recomputes() == {}
 
@@ -344,11 +330,8 @@ class TestRegisterHooks:
         assert set(created.values()) == {"register"}
 
         _fresh_queue()
-        # One row changed, one the same: only the changed one is queued
-        second = csv(
-            row(expected_end_date="2027-02-17"),
-            row(consultant_full_name="Ann Lee", consultant_email="a@x.com"),
-        )
+        # One line changed, one the same: only the changed one is queued
+        second = [line("Vibin Cholayil", end="17/05/2027"), line("Ann Lee")]
         assert (await run(second, dry_run=False))["applied"] is True
 
         [changed] = _queued_recomputes()

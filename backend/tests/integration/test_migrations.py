@@ -157,15 +157,19 @@ async def _transcript_columns(url: str) -> set[str]:
 
 
 async def _snapshot_columns(url: str) -> set[str]:
+    return await _columns(url, "health_snapshots")
+
+
+async def _columns(url: str, table: str) -> set[str]:
     check = create_async_engine(url)
     try:
         async with check.connect() as conn:
             rows = await conn.execute(
                 text(
                     "SELECT column_name FROM information_schema.columns "
-                    "WHERE table_schema = 'public' "
-                    "AND table_name = 'health_snapshots'"
-                )
+                    "WHERE table_schema = 'public' AND table_name = :table"
+                ),
+                {"table": table},
             )
             return {row[0] for row in rows}
     finally:
@@ -295,3 +299,17 @@ class TestMigrations:
         downgrade = _alembic(fresh_database_url, "downgrade", "006")
         assert downgrade.returncode == 0, downgrade.stderr
         assert not TECHNICAL_TREND_COLUMNS & await _snapshot_columns(fresh_database_url)
+
+    async def test_008_adds_the_placement_stack_and_removes_it(
+        self, fresh_database_url: str
+    ) -> None:
+        assert _alembic(fresh_database_url, "upgrade", "007").returncode == 0
+        assert "stack" not in await _columns(fresh_database_url, "placements")
+
+        upgrade = _alembic(fresh_database_url, "upgrade", "008")
+        assert upgrade.returncode == 0, upgrade.stderr
+        assert "stack" in await _columns(fresh_database_url, "placements")
+
+        downgrade = _alembic(fresh_database_url, "downgrade", "007")
+        assert downgrade.returncode == 0, downgrade.stderr
+        assert "stack" not in await _columns(fresh_database_url, "placements")

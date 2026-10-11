@@ -110,6 +110,8 @@ class Placement(Base, UUIDMixin, TimestampMixin):
         server_default=ExtensionStatus.NOT_DUE.value,
     )
     rate_band: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    # The consultant's stack on this engagement, as the chat name gives it (DS).
+    stack: Mapped[str | None] = mapped_column(String(50), nullable=True)
     ps_user_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("users.id", ondelete="SET NULL"),
