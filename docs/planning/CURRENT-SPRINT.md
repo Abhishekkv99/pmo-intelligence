@@ -63,7 +63,7 @@
 
 ## Task Checklist
 
->>> CURRENT PHASE: Post-sprint: the CDM replaces the tech lead (built and tested; the commit waits for the user)
+>>> CURRENT PHASE: Post-sprint work deployed: the quick add (73045d8), separate Client and Project columns (5966a1f) and the CDM replacing the tech lead (8368ce9). Sprint 2 is complete; next is the exit gates, then Sprint 3
 
 ### Phase 0: Plan
 - [x] Plan approved (2026-10-09)
@@ -211,7 +211,7 @@ Asked by the user 2026-10-11: there is no tech lead; the CDM (Consultant Directo
 - [x] `API.md`, `ARCHITECTURE.md` (role model, register, pipeline, frontend, migrations, `> Status:`), `FEATURES.md`, `TESTS.md`, `CHANGELOG.md`, `BACKLOG.md` (question 5), `DEPLOYMENT.md` (`> Status:` after the deploy applies 009, and `make user-role` roles); README if it names the roles (all but `DEPLOYMENT.md`'s `> Status:`, which waits for the deploy that applies 009; its roles line, README, FEATURES, CHANGELOG, BACKLOG and TESTS done)
 
 **Commit checkpoint**
-- [ ] `feat: replace the tech lead with the consultant director`
+- [x] `feat: replace the tech lead with the consultant director` (8368ce9, pushed 2026-10-11; CI run 38162068567 green, both sides deployed; migration "upgrade 008 -> 009" ran; ownership after 105 s, takeover steps 0 rows)
 
 ### Alongside: real calls on staging
 - [ ] The user seeds the register on Admin > Register; the next scan matches the folders; settle any folder that names more than one consultant (not done this sprint; in BACKLOG, Medium Priority)
@@ -222,14 +222,14 @@ Asked by the user 2026-10-11: there is no tech lead; the CDM (Consultant Directo
 - Real calls: the staging register (by hand, BACKLOG) and consultants told beforehand (BACKLOG #6); the exit gate needs ten scored placements.
 - Phase 1's Terraform apply needs the user's approval; the fix waits for the evidence.
 
-## Session State (last updated: 2026-10-11 23:26)
+## Session State (last updated: 2026-10-11 23:49)
 - **Sprint**: 2 — Health v1 (PRD Phase 2)
-- **Current phase**: post-sprint standalone work: the CDM replaces the tech lead; plan approved 2026-10-11, building
-- **Phase progress**: CDM: code, tests and docs done; the commit checkpoint remains
-- **Last completed task**: the CDM replaces the tech lead, built and tested (2026-10-11): backend 763 unit + 282 integration, frontend 202, e2e 21 against the rebuilt stack with migration 009; `make lint` clean
-- **Next task**: the user approves `feat: replace the tech lead with the consultant director`; after the push read the deploy through ("upgrade 008 -> 009", ownership) and update DEPLOYMENT's `> Status:`; then the user gives roles (CDM to the consultant directors), enters placements with the quick add and sets each consultant's CDM, and runs the exit gates
-- **Last commit**: 5966a1f "feat: show client and project in separate columns" (pushed 2026-10-11; CI run 38157327952 green, frontend redeployed, backend untouched). Before it 05254fe "docs: record the quick add deploy" and 73045d8 "feat: add quick add and remove the CSV import" (CI run 38155560169, migration 008 on staging)
-- **Uncommitted changes**: the CDM change (backend, migration 009, frontend, tests) and docs `API.md`, `ARCHITECTURE.md`, `DEPLOYMENT.md`, `README.md`, `planning/BACKLOG.md`, `tracking/{CHANGELOG,FEATURES,TESTS}.md`, this file
+- **Current phase**: Sprint 2 complete; the post-sprint quick add and CDM changes are deployed to staging
+- **Phase progress**: post-sprint work done and deployed
+- **Last completed task**: the CDM change deployed (2026-10-11 18:08 UTC, CI run 38162068567): migration 009 on staging, ownership after 105 s
+- **Next task**: the user gives the consultant directors the CDM role, enters placements with the quick add, sets each consultant's CDM, processes real calls and runs the exit gates (BACKLOG). Sprint 3 is the visual redesign with Google Stitch (BACKLOG High Priority): connect Stitch first, then `/sprint-start` in a new session
+- **Last commit**: 8368ce9 "feat: replace the tech lead with the consultant director" (pushed 2026-10-11; CI run 38162068567 green, both sides deployed). Before it 5966a1f (separate Client and Project columns) and 73045d8 (the quick add)
+- **Uncommitted changes**: `DEPLOYMENT.md` (the 8368ce9 deploy), `planning/BACKLOG.md` (the Sprint 3 redesign item) and this file
 - **Blockers**: none
 - **Tests passing**: 763 unit + 282 integration (backend) + 202 frontend unit (`--maxWorkers=4`) + 21 e2e (one worker, rebuilt local stack) = 1268
 - **Files created this session**: (Phase 7) `frontend/src/app/placements/[placementId]/page.tsx`, `frontend/src/components/health/{PlacementHealthView,PlacementHealthView.test,DimensionScores,HealthChart,HealthChart.test,FlagList,EvidenceItem,HealthIndicators}.tsx`, `frontend/src/hooks/useHealth.test.ts`, `frontend/tests/e2e/placement-health.spec.ts`; (Phase 6) `frontend/src/components/health/{RiskBoard,RiskBoard.test}.tsx`, `frontend/src/hooks/useHealth.ts`, `frontend/src/lib/{health,health.test}.ts`, `frontend/src/types/health.ts`, `frontend/tests/e2e/risk-board.spec.ts`; (Phase 5) `backend/alembic/versions/007_add_snapshot_technical_trend.py`, `backend/app/api/v1/placement_health.py`, `backend/app/schemas/health.py`, `backend/app/services/health_view.py`, `backend/tests/integration/test_placement_health_api.py`
@@ -310,3 +310,4 @@ Asked by the user 2026-10-11: there is no tech lead; the CDM (Consultant Directo
 | CDM: full health view of the placements of the consultants they manage, like a PS | User decision 2026-10-11. Alternatives offered: full without contract fields; technical only |
 | CDM: call analysis labels the CDM as a speaker (`SpeakerRole.CDM`, replacing `tech_lead`), and an action the CDM owns goes to the consultant's CDM | User decision 2026-10-11. Alternative offered: no CDM label ("other") |
 | CDM: data stored as tech lead is converted: the role to `cdm`, a project's tech lead to the CDM of the consultants whose latest placement is on that project, speaker and owner roles to `cdm` | User decision 2026-10-11. Alternative offered: remove it |
+| The visual redesign (a showcase sign-in page for management, then the other pages), designed with Google Stitch in a neutral modern SaaS style, is Sprint 3, planned in a new session; it is recorded in BACKLOG High Priority and not started now | User decisions 2026-10-11. Alternatives offered: design it now without Stitch; a separate public landing page; the ITC brand or a light minimal style; standalone work before Sprint 3 |
