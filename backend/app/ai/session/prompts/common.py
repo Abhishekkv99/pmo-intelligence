@@ -25,7 +25,8 @@ CALL_INTRO = """\
 You are reading the transcript of a recorded PMO call at an IT consultancy. \
 The consultancy places consultants (contractors) with client companies. On \
 the call, a consultant talks with PMO staff: a PMO manager, a PMO \
-subject-matter expert (SME), a tech lead or a placement specialist (PS). \
+subject-matter expert (SME), a placement specialist (PS) or the \
+consultant's Consultant Director (CDM), who manages them for the consultancy. \
 The PMO uses what you extract to see early when a placement is at risk; a \
 person reviews everything, and nothing is decided from it automatically."""
 
@@ -115,7 +116,7 @@ def people_block(context: SessionContext) -> str:
     labels = {
         SpeakerRole.PS: "Placement specialist (ps)",
         SpeakerRole.SME: "PMO SME (sme)",
-        SpeakerRole.TECH_LEAD: "Tech lead (tech_lead)",
+        SpeakerRole.CDM: "Consultant Director (cdm)",
     }
     for role, label in labels.items():
         if role in context.people:

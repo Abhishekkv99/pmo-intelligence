@@ -65,9 +65,9 @@ class TestRoleGrantAndFirstSignIn:
 
     async def test_changing_and_listing_roles(self, db_session: AsyncSession) -> None:
         service = UserRoleService(db_session)
-        await service.set_role("lead@example.com", Role.TECH_LEAD)
+        await service.set_role("lead@example.com", Role.CDM)
 
-        assert "tech_lead -> ps" in await service.set_role("lead@example.com", Role.PS)
+        assert "cdm -> ps" in await service.set_role("lead@example.com", Role.PS)
         assert "nothing changed" in await service.set_role("lead@example.com", Role.PS)
         listed = {u.email: u for u in await service.list_users()}
         assert listed["lead@example.com"].role == "ps"

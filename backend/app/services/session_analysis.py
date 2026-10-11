@@ -13,8 +13,8 @@ What is stored:
 - the issues: an issue the model linked to an earlier one raises that one's
   count (once per call) and last-seen time, reopens it if it was resolved,
   and closes it when the call resolved it; any other is a new issue;
-- the actions, with the placement's PS, SME or tech lead as owner when the
-  owner role names them, and the earlier actions the call closed;
+- the actions, with the placement's PS or SME, or the consultant's CDM, as
+  owner when the owner role names them, and the earlier actions the call closed;
 - a cost row per LLM call, the node errors and the rejected-quote count.
 
 A run where neither the summary nor any extraction succeeded is useless: the
@@ -97,7 +97,7 @@ class SessionAnalysisService:
         for role, user in (
             (SpeakerRole.PS, row.ps),
             (SpeakerRole.SME, row.sme),
-            (SpeakerRole.TECH_LEAD, row.tech_lead),
+            (SpeakerRole.CDM, row.cdm),
         ):
             if user is not None:
                 people[role] = _person(user.full_name, user.email)

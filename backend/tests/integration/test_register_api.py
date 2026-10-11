@@ -38,19 +38,19 @@ async def _post(client: AsyncClient, path: str, body: dict[str, Any]) -> Any:
 
 async def _world(client: AsyncClient, db: AsyncSession) -> dict[str, Any]:
     ps = await _user(db, "pat", Role.PS)
-    lead = await _user(db, "tia", Role.TECH_LEAD)
+    cdm = await _user(db, "tia", Role.CDM)
     client_row = await _post(client, "/clients", {"name": "Barclays"})
     consultant = await _post(
-        client, "/consultants", {"full_name": "Vibin Cholayil", "email": "V@x.com"}
+        client,
+        "/consultants",
+        {
+            "full_name": "Vibin Cholayil",
+            "email": "V@x.com",
+            "cdm_user_id": str(cdm.id),
+        },
     )
     project = await _post(
-        client,
-        "/projects",
-        {
-            "client_id": client_row["id"],
-            "name": "Payments",
-            "tech_lead_user_id": str(lead.id),
-        },
+        client, "/projects", {"client_id": client_row["id"], "name": "Payments"}
     )
     placement = await _post(
         client,
@@ -66,7 +66,7 @@ async def _world(client: AsyncClient, db: AsyncSession) -> dict[str, Any]:
     )
     return {
         "ps": ps,
-        "lead": lead,
+        "cdm": cdm,
         "client": client_row,
         "consultant": consultant,
         "project": project,
@@ -86,7 +86,8 @@ class TestCreateAndList:
         assert placement["client"]["name"] == "Barclays"
         assert placement["project"]["name"] == "Payments"
         assert placement["ps"]["email"] == "pat@example.com"
-        assert placement["tech_lead"]["email"] == "tia@example.com"
+        assert placement["cdm"]["email"] == "tia@example.com"
+        assert w["consultant"]["cdm"]["full_name"] == "Tia"
         assert placement["sme"] is None
         assert placement["extension_status"] == "not_due"
         assert placement["status"] == "active"
@@ -96,7 +97,28 @@ class TestCreateAndList:
         assert [p["id"] for p in listed] == [placement["id"]]
         projects = (await manager_client.get("/api/v1/projects")).json()
         assert projects[0]["client_name"] == "Barclays"
-        assert projects[0]["tech_lead"]["full_name"] == "Tia"
+        assert "tech_lead" not in projects[0]
+        consultants = (await manager_client.get("/api/v1/consultants")).json()
+        assert consultants[0]["cdm"]["email"] == "tia@example.com"
+
+    async def test_a_consultant_cdm_is_changed_and_cleared(
+        self, manager_client: AsyncClient, db_session: AsyncSession
+    ) -> None:
+        w = await _world(manager_client, db_session)
+        other = await _user(db_session, "omar", Role.CDM)
+        path = f"/api/v1/consultants/{w['consultant']['id']}"
+
+        changed = await manager_client.patch(path, json={"cdm_user_id": str(other.id)})
+        placement = await manager_client.get(
+            f"/api/v1/placements/{w['placement']['id']}"
+        )
+        cleared = await manager_client.patch(path, json={"cdm_user_id": None})
+
+        assert changed.json()["cdm"]["full_name"] == "Omar"
+        # Every placement of the consultant shows the consultant's CDM
+        assert placement.json()["cdm"]["full_name"] == "Omar"
+        assert cleared.status_code == 200
+        assert cleared.json()["cdm"] is None
 
     async def test_names_are_tidied(self, manager_client: AsyncClient) -> None:
         body = await _post(manager_client, "/clients", {"name": "  Capital   One "})
@@ -197,6 +219,20 @@ class TestValidation:
 
         assert response.status_code == 422
         assert "sme_user_id" in response.json()["detail"]
+
+    async def test_a_consultant_cdm_must_be_active_with_a_role(
+        self, manager_client: AsyncClient, db_session: AsyncSession
+    ) -> None:
+        w = await _world(manager_client, db_session)
+        nobody = await _user(db_session, "nobody", None)
+
+        response = await manager_client.patch(
+            f"/api/v1/consultants/{w['consultant']['id']}",
+            json={"cdm_user_id": str(nobody.id)},
+        )
+
+        assert response.status_code == 422
+        assert "cdm_user_id" in response.json()["detail"]
 
     async def test_unknown_reference_is_422(self, manager_client: AsyncClient) -> None:
         response = await manager_client.post(

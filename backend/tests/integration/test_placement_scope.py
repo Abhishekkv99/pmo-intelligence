@@ -3,9 +3,10 @@
 No product route is addressed by a placement id yet, so a throwaway app
 mounts the two dependencies exactly as a route would. What is pinned here is
 the rule from docs/PRD.md: a user sees the placements that name them (PS,
-SME, the project's tech lead) or everything (PMO manager, admin); anything
-else answers 404, indistinguishable from a missing placement, and only a
-permitted read of consultant data writes an access_log row.
+SME, or the consultant's CDM, who replaced the PRD's tech lead) or
+everything (PMO manager, admin); anything else answers 404,
+indistinguishable from a missing placement, and only a permitted read of
+consultant data writes an access_log row.
 """
 
 import uuid
@@ -63,7 +64,7 @@ class _World:
     admin: User
     ps: User
     sme: User
-    tech_lead: User
+    cdm: User
     other_ps: User
     no_role: User
 
@@ -83,17 +84,15 @@ async def world(db_session: AsyncSession) -> _World:
     admin = await _user(db_session, "admin", Role.ADMIN)
     ps = await _user(db_session, "ps", Role.PS)
     sme = await _user(db_session, "sme", Role.SME)
-    tech_lead = await _user(db_session, "lead", Role.TECH_LEAD)
+    cdm = await _user(db_session, "cdm", Role.CDM)
     other_ps = await _user(db_session, "other-ps", Role.PS)
     no_role = await _user(db_session, "no-role", None)
 
     client = Client(name="Acme Bank", normalized_name="acme bank")
     db_session.add(client)
     await db_session.flush()
-    project = Project(
-        client_id=client.id, name="Payments", tech_lead_user_id=tech_lead.id
-    )
-    consultant = Consultant(full_name="Jo Bloggs")
+    project = Project(client_id=client.id, name="Payments")
+    consultant = Consultant(full_name="Jo Bloggs", cdm_user_id=cdm.id)
     db_session.add_all([project, consultant])
     await db_session.flush()
     placement = Placement(
@@ -106,7 +105,7 @@ async def world(db_session: AsyncSession) -> _World:
     db_session.add(placement)
     await db_session.flush()
 
-    return _World(placement, manager, admin, ps, sme, tech_lead, other_ps, no_role)
+    return _World(placement, manager, admin, ps, sme, cdm, other_ps, no_role)
 
 
 @asynccontextmanager
@@ -142,9 +141,7 @@ async def _access_rows(db: AsyncSession, placement_id: uuid.UUID) -> list[Access
 
 
 class TestWhoCanRead:
-    @pytest.mark.parametrize(
-        "who", ["manager", "admin", "ps", "sme", "tech_lead"], ids=str
-    )
+    @pytest.mark.parametrize("who", ["manager", "admin", "ps", "sme", "cdm"], ids=str)
     async def test_allowed(
         self, db_session: AsyncSession, world: _World, who: str
     ) -> None:
@@ -153,6 +150,32 @@ class TestWhoCanRead:
 
         assert status == 200
         assert body == {"id": str(world.placement.id)}
+
+    async def test_a_cdm_reads_every_placement_of_their_consultant_only(
+        self, db_session: AsyncSession, world: _World
+    ) -> None:
+        later = Placement(
+            consultant_id=world.placement.consultant_id,
+            project_id=world.placement.project_id,
+            start_date=date(2027, 3, 1),
+        )
+        someone_else = Consultant(full_name="Ann Other")
+        db_session.add_all([later, someone_else])
+        await db_session.flush()
+        theirs = Placement(
+            consultant_id=someone_else.id,
+            project_id=world.placement.project_id,
+            start_date=date(2026, 9, 1),
+            ps_user_id=world.ps.id,
+        )
+        db_session.add(theirs)
+        await db_session.flush()
+
+        mine = await _get(db_session, world.cdm, f"/placements/{later.id}")
+        other = await _get(db_session, world.cdm, f"/placements/{theirs.id}")
+
+        assert mine[0] == 200
+        assert other[0] == 404
 
     @pytest.mark.parametrize("who", ["other_ps", "no_role"], ids=str)
     async def test_denied_reads_exactly_like_a_missing_placement(

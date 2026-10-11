@@ -119,7 +119,7 @@ class SessionRepository:
                 or_(
                     Placement.ps_user_id == user_id,
                     Placement.sme_user_id == user_id,
-                    Project.tech_lead_user_id == user_id,
+                    Consultant.cdm_user_id == user_id,
                 )
             )
         if consultant_id is not None:

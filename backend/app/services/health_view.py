@@ -233,7 +233,7 @@ class HealthViewService:
     ) -> dict[uuid.UUID, User]:
         people: dict[uuid.UUID, User] = {
             person.id: person
-            for person in (row.ps, row.sme, row.tech_lead)
+            for person in (row.ps, row.sme, row.cdm)
             if person is not None
         }
         missing = {
@@ -283,7 +283,7 @@ def _board_row(
         client=NamedRef(id=row.client.id, name=row.client.name),
         project=NamedRef(id=row.project.id, name=row.project.name),
         ps=_person(row.ps),
-        tech_lead=_person(row.tech_lead),
+        cdm=_person(row.cdm),
         stack=row.placement.stack,
         start_date=row.placement.start_date,
         weeks_in=_weeks_in(row.placement.start_date, today),
@@ -474,7 +474,7 @@ def _register(row: PlacementRow, technical: bool) -> RegisterFields:
         client_manager_name=row.project.client_manager_name,
         ps=_person(row.ps),
         sme=_person(row.sme),
-        tech_lead=_person(row.tech_lead),
+        cdm=_person(row.cdm),
         extension_status=ExtensionStatus(placement.extension_status) if full else None,
         rate_band=placement.rate_band if full else None,
         ended_reason=placement.ended_reason if full else None,

@@ -1,6 +1,6 @@
 # PMO Intelligence
 
-Live health for every consultant placement. PMO Intelligence reads recorded PMO sessions and the Teams group conversation for each placement and extracts signals, each backed by a quote. A deterministic health model turns the signals into a score per dimension, a trend, a RAG level and risk flags with their evidence. The PMO, tech leads and placement specialists act on the flags; the tool never acts on a consultant by itself.
+Live health for every consultant placement. PMO Intelligence reads recorded PMO sessions and the Teams group conversation for each placement and extracts signals, each backed by a quote. A deterministic health model turns the signals into a score per dimension, a trend, a RAG level and risk flags with their evidence. The PMO, the consultant directors (CDMs) and placement specialists act on the flags; the tool never acts on a consultant by itself.
 
 > Status: Sprint 0 (bootstrap). Sign-in, roles, the empty dashboard, local development and CI are built; the product features follow from Sprint 1. See `docs/planning/ROADMAP.md`.
 

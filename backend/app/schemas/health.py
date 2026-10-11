@@ -56,7 +56,7 @@ class RiskBoardRow(BaseModel):
     project: NamedRef
     # For the board's filters.
     ps: PersonView | None
-    tech_lead: PersonView | None
+    cdm: PersonView | None
     stack: str | None
     start_date: date
     weeks_in: int
@@ -196,7 +196,7 @@ class RegisterFields(BaseModel):
     client_manager_name: str | None
     ps: PersonView | None
     sme: PersonView | None
-    tech_lead: PersonView | None
+    cdm: PersonView | None
     # Null in the technical view: contract matters.
     extension_status: ExtensionStatus | None
     rate_band: str | None

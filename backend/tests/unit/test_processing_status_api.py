@@ -145,7 +145,7 @@ class TestProcessingStatus:
 
         assert response.status_code == 200
 
-    @pytest.mark.parametrize("role", ["ps", "sme", "tech_lead", None])
+    @pytest.mark.parametrize("role", ["ps", "sme", "cdm", None])
     async def test_other_roles_and_no_role_are_a_403(self, role: str | None) -> None:
         async for client in _client_as(role):
             response = await client.get(PATH)

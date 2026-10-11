@@ -71,12 +71,14 @@ class World:
         client: str = "Acme",
         ps: User | None = None,
         sme: User | None = None,
-        tech_lead: User | None = None,
+        cdm: User | None = None,
         status: str = "active",
         start_date: date = START,
     ) -> Placement:
         if isinstance(consultant, str):
             consultant = await self.consultant(consultant)
+        if cdm is not None:
+            consultant.cdm_user_id = cdm.id
         row = Client(name=client, normalized_name=f"{client.lower()} {uuid.uuid4()}")
         self.db.add(row)
         await self.db.flush()
@@ -84,7 +86,6 @@ class World:
             client_id=row.id,
             name="Data platform",
             client_manager_name="Morgan",
-            tech_lead_user_id=tech_lead.id if tech_lead else None,
         )
         self.db.add(project)
         await self.db.flush()
@@ -313,8 +314,8 @@ class TestRiskBoard:
         self, manager_client: AsyncClient, world: World
     ) -> None:
         ps = await world.user(Role.PS, "Pat")
-        lead = await world.user(Role.TECH_LEAD, "Lee")
-        placement = await world.placement("Priya Shah", ps=ps, tech_lead=lead)
+        cdm = await world.user(Role.CDM, "Lee")
+        placement = await world.placement("Priya Shah", ps=ps, cdm=cdm)
         await world.snapshot(placement, computed_at=NOW - timedelta(days=3))
         latest = await world.snapshot(
             placement, risk_level="red", overall=4.6, trend="down", trend_delta=-1.2
@@ -346,7 +347,7 @@ class TestRiskBoard:
         assert row["client"]["name"] == "Acme"
         assert row["project"]["name"] == "Data platform"
         assert row["ps"]["full_name"] == "Pat"
-        assert row["tech_lead"]["full_name"] == "Lee"
+        assert row["cdm"]["full_name"] == "Lee"
         assert row["stack"] == "DS"
         assert row["start_date"] == "2026-09-01"
         assert row["weeks_in"] == 7
@@ -411,11 +412,11 @@ class TestRiskBoard:
         assert row["days_since_last_call"] is None
         assert row["next_action"] is None
 
-    @pytest.mark.parametrize("named_as", ["ps", "tech_lead"])
+    @pytest.mark.parametrize("named_as", ["ps", "cdm"])
     async def test_a_named_role_sees_only_the_placements_naming_them(
         self, manager_client: AsyncClient, world: World, named_as: str
     ) -> None:
-        role = {"ps": Role.PS, "tech_lead": Role.TECH_LEAD}[named_as]
+        role = {"ps": Role.PS, "cdm": Role.CDM}[named_as]
         person = await world.user(role, "Named")
         mine = await world.placement("Priya Shah", **{named_as: person})
         await world.snapshot(mine)

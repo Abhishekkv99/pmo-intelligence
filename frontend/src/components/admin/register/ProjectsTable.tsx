@@ -10,25 +10,21 @@ import { z } from "zod";
 import { DataTable } from "@/components/common/DataTable";
 import { Button } from "@/components/ui/button";
 import { saveRecord, useClients, useProjects } from "@/hooks/useRegister";
-import { useUsers } from "@/hooks/useUsers";
 import { API_ROUTES } from "@/lib/constants";
-import type { Client, Project, UserListItem } from "@/types/register";
+import type { Client, Project } from "@/types/register";
 import {
   FieldGrid,
-  NONE,
   SelectField,
   TextField,
   orNull,
   saveErrorMessage,
 } from "./fields";
-import { personOptions } from "./PlacementDialog";
 import { RecordDialog } from "./RecordDialog";
 
 const schema = z.object({
   client_id: z.string().min(1, "Choose a client"),
   name: z.string().trim().min(1, "Required").max(255),
   client_manager_name: z.string().max(255),
-  tech_lead_user_id: z.string(),
   start_date: z.string(),
 });
 
@@ -37,13 +33,11 @@ type Values = z.infer<typeof schema>;
 function ProjectDialog({
   project,
   clients,
-  users,
   onClose,
   onSaved,
 }: {
   project: Project | null;
   clients: Client[];
-  users: UserListItem[];
   onClose: () => void;
   onSaved: () => void;
 }) {
@@ -53,7 +47,6 @@ function ProjectDialog({
       client_id: project?.client_id ?? "",
       name: project?.name ?? "",
       client_manager_name: project?.client_manager_name ?? "",
-      tech_lead_user_id: project?.tech_lead?.id ?? NONE,
       start_date: project?.start_date ?? "",
     },
   });
@@ -64,7 +57,6 @@ function ProjectDialog({
         client_id: values.client_id,
         name: values.name,
         client_manager_name: orNull(values.client_manager_name),
-        tech_lead_user_id: orNull(values.tech_lead_user_id),
         start_date: orNull(values.start_date),
       });
       toast.success(project ? "Project updated" : "Project added");
@@ -80,7 +72,9 @@ function ProjectDialog({
       open
       onOpenChange={(open) => !open && onClose()}
       title={project ? "Edit project" : "Add project"}
-      description="The tech lead can read every placement on the project."
+      description={
+        "A client engagement; placements hang off it. A quick-added placement starts under the client’s project “To be confirmed”: rename it here."
+      }
       form={form}
       onSubmit={onSubmit}
     >
@@ -97,13 +91,6 @@ function ProjectDialog({
           name="client_manager_name"
           label="Client manager"
         />
-        <SelectField
-          control={form.control}
-          name="tech_lead_user_id"
-          label="Tech lead"
-          options={personOptions(users)}
-          noneLabel="None"
-        />
         <TextField
           control={form.control}
           name="start_date"
@@ -118,7 +105,6 @@ function ProjectDialog({
 export function ProjectsTable() {
   const { items, isLoading, error, mutate } = useProjects(true);
   const { items: clients } = useClients(true);
-  const { users } = useUsers(true);
   const [editing, setEditing] = useState<Project | null | undefined>();
 
   const columns = useMemo<ColumnDef<Project>[]>(
@@ -129,11 +115,6 @@ export function ProjectsTable() {
         id: "manager",
         header: "Client manager",
         accessorFn: (p) => p.client_manager_name ?? "—",
-      },
-      {
-        id: "lead",
-        header: "Tech lead",
-        accessorFn: (p) => p.tech_lead?.full_name ?? "—",
       },
       { id: "start", header: "Start", accessorFn: (p) => p.start_date ?? "—" },
       {
@@ -182,7 +163,6 @@ export function ProjectsTable() {
           key={editing?.id ?? "new"}
           project={editing}
           clients={clients}
-          users={users}
           onClose={() => setEditing(undefined)}
           onSaved={() => void mutate()}
         />

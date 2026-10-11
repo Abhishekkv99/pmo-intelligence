@@ -27,7 +27,8 @@ class PlacementRow:
     client: Client
     ps: User | None
     sme: User | None
-    tech_lead: User | None
+    # The consultant's CDM.
+    cdm: User | None
 
 
 class PlacementRepository(BaseRepository[Placement]):
@@ -64,15 +65,15 @@ class PlacementRepository(BaseRepository[Placement]):
             return []
         ps = aliased(User)
         sme = aliased(User)
-        tech_lead = aliased(User)
+        cdm = aliased(User)
         stmt = (
-            select(Placement, Consultant, Project, Client, ps, sme, tech_lead)
+            select(Placement, Consultant, Project, Client, ps, sme, cdm)
             .join(Consultant, Consultant.id == Placement.consultant_id)
             .join(Project, Project.id == Placement.project_id)
             .join(Client, Client.id == Project.client_id)
             .outerjoin(ps, ps.id == Placement.ps_user_id)
             .outerjoin(sme, sme.id == Placement.sme_user_id)
-            .outerjoin(tech_lead, tech_lead.id == Project.tech_lead_user_id)
+            .outerjoin(cdm, cdm.id == Consultant.cdm_user_id)
             .order_by(Placement.start_date.desc(), Consultant.full_name)
         )
         if placement_id is not None:
@@ -87,7 +88,7 @@ class PlacementRepository(BaseRepository[Placement]):
                 or_(
                     Placement.ps_user_id == user_id,
                     Placement.sme_user_id == user_id,
-                    Project.tech_lead_user_id == user_id,
+                    Consultant.cdm_user_id == user_id,
                 )
             )
         result = await self.session.execute(stmt)

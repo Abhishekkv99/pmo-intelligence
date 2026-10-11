@@ -56,7 +56,7 @@ class SessionContext:
     client_name: str
     project_name: str
     client_manager_name: str | None
-    # The placement's named people: PS, SME and tech lead, when named.
+    # The placement's named people: PS, SME and the consultant's CDM, when named.
     people: dict[SpeakerRole, str]
     # Each ``{"speaker", "text", "start_ms", "end_ms", "confidence"}``.
     utterances: list[dict[str, Any]]

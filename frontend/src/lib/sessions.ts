@@ -18,7 +18,7 @@ export const SPEAKER_ROLES = [
   "consultant",
   "pmo_manager",
   "sme",
-  "tech_lead",
+  "cdm",
   "ps",
   "other",
 ] as const;
@@ -62,7 +62,7 @@ export const SPEAKER_ROLE_LABELS: Record<SpeakerRole, string> = {
   consultant: "Consultant",
   pmo_manager: "PMO manager",
   sme: "PMO SME",
-  tech_lead: "Tech lead",
+  cdm: "Consultant Director (CDM)",
   ps: "Placement specialist",
   other: "Other",
 };

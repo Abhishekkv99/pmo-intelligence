@@ -179,7 +179,7 @@ class Action(Base, UUIDMixin, TimestampMixin):
     source_kind: Mapped[str] = mapped_column(String(20), nullable=False)
     source_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
     owner_role: Mapped[str] = mapped_column(String(20), nullable=False)
-    # Set when the owner is the placement's PS, SME or tech lead.
+    # Set when the owner is the placement's PS or SME, or the consultant's CDM.
     owner_user_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("users.id", ondelete="SET NULL"),

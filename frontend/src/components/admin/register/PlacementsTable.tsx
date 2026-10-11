@@ -101,8 +101,8 @@ export function PlacementsTable() {
       { id: "sme", header: "SME", accessorFn: (p) => personName(p.sme) },
       {
         id: "lead",
-        header: "Tech lead",
-        accessorFn: (p) => personName(p.tech_lead),
+        header: "CDM",
+        accessorFn: (p) => personName(p.cdm),
       },
       {
         id: "edit",

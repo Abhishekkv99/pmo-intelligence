@@ -5,7 +5,7 @@ import type {
   PlacementStatus,
 } from "@/lib/register";
 
-/** A user named on a project or placement (tech lead, PS, SME). */
+/** A user named on a placement (PS, SME) or a consultant (CDM). */
 export interface PersonRef {
   id: string;
   full_name: string;
@@ -19,6 +19,8 @@ export interface Consultant {
   phone: string | null;
   skills: string[];
   status: ConsultantStatus;
+  /** The Consultant Director who manages the consultant. */
+  cdm: PersonRef | null;
   created_at: string;
   updated_at: string;
 }
@@ -37,7 +39,6 @@ export interface Project {
   client_name: string;
   name: string;
   client_manager_name: string | null;
-  tech_lead: PersonRef | null;
   start_date: string | null;
   created_at: string;
   updated_at: string;
@@ -58,7 +59,8 @@ export interface Placement {
   ended_reason: string | null;
   ps: PersonRef | null;
   sme: PersonRef | null;
-  tech_lead: PersonRef | null;
+  /** The consultant's CDM. */
+  cdm: PersonRef | null;
   created_at: string;
   updated_at: string;
 }

@@ -12,8 +12,8 @@ Four rules live here:
   row for an unknown account unless it is a bootstrap admin.
 * **The scope** — a user with a *global* role (``pmo_manager``, ``admin``)
   reads every placement. Any other role reads only the placements that name
-  them: as the placement specialist, the SME, or the tech lead of the
-  placement's project. A user with no role (``NULL``, which the first rule
+  them as the placement specialist or the SME, and a CDM every placement
+  of the consultants they manage. A user with no role (``NULL``, which the first rule
   already keeps out) or an unknown role reads nothing — the check fails
   closed.
 * **The status code** — a denied *read* of a resource addressed by id raises
@@ -97,10 +97,11 @@ class PlacementPeople:
 
     ps_user_id: uuid.UUID | None
     sme_user_id: uuid.UUID | None
-    tech_lead_user_id: uuid.UUID | None
+    # The consultant's CDM, who reads every placement of the consultant.
+    cdm_user_id: uuid.UUID | None
 
     def names(self, user_id: uuid.UUID) -> bool:
-        return user_id in {self.ps_user_id, self.sme_user_id, self.tech_lead_user_id}
+        return user_id in {self.ps_user_id, self.sme_user_id, self.cdm_user_id}
 
 
 def bootstrap_admin_emails() -> frozenset[str]:

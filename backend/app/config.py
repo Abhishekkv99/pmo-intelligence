@@ -37,7 +37,7 @@ class Settings(BaseSettings):
     assemblyai_cost_per_hour_usd: float = 0.21
     assemblyai_diarization_cost_per_hour_usd: float = 0.02
     # Diarization hint: a PMO call is the consultant and a PMO person,
-    # sometimes an SME or tech lead too.
+    # sometimes an SME or the consultant's CDM too.
     assemblyai_min_speakers: int = 2
     assemblyai_max_speakers: int = 4
     # A transcript still unfinished after this long fails the session.

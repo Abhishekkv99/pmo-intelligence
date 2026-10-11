@@ -36,7 +36,7 @@ function row(overrides: Partial<RiskBoardRow>): RiskBoardRow {
     client: { id: "cl1", name: "Acme" },
     project: { id: "pr1", name: "Data platform" },
     ps: { id: "u1", full_name: "Pat Jones", email: "pat@x.com" },
-    tech_lead: { id: "u2", full_name: "Lee Tan", email: "lee@x.com" },
+    cdm: { id: "u2", full_name: "Lee Tan", email: "lee@x.com" },
     stack: "DS",
     start_date: "2026-09-01",
     weeks_in: 7,
@@ -80,7 +80,7 @@ const UNSCORED: Partial<RiskBoardRow> = {
   consultant: { id: "c2", name: "Ann Brooks" },
   client: { id: "cl2", name: "Globex" },
   ps: null,
-  tech_lead: null,
+  cdm: null,
   stack: "BD",
   scored: false,
   computed_at: null,
@@ -223,6 +223,16 @@ describe("RiskBoard", () => {
       screen.getByRole("combobox", { name: "Placement specialist filter" }),
     );
     await user.click(screen.getByRole("option", { name: "Pat Jones" }));
+
+    expect(consultantsInOrder()).toEqual(["Priya Shah", "Zoe Green"]);
+  });
+
+  it("filters by the consultant's CDM", async () => {
+    const user = userEvent.setup();
+    render(<RiskBoard />);
+
+    await user.click(screen.getByRole("combobox", { name: "CDM filter" }));
+    await user.click(screen.getByRole("option", { name: "Lee Tan" }));
 
     expect(consultantsInOrder()).toEqual(["Priya Shah", "Zoe Green"]);
   });

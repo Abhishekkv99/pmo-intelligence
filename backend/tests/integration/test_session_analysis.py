@@ -502,6 +502,49 @@ class TestStore:
         assert all(a.status == ActionStatus.OPEN.value for a in actions)
         assert all(a.due_date == date(2026, 10, 9) for a in actions)
 
+    async def test_the_consultants_cdm_is_named_and_owns_cdm_actions(
+        self, db_session: AsyncSession, placed: Placed
+    ) -> None:
+        cdm = User(
+            email=f"cara-{uuid.uuid4()}@example.com",
+            full_name="Cara Doyle",
+            role=Role.CDM.value,
+        )
+        db_session.add(cdm)
+        await db_session.flush()
+        consultant = await db_session.get(Consultant, placed.placement.consultant_id)
+        assert consultant is not None
+        consultant.cdm_user_id = cdm.id
+        await db_session.flush()
+        pipeline = FakePipeline(
+            SessionAnalysis(
+                actions=[
+                    ActionDraft(
+                        description="Speak to the client manager",
+                        owner_role="cdm",
+                        due_text="next week",
+                        due_date=None,
+                        quote="Still no staging access.",
+                        offset_ms=61_000,
+                    )
+                ]
+            )
+        )
+
+        await _analyse(db_session, placed, pipeline)
+
+        [context] = pipeline.contexts
+        assert context.people == {
+            SpeakerRole.SME: "Sam Okafor",
+            SpeakerRole.CDM: "Cara Doyle",
+        }
+        action = (
+            await db_session.scalars(
+                select(Action).where(Action.source_id == placed.session.id)
+            )
+        ).one()
+        assert action.owner_user_id == cdm.id
+
     async def test_an_earlier_action_the_call_closed_is_done(
         self, db_session: AsyncSession, placed: Placed
     ) -> None:

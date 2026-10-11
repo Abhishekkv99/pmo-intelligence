@@ -61,17 +61,15 @@ class World:
         *,
         ps: User | None = None,
         sme: User | None = None,
-        tech_lead: User | None = None,
+        cdm: User | None = None,
     ) -> Placement:
         client = Client(name="Acme", normalized_name=f"acme {uuid.uuid4()}")
-        consultant = Consultant(full_name=consultant_name)
+        consultant = Consultant(
+            full_name=consultant_name, cdm_user_id=cdm.id if cdm else None
+        )
         self.db.add_all([client, consultant])
         await self.db.flush()
-        project = Project(
-            client_id=client.id,
-            name="Data platform",
-            tech_lead_user_id=tech_lead.id if tech_lead else None,
-        )
+        project = Project(client_id=client.id, name="Data platform")
         self.db.add(project)
         await self.db.flush()
         placement = Placement(
@@ -272,11 +270,11 @@ class TestList:
         assert analysed["action_count"] == 1
         assert body[0]["signal_count"] == 0
 
-    @pytest.mark.parametrize("named_as", ["ps", "sme", "tech_lead"])
+    @pytest.mark.parametrize("named_as", ["ps", "sme", "cdm"])
     async def test_a_named_role_lists_only_the_placements_naming_them(
         self, manager_client: AsyncClient, world: World, named_as: str
     ) -> None:
-        role = {"ps": Role.PS, "sme": Role.SME, "tech_lead": Role.TECH_LEAD}[named_as]
+        role = {"ps": Role.PS, "sme": Role.SME, "cdm": Role.CDM}[named_as]
         person = await world.user(role, "Named")
         mine = await world.placement("Priya Shah", **{named_as: person})
         theirs = await world.placement("Ann Brooks")

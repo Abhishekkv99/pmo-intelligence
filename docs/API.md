@@ -21,9 +21,9 @@ Applied on the server for every route; the route-coverage test (`backend/tests/u
 
 A route addressed by a recording, recordings folder or user id (`{recording_id}`, `{folder_id}`, `{user_id}`) must carry `require_roles(...)`: those rows belong to no placement, so only the global roles reach them. A route addressed by a session id (`{session_id}`) must carry a session-scope guard. A route reached without the Bearer token is listed as token-scoped and must carry a token guard. The coverage test checks all of this.
 
-**Roles** are `pmo_manager`, `sme`, `tech_lead`, `ps` and `admin`, defined in `backend/app/models/enums.py`.
+**Roles** are `pmo_manager`, `sme`, `cdm` (Consultant Director: the consultancy-side manager of the consultant; it replaced the PRD's `tech_lead` on 2026-10-11), `ps` and `admin`, defined in `backend/app/models/enums.py`.
 - **Global roles** (`pmo_manager`, `admin`) read every placement.
-- **Other roles** read only the placements that name them, as PS, SME, or the project's tech lead.
+- **Other roles** read only the placements that name them as PS or SME, and a CDM every placement of the consultants they manage (`consultants.cdm_user_id`).
 - **No role** (`null`): cannot sign in at all (below), and would read nothing.
 
 **Who may sign in**: an active member of the InformationTech tenant whose user row holds a role.
@@ -64,13 +64,13 @@ PMO managers and admins edit the register; any other role gets `403 {"detail": "
 | Method | Path | Auth | Request | Response |
 |--------|------|------|---------|----------|
 | GET | `/consultants` | `pmo_manager`, `admin` | — | `ConsultantResponse[]`, by name |
-| POST | `/consultants` | `pmo_manager`, `admin` | `{full_name, email?, phone?, skills?, status?}` | `201` `ConsultantResponse`; 409 if the email is taken (any case) |
+| POST | `/consultants` | `pmo_manager`, `admin` | `{full_name, email?, phone?, skills?, status?, cdm_user_id?}` | `201` `ConsultantResponse`; 409 if the email is taken (any case) |
 | PATCH | `/consultants/{consultant_id}` | `pmo_manager`, `admin` | any of the above | `ConsultantResponse` |
 | GET | `/clients` | `pmo_manager`, `admin` | — | `ClientResponse[]` |
 | POST | `/clients` | `pmo_manager`, `admin` | `{name, industry?}` | `201` `ClientResponse`; 409 if the name exists (ignoring case and spacing) |
 | PATCH | `/clients/{client_id}` | `pmo_manager`, `admin` | any of the above | `ClientResponse` |
 | GET | `/projects` | `pmo_manager`, `admin` | — | `ProjectResponse[]`, by client then project |
-| POST | `/projects` | `pmo_manager`, `admin` | `{client_id, name, client_manager_name?, tech_lead_user_id?, start_date?}` | `201` `ProjectResponse`; 409 if the client already has the name |
+| POST | `/projects` | `pmo_manager`, `admin` | `{client_id, name, client_manager_name?, start_date?}` | `201` `ProjectResponse`; 409 if the client already has the name |
 | PATCH | `/projects/{project_id}` | `pmo_manager`, `admin` | any of the above | `ProjectResponse` |
 | GET | `/placements` | `pmo_manager`, `admin` | — | `PlacementResponse[]`, newest start first |
 | POST | `/placements` | `pmo_manager`, `admin` | `{consultant_id, project_id, start_date, expected_end_date?, extension_status?, rate_band?, stack?, ps_user_id?, sme_user_id?, status?, ended_reason?}` | `201` `PlacementResponse`; 409 if the consultant already has a placement on the project from that day |
@@ -79,12 +79,12 @@ PMO managers and admins edit the register; any other role gets `403 {"detail": "
 | POST | `/register/quick-add?dry_run=true` | `pmo_manager`, `admin`; 10/min | `{lines: [string]}` (1 to 200 lines, each at most 500 characters) | `QuickAddResult` (below) |
 
 - **Health**: creating or editing a placement, editing a project (its active placements) and an applied quick add (the placements it created or changed) queue a health recompute after the write commits; the answer does not wait for it.
-- **Rules (422)**: `expected_end_date` not before `start_date`; a referenced client, consultant or project must exist; a named person (`tech_lead_user_id`, `ps_user_id`, `sme_user_id`) must be an active user who holds a role, since being named gives that user scoped read of the placement.
+- **Rules (422)**: `expected_end_date` not before `start_date`; a referenced client, consultant or project must exist; a named person (`cdm_user_id`, `ps_user_id`, `sme_user_id`) must be an active user who holds a role, since being named gives that user scoped read of the placement.
 - **`PersonRef`**: `{id, full_name, email}`.
-- **`ConsultantResponse`**: `{id, full_name, email, phone, skills, status, created_at, updated_at}`; `status` is `bench | placed | left`.
+- **`ConsultantResponse`**: `{id, full_name, email, phone, skills, status, cdm: PersonRef | null, created_at, updated_at}`; `status` is `bench | placed | left`; `cdm` is the Consultant Director who manages the consultant (one CDM manages several consultants).
 - **`ClientResponse`**: `{id, name, industry, created_at, updated_at}`.
-- **`ProjectResponse`**: `{id, client_id, client_name, name, client_manager_name, tech_lead: PersonRef | null, start_date, created_at, updated_at}`.
-- **`PlacementResponse`**: `{id, consultant: {id, full_name, email}, client: {id, name}, project: {id, name}, start_date, expected_end_date, extension_status, rate_band, stack, status, ended_reason, ps, sme, tech_lead, created_at, updated_at}`; `stack` is the consultant's stack on this engagement (`DS`), free text up to 50 characters, and is given to an SME too; `extension_status` is `not_due | due | requested | confirmed | declined`, `status` is `active | ended | terminated`, and `ps`, `sme`, `tech_lead` are `PersonRef | null`.
+- **`ProjectResponse`**: `{id, client_id, client_name, name, client_manager_name, start_date, created_at, updated_at}`.
+- **`PlacementResponse`**: `{id, consultant: {id, full_name, email}, client: {id, name}, project: {id, name}, start_date, expected_end_date, extension_status, rate_band, stack, status, ended_reason, ps, sme, cdm, created_at, updated_at}`; `cdm` is the consultant's CDM; `stack` is the consultant's stack on this engagement (`DS`), free text up to 50 characters, and is given to an SME too; `extension_status` is `not_due | due | requested | confirmed | declined`, `status` is `active | ended | terminated`, and `ps`, `sme`, `cdm` are `PersonRef | null`.
 
 **Quick add** (`POST /register/quick-add`): placements entered as lines in the Teams chat name format. The CSV import (`POST /register/import`) was removed 2026-10-11.
 - **Line format**: `PRJ ITC <stack> - <consultant> - <client> - <start> - <end>`, e.g. `PRJ ITC DS - Zeeshan Abbas Jaffar - WTW - 21/9/2026 - 21/03/2027`. The separator is a hyphen or an en dash with spaces around it; dates are `D/M/YYYY` or `D-M-YY`; the end is not before the start. `PRJ ITC` is read in any case and spacing is tidied. Any other form is an error on that line, with the reason. Blank lines are skipped; a body with none answers **422**.
@@ -123,7 +123,7 @@ The PMO recordings folder (Admin > Recordings). PMO managers and admins only; an
 - **`SessionCreated`**: `{id, placement_id, source, status, held_at}`; `source` is `s3 | upload | url | graph`, `status` starts at `uploaded`.
 
 ### Sessions
-Reading a session is for anyone whose scope covers its placement (the global roles read all; a PS, SME or tech lead reads the placements naming them). Creating, retrying and correcting the kind are for PMO managers and admins.
+Reading a session is for anyone whose scope covers its placement (the global roles read all; a PS or SME reads the placements naming them, a CDM the placements of the consultants they manage). Creating, retrying and correcting the kind are for PMO managers and admins.
 
 | Method | Path | Auth | Request | Response |
 |--------|------|------|---------|----------|
@@ -148,7 +148,7 @@ Reading a session is for anyone whose scope covers its placement (the global rol
 
 ### Risk board and placement health
 The board and the placement (consultant) page read the stored health snapshots and flags; nothing is scored on read. Both routes answer in one of two views, named by `view`:
-- **`full`**: PMO managers and admins, and a PS or tech lead for the placements naming them.
+- **`full`**: PMO managers and admins, a PS for the placements naming them, and a CDM for the placements of the consultants they manage.
 - **`technical`**: an SME (by role). The Technical score and its own trend (`technical_trend`, from the Technical score alone) are given; `overall`, `risk_level`, `trend`, `trend_delta`, the other five scores and the snapshot's `signal_count` are `null`, flags are `[]`, evidence is Technical only, and the register omits `extension_status`, `rate_band` and `ended_reason` (`null`).
 
 | Method | Path | Auth | Response |
@@ -157,10 +157,10 @@ The board and the placement (consultant) page read the stored health snapshots a
 | GET | `/placements/{placement_id}/health` | placement scope (logged) | `PlacementHealth`; writes an `access_log` row (the placement, the path); 404 outside scope, like a missing placement |
 
 - **Flag order** (board and page): critical first, then the oldest opened, then the PRD's trigger order.
-- **Board order** (full view): red, amber, green, then not scored (no snapshot yet, or no signal in the lookback); within a level the trend down, flat, up, then none; then the lower overall; then consultant name. **Technical view**: the lower Technical score first, not scored last, then name, so the order cannot reveal the overall ranking. Only active placements are listed. The PS, tech lead, client, stack and risk-level filters are applied by the page.
-- **`RiskBoardRow`**: `{placement_id, view, consultant, client, project, ps, tech_lead, stack, start_date, weeks_in, scored, computed_at, overall, risk_level, trend, trend_delta, technical, technical_trend, technical_trend_delta, open_flags: [{id, trigger, severity, opened_at}], last_call_at, days_since_last_call, next_action: {id, description, owner_role, due_date} | null}`. `consultant`, `client` and `project` are `{id, name}`; `ps` and `tech_lead` are `{id, full_name, email} | null`; `stack` is the placement's, for the board's stack filter. `weeks_in` is whole weeks since the start (0 before it); `last_call_at` is the latest completed call and `days_since_last_call` the UK days since it. `next_action` is the open or overdue action with the earliest due date, past dates included; actions without a due date are never shown there.
+- **Board order** (full view): red, amber, green, then not scored (no snapshot yet, or no signal in the lookback); within a level the trend down, flat, up, then none; then the lower overall; then consultant name. **Technical view**: the lower Technical score first, not scored last, then name, so the order cannot reveal the overall ranking. Only active placements are listed. The PS, CDM, client, stack and risk-level filters are applied by the page.
+- **`RiskBoardRow`**: `{placement_id, view, consultant, client, project, ps, cdm, stack, start_date, weeks_in, scored, computed_at, overall, risk_level, trend, trend_delta, technical, technical_trend, technical_trend_delta, open_flags: [{id, trigger, severity, opened_at}], last_call_at, days_since_last_call, next_action: {id, description, owner_role, due_date} | null}`. `consultant`, `client` and `project` are `{id, name}`; `ps` and `cdm` (the consultant's CDM) are `{id, full_name, email} | null`; `stack` is the placement's, for the board's stack filter. `weeks_in` is whole weeks since the start (0 before it); `last_call_at` is the latest completed call and `days_since_last_call` the UK days since it. `next_action` is the open or overdue action with the earliest due date, past dates included; actions without a due date are never shown there.
 - **`PlacementHealth`**: `{placement_id, view, consultant, client, project, weeks_in, register_fields, latest, history, open_flags, sessions, open_issues, actions, other_placements, thresholds}`.
-  - **`register_fields`**: `{start_date, expected_end_date, status, stack, client_manager_name, ps, sme, tech_lead, extension_status, rate_band, ended_reason}`.
+  - **`register_fields`**: `{start_date, expected_end_date, status, stack, client_manager_name, ps, sme, cdm, extension_status, rate_band, ended_reason}`.
   - **`latest`** (`null` before the first recompute): `{computed_at, reason, scored, scores: {delivery, technical, relationship, engagement, onboarding, communication}, overall, risk_level, trend, trend_delta, technical_trend, technical_trend_delta, signal_count, weights_version, evidence: [{dimension, signal_count, contributors: [{signal, weight, value}]}]}`; the contributors are the signals that pulled each dimension furthest from the prior, as the recompute stored them.
   - **`history`**: every snapshot, oldest first: `{computed_at, reason, scored, scores, overall, risk_level, trend, technical_trend}`.
   - **`open_flags`**: `[{id, trigger, severity, opened_at, evidence: [signal]}]`, evidence newest first.

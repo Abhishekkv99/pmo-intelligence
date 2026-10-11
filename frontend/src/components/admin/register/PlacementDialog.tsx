@@ -123,7 +123,7 @@ export function PlacementDialog({
       open
       onOpenChange={(open) => !open && onClose()}
       title={placement ? "Edit placement" : "Add placement"}
-      description="A consultant on a client project. The PS, SME and the project's tech lead can read it."
+      description="A consultant on a client project. The PS, the SME and the consultant's CDM can read it."
       form={form}
       onSubmit={onSubmit}
     >

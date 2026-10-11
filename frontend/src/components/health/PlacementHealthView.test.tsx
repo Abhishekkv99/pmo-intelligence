@@ -108,7 +108,7 @@ function health(overrides: Partial<PlacementHealth> = {}): PlacementHealth {
       client_manager_name: "Dana Lee",
       ps: { id: "u1", full_name: "Pat Jones", email: "pat@x.com" },
       sme: null,
-      tech_lead: { id: "u2", full_name: null, email: "lee@x.com" },
+      cdm: { id: "u2", full_name: null, email: "lee@x.com" },
       extension_status: "due",
       rate_band: "B",
       ended_reason: null,
@@ -260,7 +260,7 @@ describe("PlacementHealthView", () => {
     expect(register).toHaveTextContent("StackDS");
     expect(register).toHaveTextContent("PSPat Jones");
     expect(register).toHaveTextContent("SME—");
-    expect(register).toHaveTextContent("Tech leadlee@x.com");
+    expect(register).toHaveTextContent("CDMlee@x.com");
     expect(register).toHaveTextContent("Client managerDana Lee");
     expect(screen.getByTestId("computed-at")).toHaveTextContent(
       "Scored 20 Oct 2026, 12:30 (UK), after a call, from 3 signals",

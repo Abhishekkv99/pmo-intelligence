@@ -18,8 +18,14 @@ from app.dependencies import (
     get_current_user,
     require_roles,
 )
-from app.models.enums import ExtensionStatus, PlacementStatus, Role, SnapshotReason
-from app.models.register import Client, Consultant
+from app.models.enums import (
+    ConsultantStatus,
+    ExtensionStatus,
+    PlacementStatus,
+    Role,
+    SnapshotReason,
+)
+from app.models.register import Client
 from app.models.user import User
 from app.rate_limiter import limiter
 from app.schemas.register import (
@@ -43,7 +49,7 @@ from app.schemas.register import (
 )
 from app.services.health_jobs import request_recompute, request_recomputes
 from app.services.register_quick_add import QuickAdd
-from app.services.register_service import ProjectRow, RegisterService
+from app.services.register_service import ConsultantRow, ProjectRow, RegisterService
 from app.utils.entitlements import sees_technical_only
 
 router = APIRouter()
@@ -57,8 +63,8 @@ EDITORS = [Depends(require_roles(Role.PMO_MANAGER, Role.ADMIN))]
 @router.get(
     "/consultants", response_model=list[ConsultantResponse], dependencies=EDITORS
 )
-async def list_consultants(db: DbSession) -> list[Consultant]:
-    return await RegisterService(db).list_consultants()
+async def list_consultants(db: DbSession) -> list[ConsultantResponse]:
+    return [_consultant(row) for row in await RegisterService(db).list_consultants()]
 
 
 @router.post(
@@ -67,8 +73,12 @@ async def list_consultants(db: DbSession) -> list[Consultant]:
     response_model=ConsultantResponse,
     dependencies=EDITORS,
 )
-async def create_consultant(body: ConsultantCreate, db: DbSession) -> Consultant:
-    return await RegisterService(db).create_consultant(body)
+async def create_consultant(
+    body: ConsultantCreate, db: DbSession
+) -> ConsultantResponse:
+    service = RegisterService(db)
+    consultant = await service.create_consultant(body)
+    return _consultant(await service.consultant_row(consultant))
 
 
 @router.patch(
@@ -80,8 +90,10 @@ async def update_consultant(
     consultant_id: uuid.UUID,
     body: ConsultantUpdate,
     db: DbSession,
-) -> Consultant:
-    return await RegisterService(db).update_consultant(consultant_id, body)
+) -> ConsultantResponse:
+    service = RegisterService(db)
+    consultant = await service.update_consultant(consultant_id, body)
+    return _consultant(await service.consultant_row(consultant))
 
 
 # --- Clients ------------------------------------------------------------------
@@ -227,6 +239,21 @@ def _person(user: User | None) -> PersonRef | None:
     return PersonRef.model_validate(user) if user is not None else None
 
 
+def _consultant(row: ConsultantRow) -> ConsultantResponse:
+    c = row.consultant
+    return ConsultantResponse(
+        id=c.id,
+        full_name=c.full_name,
+        email=c.email,
+        phone=c.phone,
+        skills=c.skills,
+        status=ConsultantStatus(c.status),
+        cdm=_person(row.cdm),
+        created_at=c.created_at,
+        updated_at=c.updated_at,
+    )
+
+
 def _project(row: ProjectRow) -> ProjectResponse:
     project = row.project
     return ProjectResponse(
@@ -235,7 +262,6 @@ def _project(row: ProjectRow) -> ProjectResponse:
         client_name=row.client.name,
         name=project.name,
         client_manager_name=project.client_manager_name,
-        tech_lead=_person(row.tech_lead),
         start_date=project.start_date,
         created_at=project.created_at,
         updated_at=project.updated_at,
@@ -263,7 +289,7 @@ def _placement(row: PlacementRow, *, contract: bool = True) -> PlacementResponse
         ended_reason=p.ended_reason if contract else None,
         ps=_person(row.ps),
         sme=_person(row.sme),
-        tech_lead=_person(row.tech_lead),
+        cdm=_person(row.cdm),
         created_at=p.created_at,
         updated_at=p.updated_at,
     )

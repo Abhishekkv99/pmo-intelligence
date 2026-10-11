@@ -25,7 +25,7 @@ LongText = Annotated[str, StringConstraints(strip_whitespace=True, max_length=20
 
 
 class PersonRef(BaseModel):
-    """A user named on a placement or project (PS, SME, tech lead)."""
+    """A user named on a placement (PS, SME) or a consultant (CDM)."""
 
     id: uuid.UUID
     full_name: str
@@ -43,6 +43,7 @@ class ConsultantCreate(BaseModel):
     phone: ShortText | None = None
     skills: list[Skill] = Field(default_factory=list, max_length=50)
     status: ConsultantStatus = ConsultantStatus.PLACED
+    cdm_user_id: uuid.UUID | None = None
 
 
 class ConsultantUpdate(BaseModel):
@@ -51,6 +52,7 @@ class ConsultantUpdate(BaseModel):
     phone: ShortText | None = None
     skills: list[Skill] | None = Field(default=None, max_length=50)
     status: ConsultantStatus | None = None
+    cdm_user_id: uuid.UUID | None = None
 
 
 class ConsultantResponse(BaseModel):
@@ -60,10 +62,10 @@ class ConsultantResponse(BaseModel):
     phone: str | None
     skills: list[str]
     status: ConsultantStatus
+    # The Consultant Director who manages the consultant.
+    cdm: PersonRef | None
     created_at: datetime
     updated_at: datetime
-
-    model_config = ConfigDict(from_attributes=True)
 
 
 # --- Clients ------------------------------------------------------------------
@@ -96,7 +98,6 @@ class ProjectCreate(BaseModel):
     client_id: uuid.UUID
     name: Name
     client_manager_name: OptionalText | None = None
-    tech_lead_user_id: uuid.UUID | None = None
     start_date: date | None = None
 
 
@@ -104,7 +105,6 @@ class ProjectUpdate(BaseModel):
     client_id: uuid.UUID | None = None
     name: Name | None = None
     client_manager_name: OptionalText | None = None
-    tech_lead_user_id: uuid.UUID | None = None
     start_date: date | None = None
 
 
@@ -114,7 +114,6 @@ class ProjectResponse(BaseModel):
     client_name: str
     name: str
     client_manager_name: str | None
-    tech_lead: PersonRef | None
     start_date: date | None
     created_at: datetime
     updated_at: datetime
@@ -177,7 +176,8 @@ class PlacementResponse(BaseModel):
     ended_reason: str | None
     ps: PersonRef | None
     sme: PersonRef | None
-    tech_lead: PersonRef | None
+    # The consultant's CDM.
+    cdm: PersonRef | None
     created_at: datetime
     updated_at: datetime
 

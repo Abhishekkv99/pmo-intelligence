@@ -110,7 +110,7 @@ describe("AdminView", () => {
     expect(screen.getByTestId("register-tab")).toBeInTheDocument();
   });
 
-  it.each<Role | null>(["sme", "tech_lead", "ps", null])(
+  it.each<Role | null>(["sme", "cdm", "ps", null])(
     "shows the no-access message, and no tabs, to %s",
     (role) => {
       signInAs(role);

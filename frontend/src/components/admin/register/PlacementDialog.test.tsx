@@ -27,7 +27,7 @@ const placement: Placement = {
   ended_reason: null,
   ps: null,
   sme: null,
-  tech_lead: null,
+  cdm: null,
   created_at: "2026-10-08T00:00:00Z",
   updated_at: "2026-10-08T00:00:00Z",
 };

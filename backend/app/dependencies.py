@@ -12,7 +12,7 @@ from app.db.repositories.access_log_repo import AccessLogRepository
 from app.db.repositories.user_repo import UserRepository
 from app.db.session import async_session_factory
 from app.models.enums import Role
-from app.models.register import Placement, Project
+from app.models.register import Consultant, Placement
 from app.models.session import Session
 from app.models.user import User
 from app.services.auth_service import SESSION_ENDED_MESSAGE, AuthService
@@ -112,22 +112,22 @@ def require_roles(*roles: Role) -> Callable[..., Awaitable[User]]:
 async def _load_scoped_placement(
     placement_id: uuid.UUID, db: AsyncSession, current_user: User
 ) -> Placement:
-    # Explicit join for the tech lead: a lazy relationship would raise
+    # Explicit join for the consultant's CDM: a lazy relationship would raise
     # MissingGreenlet under async.
     stmt = (
-        select(Placement, Project.tech_lead_user_id)
-        .join(Project, Project.id == Placement.project_id)
+        select(Placement, Consultant.cdm_user_id)
+        .join(Consultant, Consultant.id == Placement.consultant_id)
         .where(Placement.id == placement_id)
     )
     row = (await db.execute(stmt)).one_or_none()
     if row is None:
         raise NotFoundError("Placement", str(placement_id))
     placement: Placement = row[0]
-    tech_lead_user_id: uuid.UUID | None = row[1]
+    cdm_user_id: uuid.UUID | None = row[1]
     people = PlacementPeople(
         ps_user_id=placement.ps_user_id,
         sme_user_id=placement.sme_user_id,
-        tech_lead_user_id=tech_lead_user_id,
+        cdm_user_id=cdm_user_id,
     )
     assert_can_read_placement(current_user, people, placement_id)
     return placement
@@ -179,19 +179,17 @@ async def _load_scoped_session(
             Session,
             Placement.ps_user_id,
             Placement.sme_user_id,
-            Project.tech_lead_user_id,
+            Consultant.cdm_user_id,
         )
         .join(Placement, Placement.id == Session.placement_id)
-        .join(Project, Project.id == Placement.project_id)
+        .join(Consultant, Consultant.id == Placement.consultant_id)
         .where(Session.id == session_id)
     )
     row = (await db.execute(stmt)).one_or_none()
     if row is None:
         raise NotFoundError("Session", str(session_id))
     session: Session = row[0]
-    people = PlacementPeople(
-        ps_user_id=row[1], sme_user_id=row[2], tech_lead_user_id=row[3]
-    )
+    people = PlacementPeople(ps_user_id=row[1], sme_user_id=row[2], cdm_user_id=row[3])
     assert_can_read_placement(current_user, people, session_id, resource="Session")
     return session
 

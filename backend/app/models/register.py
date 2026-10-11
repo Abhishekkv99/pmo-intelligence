@@ -44,6 +44,15 @@ class Consultant(Base, UUIDMixin, TimestampMixin):
         default=ConsultantStatus.PLACED.value,
         server_default=ConsultantStatus.PLACED.value,
     )
+    # The Consultant Director (CDM) who manages the consultant; one CDM
+    # manages several consultants. Being named gives them read of every
+    # placement of the consultant.
+    cdm_user_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
 
 
 class Client(Base, UUIDMixin, TimestampMixin):
@@ -68,12 +77,6 @@ class Project(Base, UUIDMixin, TimestampMixin):
     )
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     client_manager_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    tech_lead_user_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True),
-        ForeignKey("users.id", ondelete="SET NULL"),
-        nullable=True,
-        index=True,
-    )
     start_date: Mapped[date | None] = mapped_column(Date, nullable=True)
 
 

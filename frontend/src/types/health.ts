@@ -51,7 +51,8 @@ export interface RiskBoardRow {
   client: NamedRef;
   project: NamedRef;
   ps: PersonView | null;
-  tech_lead: PersonView | null;
+  /** The consultant's CDM. */
+  cdm: PersonView | null;
   /** The placement's stack (DS), for the board's filter. */
   stack: string | null;
   start_date: string;
@@ -180,7 +181,8 @@ export interface RegisterFields {
   client_manager_name: string | null;
   ps: PersonView | null;
   sme: PersonView | null;
-  tech_lead: PersonView | null;
+  /** The consultant's CDM. */
+  cdm: PersonView | null;
   /** Null in the technical view: contract matters. */
   extension_status: ExtensionStatus | null;
   rate_band: string | null;

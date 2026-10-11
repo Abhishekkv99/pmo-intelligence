@@ -14,13 +14,15 @@ class Role(enum.StrEnum):
 
     PMO_MANAGER = "pmo_manager"
     SME = "sme"
-    TECH_LEAD = "tech_lead"
+    # Consultant Director: the consultancy-side manager of the consultant.
+    CDM = "cdm"
     PS = "ps"
     ADMIN = "admin"
 
 
 # Roles that read every placement. The others read only the placements that
-# name them (as placement specialist, SME, or the project's tech lead).
+# name them (as placement specialist or SME) or whose consultant they manage
+# (as the consultant's CDM).
 GLOBAL_ROLES: frozenset[Role] = frozenset({Role.PMO_MANAGER, Role.ADMIN})
 
 
@@ -123,7 +125,7 @@ class SpeakerRole(enum.StrEnum):
     CONSULTANT = "consultant"
     PMO_MANAGER = "pmo_manager"
     SME = "sme"
-    TECH_LEAD = "tech_lead"
+    CDM = "cdm"
     PS = "ps"
     OTHER = "other"
 
@@ -135,8 +137,9 @@ SPEAKER_ROLE_MEANINGS: dict[SpeakerRole, str] = {
     ),
     SpeakerRole.PMO_MANAGER: "owns project health across placements; escalates",
     SpeakerRole.SME: ("PMO subject-matter expert running onboarding or technical help"),
-    SpeakerRole.TECH_LEAD: (
-        "our tech lead reviewing the consultant's technical delivery"
+    SpeakerRole.CDM: (
+        "Consultant Director: our consultancy-side manager of the consultant; "
+        "mostly management, partly technical"
     ),
     SpeakerRole.PS: (
         "placement specialist who placed the consultant; owns the client "
@@ -165,7 +168,8 @@ DIMENSION_MEANINGS: dict[Dimension, str] = {
     ),
     Dimension.TECHNICAL: (
         "Can they do the technical work of the role: repeated help requests on "
-        "the same topic, blockers that outlast a session, the tech lead's view"
+        "the same topic, blockers that outlast a session, an SME's or the "
+        "CDM's view of their work"
     ),
     Dimension.RELATIONSHIP: (
         "Chemistry with the team, the manager and superiors: how they describe "

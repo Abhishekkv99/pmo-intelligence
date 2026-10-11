@@ -313,3 +313,81 @@ class TestMigrations:
         downgrade = _alembic(fresh_database_url, "downgrade", "007")
         assert downgrade.returncode == 0, downgrade.stderr
         assert "stack" not in await _columns(fresh_database_url, "placements")
+
+    async def test_009_turns_the_tech_lead_into_the_consultants_cdm_and_back(
+        self, fresh_database_url: str
+    ) -> None:
+        assert _alembic(fresh_database_url, "upgrade", "008").returncode == 0
+        engine = create_async_engine(fresh_database_url)
+        try:
+            async with engine.begin() as conn:
+                await conn.execute(
+                    text(
+                        "INSERT INTO users (id, email, full_name, role, is_active,"
+                        " auth_provider, created_at, updated_at) VALUES"
+                        " ('00000000-0000-0000-0000-0000000000a1', 'lee@x.com',"
+                        " 'Lee', 'tech_lead', true, 'local', now(), now())"
+                    )
+                )
+                await conn.execute(
+                    text(
+                        "INSERT INTO clients (id, name, normalized_name, created_at,"
+                        " updated_at) VALUES ('00000000-0000-0000-0000-0000000000c1',"
+                        " 'Acme', 'acme', now(), now())"
+                    )
+                )
+                await conn.execute(
+                    text(
+                        "INSERT INTO projects (id, client_id, name, tech_lead_user_id,"
+                        " created_at, updated_at) VALUES"
+                        " ('00000000-0000-0000-0000-0000000000b1',"
+                        " '00000000-0000-0000-0000-0000000000c1', 'Payments',"
+                        " '00000000-0000-0000-0000-0000000000a1', now(), now())"
+                    )
+                )
+                await conn.execute(
+                    text(
+                        "INSERT INTO consultants (id, full_name, skills, status,"
+                        " created_at, updated_at) VALUES"
+                        " ('00000000-0000-0000-0000-0000000000d1', 'Jo', '[]',"
+                        " 'placed', now(), now())"
+                    )
+                )
+                await conn.execute(
+                    text(
+                        "INSERT INTO placements (id, consultant_id, project_id,"
+                        " start_date, extension_status, status, created_at,"
+                        " updated_at) VALUES ('00000000-0000-0000-0000-0000000000e1',"
+                        " '00000000-0000-0000-0000-0000000000d1',"
+                        " '00000000-0000-0000-0000-0000000000b1', '2026-09-01',"
+                        " 'not_due', 'active', now(), now())"
+                    )
+                )
+
+            upgrade = _alembic(fresh_database_url, "upgrade", "009")
+            assert upgrade.returncode == 0, upgrade.stderr
+            async with engine.connect() as conn:
+                role = (await conn.execute(text("SELECT role FROM users"))).scalar_one()
+                cdm = (
+                    await conn.execute(text("SELECT cdm_user_id FROM consultants"))
+                ).scalar_one()
+            assert role == "cdm"
+            assert str(cdm) == "00000000-0000-0000-0000-0000000000a1"
+            assert "tech_lead_user_id" not in await _columns(
+                fresh_database_url, "projects"
+            )
+
+            downgrade = _alembic(fresh_database_url, "downgrade", "008")
+            assert downgrade.returncode == 0, downgrade.stderr
+            async with engine.connect() as conn:
+                role = (await conn.execute(text("SELECT role FROM users"))).scalar_one()
+                lead = (
+                    await conn.execute(text("SELECT tech_lead_user_id FROM projects"))
+                ).scalar_one()
+            assert role == "tech_lead"
+            assert str(lead) == "00000000-0000-0000-0000-0000000000a1"
+            assert "cdm_user_id" not in await _columns(
+                fresh_database_url, "consultants"
+            )
+        finally:
+            await engine.dispose()

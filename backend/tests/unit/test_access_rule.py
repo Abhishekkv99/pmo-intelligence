@@ -29,7 +29,7 @@ def _user(role: str | None = "sme", active: bool = True) -> MagicMock:
 
 
 class TestMayUseApp:
-    @pytest.mark.parametrize("role", ["pmo_manager", "sme", "tech_lead", "ps", "admin"])
+    @pytest.mark.parametrize("role", ["pmo_manager", "sme", "cdm", "ps", "admin"])
     def test_active_user_with_a_known_role(self, role: str) -> None:
         assert may_use_app(_user(role=role))
 

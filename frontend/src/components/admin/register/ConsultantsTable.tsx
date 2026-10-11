@@ -11,16 +11,19 @@ import { DataTable } from "@/components/common/DataTable";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { saveRecord, useConsultants } from "@/hooks/useRegister";
+import { useUsers } from "@/hooks/useUsers";
 import { API_ROUTES } from "@/lib/constants";
 import { CONSULTANT_STATUSES, humanize } from "@/lib/register";
-import type { Consultant } from "@/types/register";
+import type { Consultant, UserListItem } from "@/types/register";
 import {
   FieldGrid,
+  NONE,
   SelectField,
   TextField,
   orNull,
   saveErrorMessage,
 } from "./fields";
+import { personOptions } from "./PlacementDialog";
 import { RecordDialog } from "./RecordDialog";
 
 const schema = z.object({
@@ -29,6 +32,7 @@ const schema = z.object({
   phone: z.string().max(50),
   skills: z.string().max(2000),
   status: z.enum(CONSULTANT_STATUSES),
+  cdm_user_id: z.string(),
 });
 
 type Values = z.infer<typeof schema>;
@@ -43,10 +47,12 @@ export function parseSkills(text: string): string[] {
 
 function ConsultantDialog({
   consultant,
+  users,
   onClose,
   onSaved,
 }: {
   consultant: Consultant | null;
+  users: UserListItem[];
   onClose: () => void;
   onSaved: () => void;
 }) {
@@ -58,6 +64,7 @@ function ConsultantDialog({
       phone: consultant?.phone ?? "",
       skills: consultant?.skills.join(", ") ?? "",
       status: consultant?.status ?? "placed",
+      cdm_user_id: consultant?.cdm?.id ?? NONE,
     },
   });
 
@@ -69,6 +76,7 @@ function ConsultantDialog({
         phone: orNull(values.phone),
         skills: parseSkills(values.skills),
         status: values.status,
+        cdm_user_id: orNull(values.cdm_user_id),
       });
       toast.success(consultant ? "Consultant updated" : "Consultant added");
       onSaved();
@@ -83,7 +91,7 @@ function ConsultantDialog({
       open
       onOpenChange={(open) => !open && onClose()}
       title={consultant ? "Edit consultant" : "Add consultant"}
-      description="The recordings folder is matched to consultants by first or last name, so use the name people go by."
+      description="The recordings folder is matched to consultants by first or last name, so use the name people go by. The CDM can read every placement of the consultant."
       form={form}
       onSubmit={onSubmit}
     >
@@ -105,6 +113,13 @@ function ConsultantDialog({
             label: humanize(s),
           }))}
         />
+        <SelectField
+          control={form.control}
+          name="cdm_user_id"
+          label="Consultant Director (CDM)"
+          options={personOptions(users)}
+          noneLabel="None"
+        />
       </FieldGrid>
       <TextField
         control={form.control}
@@ -118,6 +133,7 @@ function ConsultantDialog({
 
 export function ConsultantsTable() {
   const { items, isLoading, error, mutate } = useConsultants(true);
+  const { users } = useUsers(true);
   const [editing, setEditing] = useState<Consultant | null | undefined>();
 
   const columns = useMemo<ColumnDef<Consultant>[]>(
@@ -129,6 +145,11 @@ export function ConsultantsTable() {
         id: "skills",
         header: "Skills",
         accessorFn: (c) => c.skills.join(", "),
+      },
+      {
+        id: "cdm",
+        header: "CDM",
+        accessorFn: (c) => c.cdm?.full_name ?? "—",
       },
       {
         id: "status",
@@ -183,6 +204,7 @@ export function ConsultantsTable() {
         <ConsultantDialog
           key={editing?.id ?? "new"}
           consultant={editing}
+          users={users}
           onClose={() => setEditing(undefined)}
           onSaved={() => void mutate()}
         />

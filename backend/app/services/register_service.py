@@ -6,7 +6,7 @@ admin pages, or enter placements as lines in the Teams chat name format
 
 - a client is unique by its normalised name, a consultant by email, a project
   by (client, name), a placement by (consultant, project, start date);
-- people named on a project or placement (tech lead, PS, SME) must be active
+- people named on a consultant or placement (CDM, PS, SME) must be active
   users who hold a role, because being named is what gives a scoped user read
   access to the placement;
 - nothing is deleted: a placement ends by status, a consultant leaves by status.
@@ -50,10 +50,15 @@ def tidy(name: str) -> str:
 
 
 @dataclass(frozen=True)
+class ConsultantRow:
+    consultant: Consultant
+    cdm: User | None
+
+
+@dataclass(frozen=True)
 class ProjectRow:
     project: Project
     client: Client
-    tech_lead: User | None
 
 
 class RegisterService:
@@ -78,19 +83,34 @@ class RegisterService:
 
     # --- Consultants ------------------------------------------------------
 
-    async def list_consultants(self) -> list[Consultant]:
-        return await self.consultants.list_by_name()
+    async def list_consultants(self) -> list[ConsultantRow]:
+        consultants = await self.consultants.list_by_name()
+        cdm_ids = {c.cdm_user_id for c in consultants if c.cdm_user_id}
+        cdms: dict[uuid.UUID | None, User] = {
+            u.id: u for u in await self.users.get_by_ids(cdm_ids)
+        }
+        return [ConsultantRow(c, cdms.get(c.cdm_user_id)) for c in consultants]
+
+    async def consultant_row(self, consultant: Consultant) -> ConsultantRow:
+        cdm = (
+            await self.users.get_by_id(consultant.cdm_user_id)
+            if consultant.cdm_user_id
+            else None
+        )
+        return ConsultantRow(consultant, cdm)
 
     async def create_consultant(self, data: ConsultantCreate) -> Consultant:
         email = str(data.email).lower() if data.email else None
         if email:
             await self._assert_consultant_email_free(email, None)
+        await self.named_person(data.cdm_user_id, "cdm_user_id")
         return await self.consultants.create(
             full_name=tidy(data.full_name),
             email=email,
             phone=data.phone or None,
             skills=data.skills,
             status=data.status.value,
+            cdm_user_id=data.cdm_user_id,
         )
 
     async def update_consultant(
@@ -112,6 +132,9 @@ class RegisterService:
             consultant.skills = fields["skills"]
         if "status" in fields:
             consultant.status = fields["status"].value
+        if "cdm_user_id" in fields:
+            await self.named_person(fields["cdm_user_id"], "cdm_user_id")
+            consultant.cdm_user_id = fields["cdm_user_id"]
         await self.session.flush()
         # The flush expires the server-set updated_at; reload it here, since
         # the response reads it and a lazy load cannot run under async
@@ -179,33 +202,19 @@ class RegisterService:
 
     async def list_projects(self) -> list[ProjectRow]:
         pairs = await self.projects.list_with_clients()
-        lead_ids = {p.tech_lead_user_id for p, _ in pairs if p.tech_lead_user_id}
-        leads: dict[uuid.UUID | None, User] = {
-            u.id: u for u in await self.users.get_by_ids(lead_ids)
-        }
-        return [
-            ProjectRow(project, client, leads.get(project.tech_lead_user_id))
-            for project, client in pairs
-        ]
+        return [ProjectRow(project, client) for project, client in pairs]
 
     async def project_row(self, project: Project) -> ProjectRow:
         client = await self._client(project.client_id)
-        lead = (
-            await self.users.get_by_id(project.tech_lead_user_id)
-            if project.tech_lead_user_id
-            else None
-        )
-        return ProjectRow(project, client, lead)
+        return ProjectRow(project, client)
 
     async def create_project(self, data: ProjectCreate) -> Project:
         client = await self._referenced_client(data.client_id)
         await self._assert_project_name_free(client.id, data.name, None)
-        await self.named_person(data.tech_lead_user_id, "tech_lead_user_id")
         return await self.projects.create(
             client_id=client.id,
             name=tidy(data.name),
             client_manager_name=data.client_manager_name or None,
-            tech_lead_user_id=data.tech_lead_user_id,
             start_date=data.start_date,
         )
 
@@ -227,9 +236,6 @@ class RegisterService:
             project.name = tidy(name)
         if "client_manager_name" in fields:
             project.client_manager_name = fields["client_manager_name"] or None
-        if "tech_lead_user_id" in fields:
-            await self.named_person(fields["tech_lead_user_id"], "tech_lead_user_id")
-            project.tech_lead_user_id = fields["tech_lead_user_id"]
         if "start_date" in fields:
             project.start_date = fields["start_date"]
         await self.session.flush()

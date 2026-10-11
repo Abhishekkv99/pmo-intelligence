@@ -55,11 +55,11 @@ class TestGrant:
         await _user(db_session, "pat", Role.PS)
 
         response = await manager_client.post(
-            "/api/v1/users", json={"email": "pat@example.com", "role": "tech_lead"}
+            "/api/v1/users", json={"email": "pat@example.com", "role": "cdm"}
         )
 
-        assert response.json()["user"]["role"] == "tech_lead"
-        assert response.json()["message"] == "pat@example.com: role ps -> tech_lead"
+        assert response.json()["user"]["role"] == "cdm"
+        assert response.json()["message"] == "pat@example.com: role ps -> cdm"
 
     async def test_not_an_email_is_422(self, manager_client: AsyncClient) -> None:
         response = await manager_client.post(

@@ -252,7 +252,7 @@ function RegisterLine({ fields }: { fields: RegisterFields }) {
   items.push(
     ["PS", personName(fields.ps)],
     ["SME", personName(fields.sme)],
-    ["Tech lead", personName(fields.tech_lead)],
+    ["CDM", personName(fields.cdm)],
     ["Client manager", fields.client_manager_name ?? "—"],
   );
   return (

@@ -52,7 +52,7 @@ export function RiskBoard() {
   const technical =
     user?.role === "sme" || (rows ?? []).some((r) => r.view === "technical");
   const [ps, setPs] = useState(ALL);
-  const [techLead, setTechLead] = useState(ALL);
+  const [cdm, setCdm] = useState(ALL);
   const [client, setClient] = useState(ALL);
   const [stack, setStack] = useState(ALL);
   const [level, setLevel] = useState(ALL);
@@ -65,12 +65,12 @@ export function RiskBoard() {
       (rows ?? []).filter(
         (r) =>
           (ps === ALL || r.ps?.id === ps) &&
-          (techLead === ALL || r.tech_lead?.id === techLead) &&
+          (cdm === ALL || r.cdm?.id === cdm) &&
           (client === ALL || r.client.id === client) &&
           (stack === ALL || r.stack === stack) &&
           (technical || level === ALL || levelKey(r) === level),
       ),
-    [rows, ps, techLead, client, stack, level, technical],
+    [rows, ps, cdm, client, stack, level, technical],
   );
 
   const columns = useMemo<ColumnDef<RiskBoardRow>[]>(() => {
@@ -210,11 +210,11 @@ export function RiskBoard() {
               options={options.ps}
             />
             <PeopleFilter
-              label="Tech lead filter"
-              all="All tech leads"
-              value={techLead}
-              onChange={setTechLead}
-              options={options.techLeads}
+              label="CDM filter"
+              all="All CDMs"
+              value={cdm}
+              onChange={setCdm}
+              options={options.cdms}
             />
             <PeopleFilter
               label="Client filter"
@@ -261,13 +261,12 @@ type Option = [id: string, name: string];
 
 function filterOptions(rows: RiskBoardRow[]) {
   const ps = new Map<string, string>();
-  const techLeads = new Map<string, string>();
+  const cdms = new Map<string, string>();
   const clients = new Map<string, string>();
   const stacks = new Map<string, string>();
   for (const r of rows) {
     if (r.ps) ps.set(r.ps.id, r.ps.full_name ?? r.ps.email);
-    if (r.tech_lead)
-      techLeads.set(r.tech_lead.id, r.tech_lead.full_name ?? r.tech_lead.email);
+    if (r.cdm) cdms.set(r.cdm.id, r.cdm.full_name ?? r.cdm.email);
     clients.set(r.client.id, r.client.name);
     if (r.stack) stacks.set(r.stack, r.stack);
   }
@@ -275,7 +274,7 @@ function filterOptions(rows: RiskBoardRow[]) {
     [...m.entries()].sort((a, b) => a[1].localeCompare(b[1]));
   return {
     ps: sorted(ps),
-    techLeads: sorted(techLeads),
+    cdms: sorted(cdms),
     clients: sorted(clients),
     stacks: sorted(stacks),
   };

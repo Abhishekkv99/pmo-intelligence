@@ -221,7 +221,7 @@ class TestAuthenticate:
         mock_user = MagicMock()
         mock_user.hashed_password = hashed
         mock_user.is_active = True
-        mock_user.role = "tech_lead"
+        mock_user.role = "cdm"
 
         with patch.object(service.user_repo, "get_by_email", return_value=mock_user):
             result = await service.authenticate("user@example.com", "correctPassword")

@@ -263,7 +263,7 @@ make user-role ENV=staging EMAIL=jane.doe@informationtechconsultants.com ROLE=no
 make user-role ENV=staging ARGS=--list                                              # every user and role
 ```
 
-- **Roles**: `pmo_manager`, `sme`, `tech_lead`, `ps`, `admin` (`backend/app/models/enums.py`).
+- **Roles**: `pmo_manager`, `sme`, `cdm` (Consultant Director; `tech_lead` until migration 009, 2026-10-11), `ps`, `admin` (`backend/app/models/enums.py`).
 - **A new person**: granting a role to an address that has never signed in creates the user by email. Their first Microsoft sign-in finds the row by email, links their Entra account and takes their name from the token. Use the address their token carries (their sign-in name, normally `first.last@informationtechconsultants.com`).
 - **Removing a role** ends every session the user has at once (their refresh tokens are revoked), and any page they have open stops working within 15 minutes. The row stays, without a role, so the role can be granted again.
 - **The last active PMO manager keeps the role**: the page and `make user-role` both refuse to remove or change it (the task exits 2 with the reason). Make someone else a PMO manager first.

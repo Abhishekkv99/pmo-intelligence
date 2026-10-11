@@ -2,13 +2,7 @@
  * User roles. Mirrors `Role` and `GLOBAL_ROLES` in `backend/app/models/enums.py`,
  * the single source for these values; keep the two in step.
  */
-export const ROLES = [
-  "pmo_manager",
-  "sme",
-  "tech_lead",
-  "ps",
-  "admin",
-] as const;
+export const ROLES = ["pmo_manager", "sme", "cdm", "ps", "admin"] as const;
 
 export type Role = (typeof ROLES)[number];
 
@@ -24,7 +18,7 @@ export function hasGlobalRole(role: Role | null | undefined): boolean {
 export const ROLE_LABELS: Record<Role, string> = {
   pmo_manager: "PMO manager",
   sme: "PMO SME",
-  tech_lead: "Tech lead",
+  cdm: "Consultant Director (CDM)",
   ps: "Placement specialist",
   admin: "Admin",
 };

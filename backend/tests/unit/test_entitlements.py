@@ -38,9 +38,9 @@ def _user(role: str | None) -> _User:
 def _people(
     ps: uuid.UUID | None = None,
     sme: uuid.UUID | None = None,
-    tech_lead: uuid.UUID | None = None,
+    cdm: uuid.UUID | None = None,
 ) -> PlacementPeople:
-    return PlacementPeople(ps_user_id=ps, sme_user_id=sme, tech_lead_user_id=tech_lead)
+    return PlacementPeople(ps_user_id=ps, sme_user_id=sme, cdm_user_id=cdm)
 
 
 class TestGlobalScope:
@@ -52,7 +52,7 @@ class TestGlobalScope:
         assert has_global_scope(_user(role))
         assert can_read_placement(_user(role), _people())
 
-    @pytest.mark.parametrize("role", ["sme", "tech_lead", "ps", None, "superuser"])
+    @pytest.mark.parametrize("role", ["sme", "cdm", "ps", None, "superuser"])
     def test_other_roles_none_and_unknown_are_not_global(
         self, role: str | None
     ) -> None:
@@ -60,19 +60,19 @@ class TestGlobalScope:
 
 
 class TestPlacementScope:
-    @pytest.mark.parametrize("field", ["ps", "sme", "tech_lead"])
-    @pytest.mark.parametrize("role", ["ps", "sme", "tech_lead"])
+    @pytest.mark.parametrize("field", ["ps", "sme", "cdm"])
+    @pytest.mark.parametrize("role", ["ps", "sme", "cdm"])
     def test_a_scoped_role_reads_a_placement_that_names_them(
         self, role: str, field: str
     ) -> None:
         user = _user(role)
         assert can_read_placement(user, _people(**{field: user.id}))
 
-    @pytest.mark.parametrize("role", ["ps", "sme", "tech_lead"])
+    @pytest.mark.parametrize("role", ["ps", "sme", "cdm"])
     def test_a_scoped_role_cannot_read_a_placement_naming_others(
         self, role: str
     ) -> None:
-        others = _people(ps=uuid.uuid4(), sme=uuid.uuid4(), tech_lead=uuid.uuid4())
+        others = _people(ps=uuid.uuid4(), sme=uuid.uuid4(), cdm=uuid.uuid4())
         assert not can_read_placement(_user(role), others)
 
     def test_no_role_reads_nothing_even_when_named(self) -> None:
@@ -165,7 +165,7 @@ class TestBootstrapAdmins:
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         monkeypatch.setattr(settings, "bootstrap_admin_emails", "lead@example.com")
-        user = _User(id=uuid.uuid4(), role="tech_lead", email="lead@example.com")
+        user = _User(id=uuid.uuid4(), role="cdm", email="lead@example.com")
 
         assert elevate_if_bootstrap_admin(user) is True  # type: ignore[arg-type]
         assert user.role == "pmo_manager"
@@ -196,9 +196,7 @@ class TestListScope:
         scope = list_scope(_user(role))
         assert scope.everything and not scope.nothing
 
-    @pytest.mark.parametrize(
-        "role", [Role.PS.value, Role.SME.value, Role.TECH_LEAD.value]
-    )
+    @pytest.mark.parametrize("role", [Role.PS.value, Role.SME.value, Role.CDM.value])
     def test_a_named_role_lists_the_placements_naming_them(self, role: str) -> None:
         user = _user(role)
         scope = list_scope(user)

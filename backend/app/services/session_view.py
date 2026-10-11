@@ -149,7 +149,7 @@ class SessionViewService:
 
         people: dict[uuid.UUID, User] = {
             person.id: person
-            for person in (row.ps, row.sme, row.tech_lead)
+            for person in (row.ps, row.sme, row.cdm)
             if person is not None
         }
         missing = {

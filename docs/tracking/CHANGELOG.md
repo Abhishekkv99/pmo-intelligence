@@ -11,6 +11,7 @@ All notable changes to this project will be documented in this file.
 - The register's CSV import: the Admin > Import tab, `POST /register/import` and its template. Placements are entered with the quick add or the placement dialog.
 
 ### Changed
+- The Consultant Director (CDM) replaces the tech lead: role `cdm` instead of `tech_lead`. A CDM is set on the consultant (Admin > Register > Consultants) and reads every placement of the consultants they manage, with the full health view. Projects no longer have a tech lead. Call analysis names the CDM and gives them the actions it owns; the placements table, the risk board filter, the placement page and the session page show the CDM. Migration 009 converts tech lead data: the role, each consultant's CDM from their latest project's tech lead, and speaker and owner roles.
 - The Placements table on Admin > Register shows the client and the project in separate columns.
 - Open flags are listed critical first, then the oldest, then in the PRD's trigger order; flags opened together came back in a random order.
 - An SME sees only the Technical signals on a session page, and the sessions list counts only those for them (the transcript, summary, issues and actions are unchanged). Of a placement's health an SME sees only the Technical score and its own trend.

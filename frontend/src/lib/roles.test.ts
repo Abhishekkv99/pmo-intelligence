@@ -3,7 +3,7 @@ import { GLOBAL_ROLES, ROLES, hasGlobalRole } from "./roles";
 
 describe("roles", () => {
   it("lists the five backend roles", () => {
-    expect(ROLES).toEqual(["pmo_manager", "sme", "tech_lead", "ps", "admin"]);
+    expect(ROLES).toEqual(["pmo_manager", "sme", "cdm", "ps", "admin"]);
   });
 
   it("treats pmo_manager and admin as global", () => {
@@ -14,7 +14,7 @@ describe("roles", () => {
 
   it("treats the scoped roles as not global", () => {
     expect(hasGlobalRole("sme")).toBe(false);
-    expect(hasGlobalRole("tech_lead")).toBe(false);
+    expect(hasGlobalRole("cdm")).toBe(false);
     expect(hasGlobalRole("ps")).toBe(false);
   });
 
