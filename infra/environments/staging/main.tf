@@ -35,7 +35,10 @@ module "environment" {
   # Catalog only; the bucket policy on the recordings bucket grants this
   # environment's task role (docs/DEPLOYMENT.md).
   recordings_scan_enabled = true
-  bootstrap_admin_emails  = var.bootstrap_admin_emails
+  # Daily health recompute of every active placement at 06:00 UK time
+  # (docs/DEPLOYMENT.md, "Health recompute").
+  health_daily_enabled   = true
+  bootstrap_admin_emails = var.bootstrap_admin_emails
 
   db_instance_class = "db.t4g.micro"
 }

@@ -41,6 +41,7 @@ locals {
     { name = "RECORDINGS_SOURCE_BUCKET", value = var.recordings_source_bucket },
     { name = "RECORDINGS_SOURCE_PREFIX", value = var.recordings_source_prefix },
     { name = "RECORDINGS_SCAN_ENABLED", value = tostring(var.recordings_scan_enabled) },
+    { name = "HEALTH_DAILY_ENABLED", value = tostring(var.health_daily_enabled) },
   ]
 
   backend_secrets = [

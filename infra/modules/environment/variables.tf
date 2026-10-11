@@ -181,3 +181,9 @@ variable "recordings_scan_enabled" {
   type        = bool
   default     = false
 }
+
+variable "health_daily_enabled" {
+  description = "Recompute every active placement's health daily at 06:00 Europe/London (HEALTH_DAILY_ENABLED); the hour and zone keep the backend's defaults"
+  type        = bool
+  default     = false
+}
