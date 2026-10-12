@@ -68,12 +68,13 @@
 | Theme (Phase 1) | The app opens in the light Twilight theme; a twilight-dark theme (deep purple surfaces, lavender accents) stays in the theme menu with system, so every page still supports dark mode | Follow the system |
 | Shell design (Phase 1) | Stitch draws the signed-in shell and risk board in both themes for approval before tokens are written | Derive the tokens from Twilight without a further screen |
 | Judgement calls made while building Phase 1 (for approval at the checkpoint) | Contrast over the mockups' exact values: muted text #66635F (the mockup's #85817B is 3.7:1), green #15803D (the mockup's #16A34A is 3.3:1 as text), amber kept as a fill with dark text (#D97706 is 3.2:1 as text). `--radius` 0.75rem: cards 16px as in Twilight, buttons and inputs 10px (Twilight 8px). Focus ring plum #794B7A in light, lavender in dark. Chart line `--chart-1` #4C326E in light, lavender in dark. The sidebar is twilight purple in both themes through the sidebar tokens; the current sidebar got one class (`text-sidebar-foreground`) so its title stays readable until Phase 2 replaces it. The logo is a client component so each mark gets its own gradient id (`useId`); the wordmark's mark is decorative. `--lavender`, `--twilight` and `--gradient-twilight` added as brand tokens |
+| Sign-in design (Phase 3) | Stitch variant 3, "Twilight Sign-in (Variant 3: Two-Column Split Preview)" (`993d6e9bb3ff47089a97890d72e7b361`): the promise and "Sign in with Microsoft" on the left, a three-row risk board card over a flag card with its quote on the right, in the twilight hero; the three highlights and the footer on warm white below. The preview uses the app's own pieces: the health badge with the level in words, the real trigger name ("Client dissatisfaction", critical) and a "Sample data" tag in place of "Live Status". No chart (the plan's mini chart dropped). The phone layout stacks (promise, button, cards, highlights) and is reviewed in the browser, with no Stitch phone screen. The page always looks as designed, whatever the theme (a light token scope inside a dark theme; the theme setting never changed), and the callback page uses the same shell | Variant 1 (risk board preview), variant 2 (placement page preview); bare-number badges, "Early warning flag", "Live Status"; a mini chart card; a Stitch phone screen first; the lower part following the theme |
 | Copy on the showcase | Every claim is ours and true: no compliance badges (SOC 2, ISO), no "encrypted end-to-end", no client email ingestion, no automatic notification or "playbook", no invented counts or versions; the generated screens' copy is a reference only | — (found in the generated screens) |
 | Shell details (Phase 2, from the approved Twilight screen) | The top bar shows the sidebar toggle, the current section as a breadcrumb ("Risk board"; "Risk board / Placement" and "Sessions / Session" on a detail page, the parent a link) and the theme menu; "PMO Intelligence" is in the sidebar logo only, and `auth.spec.ts`'s header test changes with it. Risk board's icon is lucide `Gauge` (the screen's dollar sign reads as money); Sessions, Actions, Admin and Settings follow the screen (message, check-square, grid, gear). No subtitle under the product name (the screen's "v3.4 · Telemetry" is invented). The screen's "Jump to consultant" search goes to BACKLOG; no new Stitch variants, the approved screen is the shell design | As planned (the h1 "PMO Intelligence" in the top bar); section name and a working search; icons LayoutDashboard, ShieldAlert or Activity; the tagline as a subtitle |
 
 ## Task Checklist
 
->>> CURRENT PHASE: Phase 3 (next: sign-in showcase variants in Stitch)
+>>> CURRENT PHASE: Phase 4 (next: risk board variants in Stitch)
 
 Every phase: the Stitch step (variants on made-up data; the user picks one or asks for edits), then code, tests and docs, then the commit checkpoint, then stop. Any screenshot used for design reference comes from the local stack seeded with `seed_e2e_session.py --health`, never from staging. Before e2e: `docker compose up --build -d --wait frontend`, one worker; Vitest with `--maxWorkers=4`.
 
@@ -118,20 +119,20 @@ Every phase: the Stitch step (variants on made-up data; the user picks one or as
 - [x] `ARCHITECTURE.md` (Shell and Pages rows with the new paths, `> Status:`), `DESIGN.md` (shell), `FEATURES.md`, `TESTS.md`, `CHANGELOG.md` (also `ROADMAP.md`: the design system, logo and shell ticked; `BACKLOG.md`: the top-bar search; README: no new make target)
 
 **Commit checkpoint**
-- [x] `feat: add the collapsible app shell` (2026-10-12; pushed with be6231b and 31700ab, user decision)
+- [x] `feat: add the collapsible app shell` (88f83e2, 2026-10-12; pushed with be6231b and 31700ab, CI green, frontend deployed)
 
 ### Phase 3: Sign-in showcase and callback
 **Code work**
-- [ ] Stitch: 2–3 sign-in variants, desktop and phone, dark, with made-up placements; the user approves one
-- [ ] `src/components/auth/AuthShell.tsx` (the forced-dark, full-viewport wrapper with the logo), `Showcase.tsx` (the promise, "calls and chat in, health and early warnings out", 3–4 highlights, a motion entrance), `MiniRiskBoard.tsx` (`HealthIndicators`, and `HealthChart` for the mini chart), `showcase-data.ts` (fixed ISO dates, typed against `types/health.ts`, plainly made up)
-- [ ] `LoginForm.tsx` restyled (the button and the Entra note keep their text); `src/app/login/page.tsx`; the callback page inside `AuthShell`; `APP_TAGLINE` only if the approved copy changes it
-- [ ] Tests: `Showcase.test.tsx` (the sample rows render; the API client is never called); the mini chart counts its marks; `LoginForm.test.tsx`, the callback `page.test.tsx` and `auth.spec.ts` changed only where the copy changes
+- [x] Stitch: 3 desktop variants with made-up placements and our own copy; the user chose variant 3 (2026-10-12); the phone layout is reviewed in the browser (see "Sign-in design")
+- [x] `src/components/auth/AuthShell.tsx` (the full-viewport frame with the logo; always light, not forced dark, per "Sign-in design"), `Showcase.tsx` (the promise, "calls and chat in, health and early warnings out", 3–4 highlights, a motion entrance), `MiniRiskBoard.tsx` (`HealthIndicators`; no mini chart, per "Sign-in design"), `showcase-data.ts` (fixed ISO dates, typed against `types/health.ts`, plainly made up)
+- [x] `LoginForm.tsx` restyled (the button keeps its text; the Entra note follows the approved design, "Staff with a role only · Microsoft Entra ID", under the test-text decision; its test still matches); `src/app/login/page.tsx`; the callback page inside `AuthShell`; `APP_TAGLINE` only if the approved copy changes it
+- [x] Tests: `Showcase.test.tsx` (9: the sample rows, the sample tag, the flag, the highlights, no request, the light frame, the UK time); `LoginForm.test.tsx` and the callback `page.test.tsx` unchanged (their text is kept or still matched); `auth.spec.ts` checks the promise heading and the sample tag in place of the "Sign In" card title. Frontend unit 254 (`--maxWorkers=4`, every row compared with `vitest list`), lint, types, format clean; screenshots at desktop, phone and under the dark theme setting, and the callback's failure, checked (from `next dev` on port 3100, which wrote `frontend/AGENTS.md`, now in `.git/info/exclude`). e2e 23 of 23 with one worker after Docker Desktop was force-restarted (it had answered every request with 500)
 
 **Doc updates (concurrent)**
-- [ ] `ARCHITECTURE.md` (Pages row, auth flow step 1, `> Status:`), `DESIGN.md`, `FEATURES.md`, `TESTS.md`, `CHANGELOG.md`
+- [x] `ARCHITECTURE.md` (a Sign-in row, auth flow step 1, `> Status:`), `DESIGN.md` (Sign-in, Theme), `FEATURES.md`, `TESTS.md` (unit rows; the e2e count after the run), `CHANGELOG.md` (also `ROADMAP.md`: the sign-in item ticked; BACKLOG: nothing new; README: no new make target)
 
 **Commit checkpoint**
-- [ ] `feat: add the sign-in showcase`
+- [x] `feat: add the sign-in showcase` (2026-10-12; not pushed)
 
 ### Phase 4: Risk board
 **Code work**
@@ -195,16 +196,16 @@ Every phase: the Stitch step (variants on made-up data; the user picks one or as
 - Each page waits on the user's approval of its design; Phases 6 and 7 depend on the time left.
 - The exit gates of PRD Phases 1 and 2 need real data on staging (the user's actions).
 
-## Session State (last updated: 2026-10-12 16:55)
+## Session State (last updated: 2026-10-12 17:55)
 - **Sprint**: 3 — Visual Redesign
-- **Current phase**: Phase 3 — sign-in showcase and callback (not started)
-- **Phase progress**: Phase 2 complete (9 of 9 tasks, committed); Phase 3 0 of 8
-- **Last completed task**: Phase 2 committed: `feat: add the collapsible app shell`
-- **Next task**: push be6231b, 31700ab and the Phase 2 commit together (read both CI filters first; a frontend-only deploy); then Phase 3 at the user's go-ahead: 2–3 Stitch sign-in variants, desktop and phone, on made-up placements
-- **Last commit**: "feat: add the collapsible app shell" (local, not pushed; hash in git log); before it 31700ab and be6231b (not pushed)
+- **Current phase**: Phase 4 — risk board (not started)
+- **Phase progress**: Phase 3 complete and committed; Phase 4 0 of 5
+- **Last completed task**: Phase 3 committed: `feat: add the sign-in showcase`
+- **Next task**: ask whether to push the Phase 3 commit (frontend only; read both CI filters first); then Phase 4 at the user's go-ahead: 2–3 risk board variants in Stitch, light and dark, on made-up rows
+- **Last commit**: "feat: add the sign-in showcase" (local, not pushed; hash in git log); before it 88f83e2, pushed 2026-10-12 with CI green and the frontend deployed
 - **Uncommitted changes**: none (just committed)
 - **Blockers**: none
-- **Tests passing**: 763 unit + 282 integration (backend, unchanged since 2026-10-11) + 245 frontend unit (`--maxWorkers=4`) + 23 of 23 e2e (one worker) = 1313 tests
+- **Tests passing**: 763 unit + 282 integration (backend, unchanged since 2026-10-11) + 254 frontend unit (`--maxWorkers=4`); 23 of 23 e2e (one worker) = 1322 tests
 - **Files modified this session**: the uncommitted changes above
 - **Key decisions this session**: the 17 planning decisions above; in Phase 1 the Twilight direction, Plus Jakarta Sans and JetBrains Mono, a light default with a twilight-dark theme, the shell screen before tokens, and our own copy only (Decisions Log rows, 2026-10-12); in Phase 2 build the shell from the approved screen with no new variants, the section breadcrumb instead of the app name in the top bar (search to BACKLOG), `Gauge` for Risk board, no subtitle, push with Phase 2 ("Shell details" row)
 - **Recovery instructions**:

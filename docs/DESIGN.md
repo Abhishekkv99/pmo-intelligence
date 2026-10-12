@@ -1,6 +1,6 @@
 # Design System
 
-> **Status**: Sprint 3 Phase 2 (2026-10-12): the Twilight direction, its light and twilight-dark colours, fonts, logo and motion settings (Phase 1), and the app shell (Phase 2) are built. The sign-in showcase and the redesigned pages follow phase by phase; each section below says what is built.
+> **Status**: Sprint 3 Phase 3 (2026-10-12): the Twilight direction, its light and twilight-dark colours, fonts, logo and motion settings (Phase 1), the app shell (Phase 2) and the sign-in showcase (Phase 3) are built. The redesigned pages follow phase by phase; each section below says what is built.
 
 PMO Intelligence is shown to management, so it should look like a premium product while staying calm and dense enough for daily PMO work. The look is called **Twilight**. It is editorial and Superhuman-like: one dramatic twilight-purple moment on a warm white canvas, large tight display type, a single lavender accent, and the product's own screens as the main imagery. Colour signals status; it never decorates.
 
@@ -91,7 +91,7 @@ Computed with the WCAG 2 relative-luminance formula; every pair in use passes AA
 - The favicon, `frontend/src/app/icon.svg`, is the same mark; the proxy lets `/icon.svg` through without a sign-in.
 
 ## Theme
-The app opens in the light theme (`defaultTheme="light"`); twilight dark and the system setting are in the theme menu. Every page works in both.
+The app opens in the light theme (`defaultTheme="light"`); twilight dark and the system setting are in the theme menu. Every signed-in page works in both. The sign-in and callback pages always show the light theme: their frame carries `theme-light`, which re-declares the light tokens (with `color-scheme: light`), and the `dark:` variant does not apply inside it. The theme setting itself is never changed.
 
 ## Shell
 Built in Phase 2 from the approved Stitch screen "Twilight Light & Dark Risk Board Comparison", without its invented parts (version text, nav counts, Export CSV, Telemetry Sync, the "Jump to consultant" search).
@@ -103,6 +103,17 @@ Built in Phase 2 from the approved Stitch screen "Twilight Light & Dark Risk Boa
 - **Top bar** (`TopBar.tsx`): 56px, sticky, the canvas at 90% with a backdrop blur and a hairline below; the toggle, the breadcrumb (the section, then "Placement" or "Session" on a detail page with the section as a link) and the theme menu. Nothing in it is a heading; each page's heading is its own.
 - **Layout**: the signed-in pages sit in the route group `frontend/src/app/(app)/`, whose layout renders `MainLayout` once, so the shell stays mounted between pages. `<main>` is the scroll container; the page has 16px padding on a phone and 24px from 768px.
 - The sidebar is flat twilight purple; the screen's light-theme gradient (#1B1938 to #2A214C) was left out, since the sidebar's surface is one token in both themes.
+
+## Sign-in
+Built in Phase 3 from the approved Stitch screen "Twilight Sign-in (Variant 3: Two-Column Split Preview)".
+
+- **Frame** (`AuthShell`): the twilight gradient (`--gradient-twilight`) behind the logo and the hero, dissolving into the warm white canvas; content up to 1240px wide; a hairline above the footer, which names the product and says "Internal tool." ("Sample data shown." on the login page).
+- **Hero**: a lavender mono eyebrow ("Placement health, live"); the promise as the `h1`, white, `clamp(40px, 4.4vw, 62px)`, line-height 0.98, tracking −0.035em; the line under it white at 80%; the cream "Sign in with Microsoft" button (#E9E5DD, twilight text, Microsoft's four-square mark, a soft drop shadow, a 2px lift on hover unless reduced motion is on); the note under it white at 70%.
+- **Preview** (`MiniRiskBoard`): two cards with the editorial shadow (`shadow-editorial`). The board card has a mono capitals header and a "Sample data" tag, then three rows with the app's own trend and health badge (score and level word). The flag card is tinted with the red at 5%, with a 2px red hairline at 25%, the trigger name and its severity, the quote with a red rule, and when it was said ("12 Sep · 14:32", UK time, months named by the code so every browser shows the same).
+- **Highlights**: three columns between hairlines on the canvas (one column on a phone), each a 24px bold title and a muted paragraph.
+- **Phone**: below 1024px the hero stacks (promise, button, preview), with 16px side gutters; a long name wraps instead of being cut.
+- **Entrance**: each hero block rises 12px into place over 0.5s, 50ms apart; reduced motion keeps only the fade.
+- The screen's "Live Status", bare-number badges and "Early warning flag" were replaced with the sample tag, the app's badge and the real trigger name.
 
 ## Motion
 - The `motion` library (pinned at 13.4.6) is used in client components only, through `motion/react`.

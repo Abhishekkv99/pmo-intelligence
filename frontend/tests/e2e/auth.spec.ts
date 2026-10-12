@@ -8,10 +8,15 @@ test.describe("Authentication", () => {
       await page.goto("/login");
       await page.waitForLoadState("networkidle");
 
-      // CardTitle renders as <div data-slot="card-title"> in shadcn v4
-      await expect(page.locator("[data-slot='card-title']")).toContainText(
-        "Sign In",
-      );
+      await expect(
+        page.getByRole("heading", {
+          level: 1,
+          name: /know which placement is at risk/i,
+        }),
+      ).toBeVisible();
+      await expect(
+        page.getByText("Sample data", { exact: true }),
+      ).toBeVisible();
       await expect(
         page.getByRole("button", { name: /sign in with microsoft/i }),
       ).toBeVisible();

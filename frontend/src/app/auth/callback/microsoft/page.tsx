@@ -9,6 +9,14 @@ import { API_ROUTES, ROUTES } from "@/lib/constants";
 import type { TokenResponse } from "@/types/auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { AuthShell } from "@/components/auth/AuthShell";
+
+// The callback's states sit in the sign-in page's frame, in one card.
+const CARD_CLASSES = "w-full max-w-md shadow-editorial";
+
+function CallbackFrame({ children }: { children: React.ReactNode }) {
+  return <AuthShell heroClassName="flex justify-center">{children}</AuthShell>;
+}
 
 function MicrosoftCallbackContent() {
   const router = useRouter();
@@ -73,8 +81,8 @@ function MicrosoftCallbackContent() {
 
   if (error) {
     return (
-      <div className="flex min-h-screen items-center justify-center p-4">
-        <Card className="w-full max-w-md">
+      <CallbackFrame>
+        <Card className={CARD_CLASSES}>
           <CardHeader className="text-center">
             <CardTitle className="text-2xl">Sign In Failed</CardTitle>
           </CardHeader>
@@ -90,13 +98,13 @@ function MicrosoftCallbackContent() {
             </Button>
           </CardContent>
         </Card>
-      </div>
+      </CallbackFrame>
     );
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center p-4">
-      <Card className="w-full max-w-md">
+    <CallbackFrame>
+      <Card className={CARD_CLASSES}>
         <CardHeader className="text-center">
           <CardTitle className="text-2xl">Signing you in...</CardTitle>
         </CardHeader>
@@ -104,7 +112,7 @@ function MicrosoftCallbackContent() {
           Completing Microsoft authentication. Please wait.
         </CardContent>
       </Card>
-    </div>
+    </CallbackFrame>
   );
 }
 
@@ -112,13 +120,13 @@ export default function MicrosoftCallbackPage() {
   return (
     <Suspense
       fallback={
-        <div className="flex min-h-screen items-center justify-center p-4">
-          <Card className="w-full max-w-md">
+        <CallbackFrame>
+          <Card className={CARD_CLASSES}>
             <CardHeader className="text-center">
               <CardTitle className="text-2xl">Loading...</CardTitle>
             </CardHeader>
           </Card>
-        </div>
+        </CallbackFrame>
       }
     >
       <MicrosoftCallbackContent />
