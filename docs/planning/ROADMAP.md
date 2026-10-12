@@ -21,7 +21,15 @@ Six phases, each one or two sprints, each ending with a staging sign-off by the 
 - [x] Daily recompute (Sprint 2 Phase 4, 2026-10-10; on in staging since 2026-10-11, Phase 8)
 - **Exit gate**: ten placements scored from their sessions; the PMO manager agrees with the ranking, or the weights are tuned until they do. **Not run**: Sprint 2 closed 2026-10-11 without it, since the staging register is still empty and no real call has been processed (see the Sprint 2 handover; in BACKLOG)
 
-## Milestone 3: Teams Chat
+## Sprint 3: Visual Redesign (2026-10-12 – 2026-10-23)
+Not a PRD phase: moved ahead of Teams chat so the tool can be demonstrated to management (user decisions 2026-10-11 and 2026-10-12).
+- [ ] Design system, logo and app shell (collapsible sidebar, mobile drawer)
+- [ ] Sign-in page as a showcase (always dark, made-up preview data)
+- [ ] Risk board and placement page redesigned
+- [ ] Sessions pages, Admin, Actions and Settings redesigned (if time allows; otherwise BACKLOG)
+- **Exit gate**: the user approves the sign-in page, the risk board and the placement page on staging after a demo walk-through
+
+## Milestone 3: Teams Chat (Sprint 4)
 - [ ] Graph connector (RSC or application permission), poller, message store
 - [ ] Chat pipeline and cadence tracking; messages on the timeline
 - [ ] Gone-quiet and missed-commitment triggers
