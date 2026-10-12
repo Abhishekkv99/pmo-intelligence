@@ -56,6 +56,12 @@ test("shows a placement's health, flags, last call and next action", async ({
   await expect(row).toContainText("3 days ago");
   await expect(row).toContainText("Chase the client's IT team for VPN access");
   await expect(row).not.toContainText("overdue");
+  // The board groups placements by level; this one is in the Amber section.
+  await expect(
+    page.getByRole("region", { name: "Amber" }).getByRole("row", {
+      name: new RegExp(seeded.consultant),
+    }),
+  ).toHaveCount(1);
 });
 
 test("filters the board by risk level", async ({ page }) => {
@@ -72,5 +78,17 @@ test("filters the board by risk level", async ({ page }) => {
 
   await page.getByRole("combobox", { name: "Risk level filter" }).click();
   await page.getByRole("option", { name: "Amber", exact: true }).click();
+  await expect(row).toHaveCount(1);
+
+  // The level counts filter the same way; a second click clears it.
+  await page.getByRole("combobox", { name: "Risk level filter" }).click();
+  await page.getByRole("option", { name: "All levels" }).click();
+  const greenCount = page
+    .getByTestId("level-count")
+    .filter({ hasText: "Green" });
+  await greenCount.click();
+  await expect(greenCount).toHaveAttribute("aria-pressed", "true");
+  await expect(row).toHaveCount(0);
+  await greenCount.click();
   await expect(row).toHaveCount(1);
 });

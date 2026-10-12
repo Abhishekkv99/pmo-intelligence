@@ -1,6 +1,6 @@
 # Design System
 
-> **Status**: Sprint 3 Phase 3 (2026-10-12): the Twilight direction, its light and twilight-dark colours, fonts, logo and motion settings (Phase 1), the app shell (Phase 2) and the sign-in showcase (Phase 3) are built. The redesigned pages follow phase by phase; each section below says what is built.
+> **Status**: Sprint 3 Phase 4 (2026-10-12): the Twilight direction, its light and twilight-dark colours, fonts, logo and motion settings (Phase 1), the app shell (Phase 2), the sign-in showcase (Phase 3) and the risk board (Phase 4) are built. The redesigned pages follow phase by phase; each section below says what is built.
 
 PMO Intelligence is shown to management, so it should look like a premium product while staying calm and dense enough for daily PMO work. The look is called **Twilight**. It is editorial and Superhuman-like: one dramatic twilight-purple moment on a warm white canvas, large tight display type, a single lavender accent, and the product's own screens as the main imagery. Colour signals status; it never decorates.
 
@@ -114,6 +114,23 @@ Built in Phase 3 from the approved Stitch screen "Twilight Sign-in (Variant 3: T
 - **Phone**: below 1024px the hero stacks (promise, button, preview), with 16px side gutters; a long name wraps instead of being cut.
 - **Entrance**: each hero block rises 12px into place over 0.5s, 50ms apart; reduced motion keeps only the fade.
 - The screen's "Live Status", bare-number badges and "Early warning flag" were replaced with the sample tag, the app's badge and the real trigger name.
+
+## Tables and badges
+- **Tables** (`DataTable`): a card (16px radius, hairline border, the card surface) holding the table; the header row on the muted surface with 12px semibold muted labels; cells 12px tall padding with 16px at the row's ends; numbers in `font-mono tabular-nums`. Inside another card the table drops its own frame (`framed={false}`).
+- **Health badge**: a fully round pill in the level's colour with the score in JetBrains Mono and the level word ("6.3 Amber"); "Not scored" in muted text without a pill.
+- **Flag chips**: a critical flag is a red pill with white text; any other is an outline pill. The name is the trigger's own, and the severity and opening date are in its tooltip.
+- **Trend**: an arrow and the change over 14 days in mono, red when falling and green when rising; a dash before there is a score 14 days back.
+
+## Risk board
+Built in Phase 4 from the approved Stitch screen "Risk Board (Variant 2: Grouped Level Sections)".
+
+- **Heading**: the page title "Risk board" (32px semibold, tracking −0.02em) and one muted line under it: "Every active placement, most at risk first."
+- **Level counts**: four cards in a row (two on a phone), each a coloured dot, the level and its count in large mono. They count the whole board, whatever the filters; each is a button that shows only its level and sets the level menu to match, and a pressed card has a primary ring. A second click clears it.
+- **Filter bar**: one card holding the search and the menus (placement specialist, CDM, client, stack, level), each menu as wide as its text, so the bar fits on one line at desktop widths.
+- **Sections**: one card per level in the server's order (Red, Amber, Green, Not scored): a header strip tinted with the level's colour at 5% over a hairline at 20% (the card's edge at 30%), with the dot, the level as a heading in the text colour and the row count in a small mono tag; then the table. Not scored uses the muted surface and a grey dot. A level with no rows is not shown.
+- **Rows**: client · project and the next action wrap over up to two lines rather than widen the table; the due date sits above the action in mono, red with "· overdue" when past.
+- **SME**: one table with the same styling, no counts and no sections, under "Every placement you support, lowest Technical score first."
+- The screen's subtitles on the sections ("Immediate attention required", "Elevated monitoring", "Stable performance", "Initial onboarding · baseline pending") were left out: they were invented, and not scored means no signal in the lookback, not onboarding. No thresholds are shown, since the board's response carries none. Level labels are in the text colour rather than the level's colour, since amber text fails contrast on white.
 
 ## Motion
 - The `motion` library (pinned at 13.4.6) is used in client components only, through `motion/react`.

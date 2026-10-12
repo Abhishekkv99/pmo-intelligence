@@ -73,6 +73,46 @@ describe("DataTable", () => {
     expect(cellTexts()).toEqual(["AshaLeeds", "BenBristol"]);
   });
 
+  it("leaves out the search box when the caller filters", () => {
+    render(
+      <DataTable
+        columns={columns}
+        data={data}
+        searchPlaceholder="Search people"
+        emptyMessage="Nobody"
+        searchable={false}
+      />,
+    );
+
+    expect(screen.queryByLabelText("Search people")).toBeNull();
+    expect(cellTexts()).toEqual(["AshaLeeds", "BenBristol"]);
+  });
+
+  it("draws its own frame unless placed inside a card", () => {
+    const { container, rerender } = render(
+      <DataTable
+        columns={columns}
+        data={data}
+        searchPlaceholder="Search"
+        emptyMessage="Nobody"
+      />,
+    );
+    const frame = () =>
+      container.querySelector("[data-slot='table-container']")!.parentElement!;
+    expect(frame()).toHaveClass("rounded-xl", "border");
+
+    rerender(
+      <DataTable
+        columns={columns}
+        data={data}
+        searchPlaceholder="Search"
+        emptyMessage="Nobody"
+        framed={false}
+      />,
+    );
+    expect(frame()).not.toHaveClass("border");
+  });
+
   it("shows the empty message, or loading while loading", () => {
     const { rerender } = render(
       <DataTable

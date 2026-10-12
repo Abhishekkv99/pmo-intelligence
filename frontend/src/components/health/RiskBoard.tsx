@@ -12,6 +12,7 @@ import {
 } from "@/components/health/HealthIndicators";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -32,6 +33,7 @@ import {
   RISK_LEVELS,
   RISK_TRIGGER_LABELS,
   ukToday,
+  type RiskLevel,
 } from "@/lib/health";
 import { cn } from "@/lib/utils";
 import type { FlagSummary, NextAction, RiskBoardRow } from "@/types/health";
@@ -39,12 +41,51 @@ import type { FlagSummary, NextAction, RiskBoardRow } from "@/types/health";
 const ALL = "all";
 const NOT_SCORED = "not_scored";
 
+type LevelKey = RiskLevel | typeof NOT_SCORED;
+
+/** The board's sections, in the server's order of levels. */
+const LEVEL_KEYS: LevelKey[] = [...RISK_LEVELS, NOT_SCORED];
+
+const LEVEL_KEY_LABELS: Record<LevelKey, string> = {
+  ...RISK_LEVEL_LABELS,
+  [NOT_SCORED]: "Not scored",
+};
+
+/** Each level's dot, section edge and header tint (theme tokens). */
+const LEVEL_STYLES: Record<
+  LevelKey,
+  { dot: string; edge: string; header: string }
+> = {
+  red: {
+    dot: "bg-risk-red",
+    edge: "border-risk-red/30",
+    header: "border-risk-red/20 bg-risk-red/5",
+  },
+  amber: {
+    dot: "bg-risk-amber",
+    edge: "border-risk-amber/30",
+    header: "border-risk-amber/20 bg-risk-amber/5",
+  },
+  green: {
+    dot: "bg-risk-green",
+    edge: "border-risk-green/30",
+    header: "border-risk-green/20 bg-risk-green/5",
+  },
+  [NOT_SCORED]: {
+    dot: "bg-muted-foreground",
+    edge: "border-border",
+    header: "border-border bg-muted/50",
+  },
+};
+
 /**
  * The risk board: every active placement the user may read, in the server's
- * order (red first, then falling, then lowest overall; not scored last).
- * An SME sees the technical view: the Technical score and its trend, no
- * flags and no risk filter, in the order of their Technical scores. The
- * consultant's name opens the placement page.
+ * order (red first, then falling, then lowest overall; not scored last),
+ * one section per level under a strip of level counts. A count filters the
+ * board to its level, as the level menu does. An SME sees the technical
+ * view: one table with the Technical score and its trend, no levels, flags
+ * or level filter, in the order of their Technical scores. The consultant's
+ * name opens the placement page.
  */
 export function RiskBoard() {
   const { user } = useAuth();
@@ -56,22 +97,24 @@ export function RiskBoard() {
   const [client, setClient] = useState(ALL);
   const [stack, setStack] = useState(ALL);
   const [level, setLevel] = useState(ALL);
+  const [search, setSearch] = useState("");
 
   const options = useMemo(() => filterOptions(rows ?? []), [rows]);
+  const counts = useMemo(() => levelCounts(rows ?? []), [rows]);
   const today = ukToday();
 
-  const shown = useMemo(
-    () =>
-      (rows ?? []).filter(
-        (r) =>
-          (ps === ALL || r.ps?.id === ps) &&
-          (cdm === ALL || r.cdm?.id === cdm) &&
-          (client === ALL || r.client.id === client) &&
-          (stack === ALL || r.stack === stack) &&
-          (technical || level === ALL || levelKey(r) === level),
-      ),
-    [rows, ps, cdm, client, stack, level, technical],
-  );
+  const shown = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    return (rows ?? []).filter(
+      (r) =>
+        (ps === ALL || r.ps?.id === ps) &&
+        (cdm === ALL || r.cdm?.id === cdm) &&
+        (client === ALL || r.client.id === client) &&
+        (stack === ALL || r.stack === stack) &&
+        (technical || level === ALL || levelKey(r) === level) &&
+        (query === "" || searchText(r).includes(query)),
+    );
+  }, [rows, ps, cdm, client, stack, level, search, technical]);
 
   const columns = useMemo<ColumnDef<RiskBoardRow>[]>(() => {
     const scoreColumns: ColumnDef<RiskBoardRow>[] = technical
@@ -84,7 +127,7 @@ export function RiskBoard() {
               row.original.technical === null ? (
                 <NotScored />
               ) : (
-                <span className="font-medium tabular-nums">
+                <span className="font-mono font-medium tabular-nums">
                   {formatScore(row.original.technical)}
                 </span>
               ),
@@ -151,13 +194,20 @@ export function RiskBoard() {
         id: "placement",
         header: "Client · project",
         accessorFn: (r) => `${r.client.name} · ${r.project.name}`,
+        cell: ({ row }) => (
+          <span className="block max-w-56 whitespace-normal">
+            {row.original.client.name} · {row.original.project.name}
+          </span>
+        ),
       },
       {
         id: "weeks",
         header: "Weeks in",
         accessorFn: (r) => r.weeks_in,
         cell: ({ row }) => (
-          <span className="tabular-nums">{row.original.weeks_in}</span>
+          <span className="font-mono tabular-nums">
+            {row.original.weeks_in}
+          </span>
         ),
       },
       ...scoreColumns,
@@ -186,75 +236,223 @@ export function RiskBoard() {
     ];
   }, [technical, today]);
 
+  const emptyMessage =
+    (rows ?? []).length === 0
+      ? "No active placements yet. Each one appears here with its health once it is in the register."
+      : "No placements match these filters.";
+
   return (
     <div className="space-y-4">
+      <p className="text-sm text-muted-foreground">
+        {technical
+          ? "Every placement you support, lowest Technical score first."
+          : "Every active placement, most at risk first."}
+      </p>
       {error && (
         <p role="alert" className="text-sm text-destructive">
           {error}
         </p>
       )}
-      <DataTable
-        columns={columns}
-        data={shown}
-        isLoading={isLoading}
-        sortable={false}
-        searchPlaceholder="Search placements"
-        emptyMessage="No active placements yet. Each one appears here with its health once it is in the register."
-        toolbar={
-          <>
-            <PeopleFilter
-              label="Placement specialist filter"
-              all="All placement specialists"
-              value={ps}
-              onChange={setPs}
-              options={options.ps}
+      {!technical && rows && (
+        <LevelCounts
+          counts={counts}
+          selected={level}
+          onSelect={(key) => setLevel(level === key ? ALL : key)}
+        />
+      )}
+      <div className="flex flex-wrap items-center gap-2 rounded-xl border bg-card p-2.5">
+        <Input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search placements"
+          aria-label="Search placements"
+          className="w-full sm:w-64"
+        />
+        <PeopleFilter
+          label="Placement specialist filter"
+          all="All placement specialists"
+          value={ps}
+          onChange={setPs}
+          options={options.ps}
+        />
+        <PeopleFilter
+          label="CDM filter"
+          all="All CDMs"
+          value={cdm}
+          onChange={setCdm}
+          options={options.cdms}
+        />
+        <PeopleFilter
+          label="Client filter"
+          all="All clients"
+          value={client}
+          onChange={setClient}
+          options={options.clients}
+        />
+        <PeopleFilter
+          label="Stack filter"
+          all="All stacks"
+          value={stack}
+          onChange={setStack}
+          options={options.stacks}
+        />
+        {!technical && (
+          <Select value={level} onValueChange={setLevel}>
+            <SelectTrigger className="w-auto" aria-label="Risk level filter">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL}>All levels</SelectItem>
+              {RISK_LEVELS.map((l) => (
+                <SelectItem key={l} value={l}>
+                  {RISK_LEVEL_LABELS[l]}
+                </SelectItem>
+              ))}
+              <SelectItem value={NOT_SCORED}>Not scored</SelectItem>
+            </SelectContent>
+          </Select>
+        )}
+      </div>
+      {technical || shown.length === 0 ? (
+        <DataTable
+          columns={columns}
+          data={shown}
+          isLoading={isLoading}
+          sortable={false}
+          searchable={false}
+          searchPlaceholder="Search placements"
+          emptyMessage={emptyMessage}
+        />
+      ) : (
+        LEVEL_KEYS.map((key) => {
+          const sectionRows = shown.filter((r) => levelKey(r) === key);
+          return sectionRows.length === 0 ? null : (
+            <LevelSection
+              key={key}
+              levelKey={key}
+              rows={sectionRows}
+              columns={columns}
             />
-            <PeopleFilter
-              label="CDM filter"
-              all="All CDMs"
-              value={cdm}
-              onChange={setCdm}
-              options={options.cdms}
-            />
-            <PeopleFilter
-              label="Client filter"
-              all="All clients"
-              value={client}
-              onChange={setClient}
-              options={options.clients}
-            />
-            <PeopleFilter
-              label="Stack filter"
-              all="All stacks"
-              value={stack}
-              onChange={setStack}
-              options={options.stacks}
-            />
-            {!technical && (
-              <Select value={level} onValueChange={setLevel}>
-                <SelectTrigger className="w-40" aria-label="Risk level filter">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={ALL}>All levels</SelectItem>
-                  {RISK_LEVELS.map((l) => (
-                    <SelectItem key={l} value={l}>
-                      {RISK_LEVEL_LABELS[l]}
-                    </SelectItem>
-                  ))}
-                  <SelectItem value={NOT_SCORED}>Not scored</SelectItem>
-                </SelectContent>
-              </Select>
-            )}
-          </>
-        }
-      />
+          );
+        })
+      )}
     </div>
   );
 }
 
-function levelKey(row: RiskBoardRow): string {
+function levelKey(row: RiskBoardRow): LevelKey {
   return row.risk_level ?? NOT_SCORED;
+}
+
+function levelCounts(rows: RiskBoardRow[]): Record<LevelKey, number> {
+  const counts: Record<LevelKey, number> = {
+    red: 0,
+    amber: 0,
+    green: 0,
+    [NOT_SCORED]: 0,
+  };
+  for (const r of rows) counts[levelKey(r)] += 1;
+  return counts;
+}
+
+/** What the search box matches: the words the row shows. */
+function searchText(r: RiskBoardRow): string {
+  return [
+    r.consultant.name,
+    r.client.name,
+    r.project.name,
+    r.stack ?? "",
+    LEVEL_KEY_LABELS[levelKey(r)],
+    ...r.open_flags.map((f) => RISK_TRIGGER_LABELS[f.trigger]),
+    r.next_action?.description ?? "",
+  ]
+    .join(" ")
+    .toLowerCase();
+}
+
+/** The level counts over the whole board; each one filters to its level. */
+function LevelCounts({
+  counts,
+  selected,
+  onSelect,
+}: {
+  counts: Record<LevelKey, number>;
+  selected: string;
+  onSelect: (key: LevelKey) => void;
+}) {
+  return (
+    <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+      {LEVEL_KEYS.map((key) => (
+        <button
+          key={key}
+          type="button"
+          aria-pressed={selected === key}
+          onClick={() => onSelect(key)}
+          className={cn(
+            "flex items-center justify-between rounded-xl border bg-card px-4 py-3 text-left text-sm transition-colors hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none",
+            selected === key && "border-primary ring-1 ring-primary",
+          )}
+          data-testid="level-count"
+        >
+          <span className="flex items-center gap-2 font-medium">
+            <span
+              className={cn("size-2.5 rounded-full", LEVEL_STYLES[key].dot)}
+              aria-hidden
+            />
+            {LEVEL_KEY_LABELS[key]}
+          </span>
+          <span className="font-mono text-lg font-semibold tabular-nums">
+            {counts[key]}
+          </span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/** One level's placements: a card headed by the level and its count. */
+function LevelSection({
+  levelKey: key,
+  rows,
+  columns,
+}: {
+  levelKey: LevelKey;
+  rows: RiskBoardRow[];
+  columns: ColumnDef<RiskBoardRow>[];
+}) {
+  const style = LEVEL_STYLES[key];
+  const headingId = `risk-board-${key}`;
+  return (
+    <section
+      aria-labelledby={headingId}
+      className={cn("overflow-hidden rounded-xl border bg-card", style.edge)}
+      data-testid="level-section"
+    >
+      <div
+        className={cn(
+          "flex items-center gap-2 border-b px-4 py-2.5",
+          style.header,
+        )}
+      >
+        <span className={cn("size-2.5 rounded-full", style.dot)} aria-hidden />
+        <h3 id={headingId} className="text-sm font-semibold">
+          {LEVEL_KEY_LABELS[key]}
+        </h3>
+        <span className="rounded-md bg-muted px-1.5 font-mono text-xs text-muted-foreground tabular-nums">
+          {rows.length}
+        </span>
+      </div>
+      <DataTable
+        columns={columns}
+        data={rows}
+        sortable={false}
+        searchable={false}
+        framed={false}
+        searchPlaceholder="Search placements"
+        emptyMessage=""
+      />
+    </section>
+  );
 }
 
 type Option = [id: string, name: string];
@@ -295,7 +493,7 @@ function PeopleFilter({
 }) {
   return (
     <Select value={value} onValueChange={onChange}>
-      <SelectTrigger className="w-52" aria-label={label}>
+      <SelectTrigger className="w-auto" aria-label={label}>
         <SelectValue />
       </SelectTrigger>
       <SelectContent>
@@ -341,17 +539,17 @@ function NextActionCell({
   if (action === null) return <span className="text-muted-foreground">—</span>;
   const overdue = isOverdue(action.due_date, today);
   return (
-    <div className="max-w-xs">
+    <div className="max-w-60 whitespace-normal">
       <span
         className={cn(
-          "text-sm tabular-nums",
+          "font-mono text-xs tabular-nums",
           overdue ? "font-medium text-risk-red" : "text-muted-foreground",
         )}
       >
         {formatDate(action.due_date)}
         {overdue && " · overdue"}
       </span>
-      <p className="truncate" title={action.description}>
+      <p className="line-clamp-2" title={action.description}>
         {action.description}
       </p>
     </div>

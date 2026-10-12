@@ -37,7 +37,7 @@ export function HealthBadge({
       className={cn("gap-1.5 tabular-nums", LEVEL_CLASSES[level], className)}
       data-testid="health-badge"
     >
-      {formatScore(score)}
+      <span className="font-mono">{formatScore(score)}</span>
       <span>{RISK_LEVEL_LABELS[level]}</span>
     </Badge>
   );

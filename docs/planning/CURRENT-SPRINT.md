@@ -69,12 +69,14 @@
 | Shell design (Phase 1) | Stitch draws the signed-in shell and risk board in both themes for approval before tokens are written | Derive the tokens from Twilight without a further screen |
 | Judgement calls made while building Phase 1 (for approval at the checkpoint) | Contrast over the mockups' exact values: muted text #66635F (the mockup's #85817B is 3.7:1), green #15803D (the mockup's #16A34A is 3.3:1 as text), amber kept as a fill with dark text (#D97706 is 3.2:1 as text). `--radius` 0.75rem: cards 16px as in Twilight, buttons and inputs 10px (Twilight 8px). Focus ring plum #794B7A in light, lavender in dark. Chart line `--chart-1` #4C326E in light, lavender in dark. The sidebar is twilight purple in both themes through the sidebar tokens; the current sidebar got one class (`text-sidebar-foreground`) so its title stays readable until Phase 2 replaces it. The logo is a client component so each mark gets its own gradient id (`useId`); the wordmark's mark is decorative. `--lavender`, `--twilight` and `--gradient-twilight` added as brand tokens |
 | Sign-in design (Phase 3) | Stitch variant 3, "Twilight Sign-in (Variant 3: Two-Column Split Preview)" (`993d6e9bb3ff47089a97890d72e7b361`): the promise and "Sign in with Microsoft" on the left, a three-row risk board card over a flag card with its quote on the right, in the twilight hero; the three highlights and the footer on warm white below. The preview uses the app's own pieces: the health badge with the level in words, the real trigger name ("Client dissatisfaction", critical) and a "Sample data" tag in place of "Live Status". No chart (the plan's mini chart dropped). The phone layout stacks (promise, button, cards, highlights) and is reviewed in the browser, with no Stitch phone screen. The page always looks as designed, whatever the theme (a light token scope inside a dark theme; the theme setting never changed), and the callback page uses the same shell | Variant 1 (risk board preview), variant 2 (placement page preview); bare-number badges, "Early warning flag", "Live Status"; a mini chart card; a Stitch phone screen first; the lower part following the theme |
+| Risk board design (Phase 4) | Stitch variant 2, "Risk Board (Variant 2: Grouped Level Sections)" (`51a5144a2ce3454dbdb045ee3e9901e1`): the heading with the subtitle "Every active placement, most at risk first.", a summary strip of four level counts, the filter bar, then one section per level (Red, Amber, Green, Not scored), each a card headed by the level's dot, the level and its count, with its own table. The headings say the level and count only: the screen's subtitles ("Immediate attention required", "Stable performance", and "Initial onboarding · baseline pending", which is wrong: not scored means no signal in the lookback) are dropped, and no thresholds are shown (the board's response carries none). The counts are buttons that filter the board: a click shows only that level and sets the level menu to match, a second click clears it; they count every row before the other filters and the search; a section with no rows is hidden. An SME sees one plain table (no strip, no sections), with the subtitle "Every placement you support, lowest Technical score first." Risk board keeps the `Gauge` icon and Admin its icon (the screen's dollar sign and missing icon are not the shell) | Variant 1 (coloured left edge), variant 3 (dense table, large score); subtitles of our own; live counts that follow the filters; counts for display only; the SME view as today |
+| Judgement calls made while building Phase 4 (approved with the commit, 2026-10-12) | "No placements match these filters." when filters or the search hide every row (the empty board keeps its message); the section's level word in the text colour with only the dot coloured (amber text fails contrast on white); the health badge's score in mono, on the placement page too; the table restyle (muted header row, more padding) in every `DataTable`, Admin and Sessions included; the page title at the Twilight 32px; a level count of 0 still filters, showing the no-match message | — |
 | Copy on the showcase | Every claim is ours and true: no compliance badges (SOC 2, ISO), no "encrypted end-to-end", no client email ingestion, no automatic notification or "playbook", no invented counts or versions; the generated screens' copy is a reference only | — (found in the generated screens) |
 | Shell details (Phase 2, from the approved Twilight screen) | The top bar shows the sidebar toggle, the current section as a breadcrumb ("Risk board"; "Risk board / Placement" and "Sessions / Session" on a detail page, the parent a link) and the theme menu; "PMO Intelligence" is in the sidebar logo only, and `auth.spec.ts`'s header test changes with it. Risk board's icon is lucide `Gauge` (the screen's dollar sign reads as money); Sessions, Actions, Admin and Settings follow the screen (message, check-square, grid, gear). No subtitle under the product name (the screen's "v3.4 · Telemetry" is invented). The screen's "Jump to consultant" search goes to BACKLOG; no new Stitch variants, the approved screen is the shell design | As planned (the h1 "PMO Intelligence" in the top bar); section name and a working search; icons LayoutDashboard, ShieldAlert or Activity; the tagline as a subtitle |
 
 ## Task Checklist
 
->>> CURRENT PHASE: Phase 4 (next: risk board variants in Stitch)
+>>> CURRENT PHASE: Phase 4 (next: commit checkpoint, then push with Phase 3)
 
 Every phase: the Stitch step (variants on made-up data; the user picks one or asks for edits), then code, tests and docs, then the commit checkpoint, then stop. Any screenshot used for design reference comes from the local stack seeded with `seed_e2e_session.py --health`, never from staging. Before e2e: `docker compose up --build -d --wait frontend`, one worker; Vitest with `--maxWorkers=4`.
 
@@ -132,19 +134,19 @@ Every phase: the Stitch step (variants on made-up data; the user picks one or as
 - [x] `ARCHITECTURE.md` (a Sign-in row, auth flow step 1, `> Status:`), `DESIGN.md` (Sign-in, Theme), `FEATURES.md`, `TESTS.md` (unit rows; the e2e count after the run), `CHANGELOG.md` (also `ROADMAP.md`: the sign-in item ticked; BACKLOG: nothing new; README: no new make target)
 
 **Commit checkpoint**
-- [x] `feat: add the sign-in showcase` (2026-10-12; not pushed)
+- [x] `feat: add the sign-in showcase` (7576cda, 2026-10-12; not pushed)
 
 ### Phase 4: Risk board
 **Code work**
-- [ ] Stitch: 2–3 variants, light and dark, about 12 made-up rows, the filter bar and a red/amber/green/not-scored summary strip; the user approves one
-- [ ] `RiskBoard.tsx` (summary strip, filter bar, row styling; the server's order, the filters and the SME view unchanged), `HealthIndicators.tsx` (`health-badge` kept), `DataTable.tsx` styling; the page keeps its h2 "Risk board"
-- [ ] Tests: `RiskBoard.test.tsx` updated, with the summary counts (no level counts for an SME); `DataTable.test.tsx`; `risk-board.spec.ts`
+- [x] Stitch: 3 variants, light and dark, 12 made-up rows, the filter bar and the summary strip; the user chose variant 2, grouped level sections (2026-10-12; see "Risk board design")
+- [x] `RiskBoard.tsx` (the level counts as filter buttons, the filter bar card with its own search, a section per level, wrapping client · project and next action; the server's order, the filters and the SME view kept, the SME as one table), `HealthIndicators.tsx` (`health-badge` kept, the score in mono), `DataTable.tsx` (`searchable` and `framed` options, the muted header row, cell padding); the page keeps its h2 "Risk board" at the Twilight title size
+- [x] Tests: `RiskBoard.test.tsx` (11 → 15: sections, counts, count filter and clear, search; the SME without counts or sections); `DataTable.test.tsx` (4 → 6); `risk-board.spec.ts` (the Amber section, the Green count). Frontend unit 260 with `--maxWorkers=4` (every row compared with `vitest list`); lint, types (after `next typegen` refreshed stale `.next/types`), format clean; e2e 23 of 23 with one worker against the rebuilt frontend; screenshots in light and dark at 1440px checked (the filter bar wrapped and the next action ran off the card; fixed)
 
 **Doc updates (concurrent)**
-- [ ] `ARCHITECTURE.md` (Risk board row, `> Status:`), `DESIGN.md` (tables, badges), `FEATURES.md`, `TESTS.md`, `CHANGELOG.md`
+- [x] `ARCHITECTURE.md` (Risk board and Tables rows, `> Status:`), `DESIGN.md` (Tables and badges, Risk board, status), `FEATURES.md` (a new row; the risk board page's path moved to `(app)/`), `TESTS.md`, `CHANGELOG.md` (ROADMAP: nothing ticked until the placement page; BACKLOG: nothing new; README: no new make target)
 
 **Commit checkpoint**
-- [ ] `feat: redesign the risk board`
+- [ ] `feat: redesign the risk board` (with the push of 7576cda and this commit, user decision 2026-10-12)
 
 ### Phase 5: Placement page
 **Code work**
@@ -196,16 +198,16 @@ Every phase: the Stitch step (variants on made-up data; the user picks one or as
 - Each page waits on the user's approval of its design; Phases 6 and 7 depend on the time left.
 - The exit gates of PRD Phases 1 and 2 need real data on staging (the user's actions).
 
-## Session State (last updated: 2026-10-12 17:55)
+## Session State (last updated: 2026-10-12 21:10)
 - **Sprint**: 3 — Visual Redesign
-- **Current phase**: Phase 4 — risk board (not started)
-- **Phase progress**: Phase 3 complete and committed; Phase 4 0 of 5
-- **Last completed task**: Phase 3 committed: `feat: add the sign-in showcase`
-- **Next task**: ask whether to push the Phase 3 commit (frontend only; read both CI filters first); then Phase 4 at the user's go-ahead: 2–3 risk board variants in Stitch, light and dark, on made-up rows
-- **Last commit**: "feat: add the sign-in showcase" (local, not pushed; hash in git log); before it 88f83e2, pushed 2026-10-12 with CI green and the frontend deployed
-- **Uncommitted changes**: none (just committed)
+- **Current phase**: Phase 4 — risk board (built, awaiting the commit checkpoint)
+- **Phase progress**: Phase 3 complete and committed; Phase 4 4 of 5 (commit left)
+- **Last completed task**: Phase 4 code, tests and docs (the approved variant 2, grouped level sections)
+- **Next task**: the user approves the Phase 4 judgement calls and the commit `feat: redesign the risk board`; then push 7576cda and it together (frontend only: read both CI filters first), watch CI and the frontend deploy; then Phase 5 (placement page variants in Stitch) at the user's go-ahead
+- **Last commit**: 7576cda "feat: add the sign-in showcase" (local, not pushed); before it 88f83e2, pushed 2026-10-12 with CI green and the frontend deployed
+- **Uncommitted changes**: Phase 4: `frontend/src/components/health/{RiskBoard,RiskBoard.test,HealthIndicators}.tsx`, `frontend/src/components/common/{DataTable,DataTable.test}.tsx`, `frontend/src/app/(app)/page.tsx`, `frontend/tests/e2e/risk-board.spec.ts`, `docs/{ARCHITECTURE,DESIGN}.md`, `docs/tracking/{TESTS,FEATURES,CHANGELOG}.md`, this file
 - **Blockers**: none
-- **Tests passing**: 763 unit + 282 integration (backend, unchanged since 2026-10-11) + 254 frontend unit (`--maxWorkers=4`); 23 of 23 e2e (one worker) = 1322 tests
+- **Tests passing**: 763 unit + 282 integration (backend, unchanged since 2026-10-11) + 260 frontend unit (`--maxWorkers=4`); 23 of 23 e2e (one worker) = 1328 tests
 - **Files modified this session**: the uncommitted changes above
 - **Key decisions this session**: the 17 planning decisions above; in Phase 1 the Twilight direction, Plus Jakarta Sans and JetBrains Mono, a light default with a twilight-dark theme, the shell screen before tokens, and our own copy only (Decisions Log rows, 2026-10-12); in Phase 2 build the shell from the approved screen with no new variants, the section breadcrumb instead of the app name in the top bar (search to BACKLOG), `Gauge` for Risk board, no subtitle, push with Phase 2 ("Shell details" row)
 - **Recovery instructions**:

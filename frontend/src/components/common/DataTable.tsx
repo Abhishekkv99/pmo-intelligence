@@ -20,6 +20,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { cn } from "@/lib/utils";
 
 interface DataTableProps<T> {
   columns: ColumnDef<T>[];
@@ -32,10 +33,14 @@ interface DataTableProps<T> {
   isLoading?: boolean;
   /** False keeps the rows in the order given: headers do not sort. */
   sortable?: boolean;
+  /** False leaves out the search box: the caller filters the rows itself. */
+  searchable?: boolean;
+  /** False leaves out the table's own border, for a table inside a card. */
+  framed?: boolean;
 }
 
 /**
- * A sortable, searchable table for the admin lists. The lists are small
+ * A sortable, searchable table for the app's lists. The lists are small
  * (hundreds of rows at most), so sorting and filtering run in the browser.
  */
 export function DataTable<T>({
@@ -46,6 +51,8 @@ export function DataTable<T>({
   toolbar,
   isLoading = false,
   sortable = true,
+  searchable = true,
+  framed = true,
 }: DataTableProps<T>) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [search, setSearch] = useState("");
@@ -69,25 +76,37 @@ export function DataTable<T>({
 
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap items-center gap-2">
-        <Input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder={searchPlaceholder}
-          aria-label={searchPlaceholder}
-          className="max-w-xs"
-        />
-        {toolbar}
-      </div>
-      <div className="rounded-md border">
+      {(searchable || toolbar) && (
+        <div className="flex flex-wrap items-center gap-2">
+          {searchable && (
+            <Input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder={searchPlaceholder}
+              aria-label={searchPlaceholder}
+              className="max-w-xs"
+            />
+          )}
+          {toolbar}
+        </div>
+      )}
+      <div
+        className={cn(framed && "overflow-hidden rounded-xl border bg-card")}
+      >
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((group) => (
-              <TableRow key={group.id}>
+              <TableRow
+                key={group.id}
+                className="bg-muted/60 hover:bg-muted/60"
+              >
                 {group.headers.map((header) => {
                   const sorted = header.column.getIsSorted();
                   return (
-                    <TableHead key={header.id}>
+                    <TableHead
+                      key={header.id}
+                      className="h-9 px-3 text-xs font-semibold text-muted-foreground first:pl-4 last:pr-4"
+                    >
                       {header.isPlaceholder ? null : header.column.getCanSort() ? (
                         <button
                           type="button"
@@ -120,7 +139,10 @@ export function DataTable<T>({
               rows.map((row) => (
                 <TableRow key={row.id}>
                   {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id}>
+                    <TableCell
+                      key={cell.id}
+                      className="px-3 py-3 first:pl-4 last:pr-4"
+                    >
                       {flexRender(
                         cell.column.columnDef.cell,
                         cell.getContext(),
