@@ -103,56 +103,65 @@ export function PlacementHealthView({ placementId }: { placementId: string }) {
           ← Risk board
         </Link>
       </div>
-      <Header health={health} technical={technical} />
+      <Card className="gap-5 py-6 shadow-none">
+        <CardContent className="space-y-5">
+          <Header health={health} technical={technical} />
+          <DimensionScores
+            latest={latest}
+            thresholds={health.thresholds}
+            technical={technical}
+          />
+        </CardContent>
+      </Card>
 
-      <DimensionScores
-        latest={latest}
-        thresholds={health.thresholds}
-        technical={technical}
-      />
-
-      <Section title="Health over the placement">
-        <HealthChart
-          history={health.history}
-          sessions={health.sessions}
-          thresholds={health.thresholds}
-          technical={technical}
-        />
-      </Section>
-
-      <div className="grid gap-6 lg:grid-cols-2">
-        {!technical && (
-          <Section title="Open flags" count={health.open_flags.length}>
-            <FlagList flags={health.open_flags} />
+      {/* Two columns on a desktop: the health on the left, what needs acting
+          on at the right. Stacked, the side column comes first. */}
+      <div className="grid gap-6 lg:grid-cols-5">
+        <div className="space-y-6 lg:col-span-2 lg:col-start-4 lg:row-start-1">
+          {!technical && (
+            <Section
+              title="Open flags"
+              count={health.open_flags.length}
+              className={cn(
+                health.open_flags.length > 0 && "border-risk-red/30",
+              )}
+            >
+              <FlagList flags={health.open_flags} />
+            </Section>
+          )}
+          <Section title="Open issues" count={health.open_issues.length}>
+            <IssueList issues={health.open_issues} />
           </Section>
-        )}
-        <Section title="What moved the scores">
-          <Contributors evidence={latest?.scored ? latest.evidence : []} />
-        </Section>
+          <Section title="Actions" count={health.actions.length}>
+            <ActionList actions={health.actions} today={today} />
+          </Section>
+          {health.other_placements.length > 0 && (
+            <Section
+              title="Other placements"
+              count={health.other_placements.length}
+            >
+              <OtherPlacements placements={health.other_placements} />
+            </Section>
+          )}
+        </div>
+
+        <div className="min-w-0 space-y-6 lg:col-span-3 lg:col-start-1 lg:row-start-1">
+          <Section title="Health over the placement">
+            <HealthChart
+              history={health.history}
+              sessions={health.sessions}
+              thresholds={health.thresholds}
+              technical={technical}
+            />
+          </Section>
+          <Section title="What moved the scores">
+            <Contributors evidence={latest?.scored ? latest.evidence : []} />
+          </Section>
+          <Section title="Calls" count={health.sessions.length} flush>
+            <CallsTable sessions={health.sessions} />
+          </Section>
+        </div>
       </div>
-
-      {/* The calls table's six columns need the full width. */}
-      <Section title="Calls" count={health.sessions.length}>
-        <CallsTable sessions={health.sessions} />
-      </Section>
-
-      <div className="grid gap-6 lg:grid-cols-2">
-        <Section title="Open issues" count={health.open_issues.length}>
-          <IssueList issues={health.open_issues} />
-        </Section>
-        <Section title="Actions" count={health.actions.length}>
-          <ActionList actions={health.actions} today={today} />
-        </Section>
-      </div>
-
-      {health.other_placements.length > 0 && (
-        <Section
-          title="Other placements"
-          count={health.other_placements.length}
-        >
-          <OtherPlacements placements={health.other_placements} />
-        </Section>
-      )}
     </div>
   );
 }
@@ -169,8 +178,22 @@ function Header({
   const status = health.register_fields.status;
   return (
     <div className="space-y-2">
+      {latest && (
+        <p
+          className="font-mono text-xs text-muted-foreground lg:float-right lg:ml-6 lg:max-w-md lg:text-right"
+          data-testid="computed-at"
+        >
+          {scored ? "Scored" : "Not scored"}{" "}
+          {formatUkDateTime(latest.computed_at)} (UK),{" "}
+          {SNAPSHOT_REASON_LABELS[latest.reason].toLowerCase()}
+          {latest.signal_count !== null
+            ? `, from ${latest.signal_count} signal${latest.signal_count === 1 ? "" : "s"}`
+            : ""}
+          {scored ? "" : ": no signal in the scoring window"}
+        </p>
+      )}
       <div className="flex flex-wrap items-center gap-3">
-        <h2 className="text-2xl font-bold tracking-tight">
+        <h2 className="text-[32px] leading-tight font-semibold tracking-[-0.02em]">
           {health.consultant.name}
         </h2>
         {technical ? (
@@ -199,17 +222,6 @@ function Header({
         {formatWeeksIn(health.weeks_in)}
       </p>
       <RegisterLine fields={health.register_fields} />
-      {latest && (
-        <p className="text-xs text-muted-foreground" data-testid="computed-at">
-          {scored ? "Scored" : "Not scored"}{" "}
-          {formatUkDateTime(latest.computed_at)} (UK),{" "}
-          {SNAPSHOT_REASON_LABELS[latest.reason].toLowerCase()}
-          {latest.signal_count !== null
-            ? `, from ${latest.signal_count} signal${latest.signal_count === 1 ? "" : "s"}`
-            : ""}
-          {scored ? "" : ": no signal in the scoring window"}
-        </p>
-      )}
     </div>
   );
 }
@@ -292,6 +304,7 @@ function Contributors({ evidence }: { evidence: DimensionEvidence[] }) {
                 key={c.signal.id}
                 signal={c.signal}
                 weight={c.weight}
+                value={c.value}
               />
             ))}
           </ul>
@@ -301,24 +314,41 @@ function Contributors({ evidence }: { evidence: DimensionEvidence[] }) {
   );
 }
 
+const CALL_COLUMNS = [
+  "Call (UK time)",
+  "Kind",
+  "Status",
+  "Length",
+  "Signals",
+  "Actions",
+];
+const CALL_HEAD =
+  "h-9 px-3 text-xs font-semibold text-muted-foreground first:pl-5 last:pr-5";
+const CALL_CELL = "px-3 py-3 first:pl-5 last:pr-5";
+
 function CallsTable({ sessions }: { sessions: PlacementSession[] }) {
-  if (sessions.length === 0) return <Nothing>No calls yet.</Nothing>;
+  if (sessions.length === 0) {
+    return (
+      <div className="px-5 pb-5">
+        <Nothing>No calls yet.</Nothing>
+      </div>
+    );
+  }
   return (
     <Table>
       <TableHeader>
-        <TableRow>
-          <TableHead>Call (UK time)</TableHead>
-          <TableHead>Kind</TableHead>
-          <TableHead>Status</TableHead>
-          <TableHead>Length</TableHead>
-          <TableHead>Signals</TableHead>
-          <TableHead>Actions</TableHead>
+        <TableRow className="bg-muted/60 hover:bg-muted/60">
+          {CALL_COLUMNS.map((name) => (
+            <TableHead key={name} className={CALL_HEAD}>
+              {name}
+            </TableHead>
+          ))}
         </TableRow>
       </TableHeader>
       <TableBody>
         {sessions.map((s) => (
           <TableRow key={s.id} data-testid="call">
-            <TableCell>
+            <TableCell className={CALL_CELL}>
               <Link
                 href={`${ROUTES.sessions}/${s.id}`}
                 className="font-medium underline-offset-4 hover:underline"
@@ -326,19 +356,25 @@ function CallsTable({ sessions }: { sessions: PlacementSession[] }) {
                 {formatUkDateTime(s.held_at)}
               </Link>
             </TableCell>
-            <TableCell>
+            <TableCell className={CALL_CELL}>
               {s.kind ? (
                 SESSION_KIND_LABELS[s.kind]
               ) : (
                 <span className="text-muted-foreground">Not classified</span>
               )}
             </TableCell>
-            <TableCell>
+            <TableCell className={CALL_CELL}>
               <SessionStatusBadge status={s.status} />
             </TableCell>
-            <TableCell>{formatDuration(s.duration_seconds)}</TableCell>
-            <TableCell className="tabular-nums">{s.signal_count}</TableCell>
-            <TableCell className="tabular-nums">{s.action_count}</TableCell>
+            <TableCell className={cn(CALL_CELL, "font-mono text-xs")}>
+              {formatDuration(s.duration_seconds)}
+            </TableCell>
+            <TableCell className={cn(CALL_CELL, "font-mono tabular-nums")}>
+              {s.signal_count}
+            </TableCell>
+            <TableCell className={cn(CALL_CELL, "font-mono tabular-nums")}>
+              {s.action_count}
+            </TableCell>
           </TableRow>
         ))}
       </TableBody>
@@ -353,7 +389,7 @@ function IssueList({ issues }: { issues: OpenIssue[] }) {
       {issues.map((issue) => (
         <li
           key={issue.id}
-          className="flex flex-wrap items-center gap-2 rounded-md border p-3 text-sm"
+          className="flex flex-wrap items-center gap-2 rounded-lg border p-3 text-sm"
           data-testid="issue"
         >
           <span className="font-medium">{issue.topic}</span>
@@ -398,8 +434,9 @@ function ActionList({
           <li
             key={action.id}
             className={cn(
-              "space-y-1 rounded-md border p-3",
+              "space-y-1 rounded-lg border p-3",
               done && "text-muted-foreground",
+              overdue && "border-risk-red/30 bg-risk-red/5",
             )}
             data-testid="action"
             data-done={done}
@@ -469,28 +506,38 @@ function OtherPlacements({ placements }: { placements: OtherPlacement[] }) {
   );
 }
 
+/**
+ * A titled card. `flush` lets a table run to the card's edges; `className`
+ * tints the card's edge (the open flags in red).
+ */
 function Section({
   title,
   count,
+  flush = false,
+  className,
   children,
 }: {
   title: string;
   count?: number;
+  flush?: boolean;
+  className?: string;
   children: React.ReactNode;
 }) {
   return (
-    <Card>
-      <CardHeader>
+    <Card className={cn("gap-4 py-5 shadow-none", flush && "pb-0", className)}>
+      <CardHeader className="px-5">
         <CardTitle className="text-base">
           {title}
           {count !== undefined && (
-            <span className="ml-2 text-sm font-normal text-muted-foreground">
+            <span className="ml-2 rounded-md bg-muted px-1.5 font-mono text-xs font-normal text-muted-foreground tabular-nums">
               {count}
             </span>
           )}
         </CardTitle>
       </CardHeader>
-      <CardContent>{children}</CardContent>
+      <CardContent className={cn("px-5", flush && "px-0")}>
+        {children}
+      </CardContent>
     </Card>
   );
 }

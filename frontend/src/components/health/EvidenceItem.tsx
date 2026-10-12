@@ -14,14 +14,17 @@ import type { EvidenceSignal } from "@/types/health";
 /**
  * A quote behind a score or a flag: its polarity, dimension, severity,
  * confidence and speaker, when it was said with a link to the call, and,
- * for a score's contributor, the weight the snapshot stored for it.
+ * for a score's contributor, the weight and value the snapshot stored for
+ * it (the value is the configuration's for its polarity and severity).
  */
 export function EvidenceItem({
   signal,
   weight,
+  value,
 }: {
   signal: EvidenceSignal;
   weight?: number;
+  value?: number;
 }) {
   const tone =
     signal.polarity === "negative"
@@ -31,7 +34,10 @@ export function EvidenceItem({
         : "outline";
   const said = `${formatUkDateTime(signal.occurred_at)} (UK)`;
   return (
-    <li className="space-y-1 rounded-md border p-3" data-testid="evidence">
+    <li
+      className="space-y-1 rounded-lg border bg-card p-3"
+      data-testid="evidence"
+    >
       <div className="flex flex-wrap items-center gap-2 text-xs">
         <Badge variant={tone}>{humanize(signal.polarity)}</Badge>
         <span className="font-medium">
@@ -49,6 +55,7 @@ export function EvidenceItem({
             ? ` · said by ${SPEAKER_ROLE_LABELS[signal.speaker_role]}`
             : ""}
           {weight !== undefined ? ` · weight ${weight.toFixed(2)}` : ""}
+          {value !== undefined ? ` · value ${formatValue(value)}` : ""}
         </span>
         {signal.source_kind === "session" ? (
           <Link
@@ -70,4 +77,9 @@ export function EvidenceItem({
       )}
     </li>
   );
+}
+
+/** A value as configured: a whole number as it is, else to one decimal. */
+function formatValue(value: number): string {
+  return Number.isInteger(value) ? String(value) : value.toFixed(1);
 }

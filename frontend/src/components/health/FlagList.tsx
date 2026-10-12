@@ -23,7 +23,10 @@ export function FlagList({ flags }: { flags: FlagDetail[] }) {
       {flags.map((flag) => (
         <li
           key={flag.id}
-          className="space-y-2 rounded-md border p-3"
+          className={cn(
+            "space-y-2 rounded-lg border p-3",
+            flag.severity === "critical" && "border-risk-red/30 bg-risk-red/5",
+          )}
           data-testid="flag"
         >
           <div className="flex flex-wrap items-center gap-2">

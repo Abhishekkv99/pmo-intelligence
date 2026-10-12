@@ -70,8 +70,9 @@ test("shows a placement's scores, chart, flags, evidence, call, issue and action
     "Raised from the placement's register",
   );
 
+  // Each contributor shows the weight and the value the snapshot stored.
   await expect(page.getByTestId("contributors").first()).toContainText(
-    "weight",
+    /weight \d\.\d\d · value \d/,
   );
   await expect(page.getByTestId("call")).toHaveCount(1);
   await expect(page.getByTestId("call")).toContainText("Technical help");

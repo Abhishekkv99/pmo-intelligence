@@ -317,8 +317,39 @@ describe("PlacementHealthView", () => {
       "Technical",
     ]);
     const contributor = within(moved[0]).getByTestId("evidence");
-    expect(contributor).toHaveTextContent("weight 0.86");
+    expect(contributor).toHaveTextContent("weight 0.86 · value 1");
     expect(contributor).toHaveTextContent("Client dissatisfaction");
+    // A flag's evidence carries no weight or value.
+    expect(evidence).not.toHaveTextContent("value");
+  });
+
+  it("puts the flags, issues and actions before the chart, then the calls", () => {
+    render(<PlacementHealthView placementId="p1" />);
+
+    // Stacked on a narrow screen the side column reads first; on a desktop
+    // it is placed on the right.
+    const order = [
+      screen.getAllByTestId("flag")[0],
+      screen.getByTestId("issue"),
+      screen.getAllByTestId("action")[0],
+      screen.getByTestId("other-placement"),
+      screen.getByTestId("health-chart"),
+      screen.getAllByTestId("contributors")[0],
+      screen.getAllByTestId("call")[0],
+    ];
+    for (let i = 1; i < order.length; i++) {
+      expect(
+        order[i - 1].compareDocumentPosition(order[i]) &
+          Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+    }
+    // The scores sit in the header card, above both columns.
+    expect(
+      screen
+        .getAllByTestId("score-tile")[0]
+        .compareDocumentPosition(screen.getAllByTestId("flag")[0]) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
   });
 
   it("lists the calls, the open issue, the actions and the other placement", () => {

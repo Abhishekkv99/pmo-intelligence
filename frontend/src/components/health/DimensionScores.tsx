@@ -10,9 +10,15 @@ import { cn } from "@/lib/utils";
 import type { RagThresholds, SnapshotDetail } from "@/types/health";
 
 const TILE_CLASSES: Record<RiskLevel, string> = {
-  red: "border-risk-red bg-risk-red/10",
-  amber: "border-risk-amber bg-risk-amber/10",
-  green: "border-risk-green bg-risk-green/10",
+  red: "border-risk-red/40 bg-risk-red/5",
+  amber: "border-risk-amber/50 bg-risk-amber/5",
+  green: "border-risk-green/40 bg-risk-green/5",
+};
+
+const DOT_CLASSES: Record<RiskLevel, string> = {
+  red: "bg-risk-red",
+  amber: "bg-risk-amber",
+  green: "bg-risk-green",
 };
 
 /**
@@ -79,15 +85,26 @@ function ScoreTile({
   const detail = level ? `${RISK_LEVEL_LABELS[level]} · ${signals}` : signals;
   return (
     <div
-      className={cn("rounded-lg border p-3", level && TILE_CLASSES[level])}
+      className={cn(
+        "rounded-xl border bg-card p-3",
+        level && TILE_CLASSES[level],
+      )}
       data-testid="score-tile"
       aria-label={`${name} ${score === null ? "not scored" : shown}${
         level ? `, ${RISK_LEVEL_LABELS[level].toLowerCase()}` : ""
       }`}
     >
       <p className="text-xs font-medium text-muted-foreground">{name}</p>
-      <p className="text-2xl font-semibold">{shown}</p>
-      <p className="text-xs text-muted-foreground">{detail}</p>
+      <p className="font-mono text-2xl font-semibold tabular-nums">{shown}</p>
+      <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+        {level && (
+          <span
+            className={cn("size-2 rounded-full", DOT_CLASSES[level])}
+            aria-hidden
+          />
+        )}
+        {detail}
+      </p>
     </div>
   );
 }

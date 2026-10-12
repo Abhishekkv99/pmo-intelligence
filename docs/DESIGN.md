@@ -1,6 +1,6 @@
 # Design System
 
-> **Status**: Sprint 3 Phase 4 (2026-10-12): the Twilight direction, its light and twilight-dark colours, fonts, logo and motion settings (Phase 1), the app shell (Phase 2), the sign-in showcase (Phase 3) and the risk board (Phase 4) are built. The redesigned pages follow phase by phase; each section below says what is built.
+> **Status**: Sprint 3 Phase 4 (2026-10-12): the Twilight direction, its light and twilight-dark colours, fonts, logo and motion settings (Phase 1), the app shell (Phase 2), the sign-in showcase (Phase 3), the risk board (Phase 4) and the placement page (Phase 5) are built. The redesigned pages follow phase by phase; each section below says what is built.
 
 PMO Intelligence is shown to management, so it should look like a premium product while staying calm and dense enough for daily PMO work. The look is called **Twilight**. It is editorial and Superhuman-like: one dramatic twilight-purple moment on a warm white canvas, large tight display type, a single lavender accent, and the product's own screens as the main imagery. Colour signals status; it never decorates.
 
@@ -131,6 +131,17 @@ Built in Phase 4 from the approved Stitch screen "Risk Board (Variant 2: Grouped
 - **Rows**: client · project and the next action wrap over up to two lines rather than widen the table; the due date sits above the action in mono, red with "· overdue" when past.
 - **SME**: one table with the same styling, no counts and no sections, under "Every placement you support, lowest Technical score first."
 - The screen's subtitles on the sections ("Immediate attention required", "Elevated monitoring", "Stable performance", "Initial onboarding · baseline pending") were left out: they were invented, and not scored means no signal in the lookback, not onboarding. No thresholds are shown, since the board's response carries none. Level labels are in the text colour rather than the level's colour, since amber text fails contrast on white.
+
+## Placement page
+Built in Phase 5 from the approved Stitch screen "Placement: Priya Raman (Variant 1: Executive KPI Banner & Dual-Column Cockpit)".
+
+- **Header card**: the back link "← Risk board" above it; inside, the consultant's name as the page title (32px semibold), the health badge, the trend and the status pill; client · project · weeks in; the register fields in one line; the scoring line in small mono, at the top right on a desktop; then the six score tiles.
+- **Score tiles**: six across on a desktop (three on a tablet, two on a phone), each a card tinted with its level's colour at 5% over an edge at 40–50%, the dimension, the score in large mono and a line with the level's dot, the level word and the signal count. An SME sees the Technical tile alone, untinted.
+- **Two columns** from 1024px, three fifths and two fifths: the left holds "Health over the placement", "What moved the scores" and "Calls"; the right holds "Open flags", "Open issues", "Actions" and "Other placements". Narrower, they stack with the right column first.
+- **Section cards**: flat (no shadow), a 16px title with the count in a small mono tag. The open flags card takes a red edge while it holds a flag; a critical flag and an overdue action are tinted red at 5%.
+- **Evidence**: each quote in its own card, with polarity, dimension and indicator first, then severity, confidence, speaker and, for a contributor, its weight and value (the configuration's value for the signal's polarity and severity), and a link to the moment in the call.
+- **Calls**: the table runs to the card's edges with the muted header row; length, signals and actions in mono.
+- The screen's subtitles ("Immediate attention", "Top signals by impact", "All recorded sessions", "Reported blockers"), its coloured call-kind pills and its coloured issue dots were left out: RAG colours mean health only, and issues carry no level.
 
 ## Motion
 - The `motion` library (pinned at 13.4.6) is used in client components only, through `motion/react`.
