@@ -1,6 +1,6 @@
 # Design System
 
-> **Status**: Sprint 3 Phase 1 (2026-10-12): the Twilight direction, its light and twilight-dark colours, fonts, logo and motion settings are built. The shell, the sign-in showcase and the redesigned pages follow phase by phase; each section below says what is built.
+> **Status**: Sprint 3 Phase 2 (2026-10-12): the Twilight direction, its light and twilight-dark colours, fonts, logo and motion settings (Phase 1), and the app shell (Phase 2) are built. The sign-in showcase and the redesigned pages follow phase by phase; each section below says what is built.
 
 PMO Intelligence is shown to management, so it should look like a premium product while staying calm and dense enough for daily PMO work. The look is called **Twilight**. It is editorial and Superhuman-like: one dramatic twilight-purple moment on a warm white canvas, large tight display type, a single lavender accent, and the product's own screens as the main imagery. Colour signals status; it never decorates.
 
@@ -92,6 +92,17 @@ Computed with the WCAG 2 relative-luminance formula; every pair in use passes AA
 
 ## Theme
 The app opens in the light theme (`defaultTheme="light"`); twilight dark and the system setting are in the theme menu. Every page works in both.
+
+## Shell
+Built in Phase 2 from the approved Stitch screen "Twilight Light & Dark Risk Board Comparison", without its invented parts (version text, nav counts, Export CSV, Telemetry Sync, the "Jump to consultant" search).
+
+- **Sidebar** (`frontend/src/components/layout/AppSidebar.tsx`, on shadcn's `sidebar`): the logo mark and "PMO Intelligence" as a link to the risk board (a link, not a heading); a "Navigation" group label in small mono capitals; one lucide icon per item (Risk board `Gauge`, Sessions `MessageSquare`, Actions `SquareCheck`, Admin `LayoutGrid`, Settings `Settings`); the user in the footer (initials on lavender, name, role), whose menu shows the email and Sign out.
+- **Active item**: the lavender-tinted pill (`--sidebar-primary`, lavender at 16%) with lavender text and a lavender hairline at 25%; the others warm white at 75%. A placement page keeps Risk board active.
+- **Collapsing**: the toggle in the top bar, or the rail along the sidebar's edge, folds it to a 48px icon rail where each item shows its name in a tooltip. The state is kept in the `sidebar_state` cookie for a week and read on the server, so a page renders as it was left.
+- **Phone** (below 768px): the sidebar is a drawer from the left, opened by the toggle; following a link closes it.
+- **Top bar** (`TopBar.tsx`): 56px, sticky, the canvas at 90% with a backdrop blur and a hairline below; the toggle, the breadcrumb (the section, then "Placement" or "Session" on a detail page with the section as a link) and the theme menu. Nothing in it is a heading; each page's heading is its own.
+- **Layout**: the signed-in pages sit in the route group `frontend/src/app/(app)/`, whose layout renders `MainLayout` once, so the shell stays mounted between pages. `<main>` is the scroll container; the page has 16px padding on a phone and 24px from 768px.
+- The sidebar is flat twilight purple; the screen's light-theme gradient (#1B1938 to #2A214C) was left out, since the sidebar's surface is one token in both themes.
 
 ## Motion
 - The `motion` library (pinned at 13.4.6) is used in client components only, through `motion/react`.

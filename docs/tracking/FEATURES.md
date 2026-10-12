@@ -17,7 +17,7 @@
 | Migration 001: users, register, processing, access log | `backend/alembic/versions/001_create_initial_schema.py` | Done |
 | Teams Graph access setup (certificate, app registration, connector app package) | `scripts/teams/`, `teams-app/`, `docs/integrations/TEAMS-GRAPH-SETUP.md` | Done; pending admin approval |
 | Frontend skeleton: Next.js 16.3.8 shell with sidebar, header, dark mode, route guard | `frontend/src/app/layout.tsx`, `frontend/src/components/layout/`, `frontend/src/proxy.ts` | Done |
-| Role-aware navigation (Admin for `pmo_manager` and `admin` only) | `frontend/src/lib/roles.ts`, `frontend/src/components/layout/Sidebar.tsx` | Done |
+| Role-aware navigation (Admin for `pmo_manager` and `admin` only) | `frontend/src/lib/roles.ts`, `frontend/src/components/layout/nav.ts` (was `Sidebar.tsx`, replaced in Sprint 3 Phase 2) | Done |
 | Risk board, Actions and Settings pages | `frontend/src/app/page.tsx`, `frontend/src/app/actions/page.tsx`, `frontend/src/app/settings/page.tsx` | Placeholders (empty states) |
 | Admin page with the processing queue | `frontend/src/components/admin/AdminView.tsx`, `frontend/src/components/admin/ProcessingStatusPanel.tsx` | Done |
 | Local stack: Docker Compose (PostgreSQL 16 + pgvector, backend, frontend) with health checks and configurable host ports; Makefile targets | `docker-compose.yml`, `backend/Dockerfile`, `frontend/Dockerfile`, `Makefile`, `.env.example` | Done |
@@ -97,3 +97,4 @@
 | Plus Jakarta Sans for text, JetBrains Mono for numbers | `frontend/src/app/layout.tsx`, `frontend/src/app/globals.css` | Done (Phase 1) |
 | Product logo (`LogoMark`, `Wordmark`) and the browser icon; the proxy lets the icon through without a sign-in | `frontend/src/components/brand/Logo.tsx`, `frontend/src/app/icon.svg`, `frontend/src/proxy.ts` | Done (Phase 1) |
 | Motion that follows the reader's "reduce motion" setting (`motion` 13.4.6, `MotionConfig reducedMotion="user"`; the CSS chart entrance off too) | `frontend/src/components/providers/MotionProvider.tsx`, `frontend/src/app/globals.css` | Done (Phase 1) |
+| App shell: a collapsible sidebar with an icon per item, folding to an icon rail with tooltips (kept across reloads in the `sidebar_state` cookie) and a drawer on a phone; the user menu (initials, name, role, Sign out) in its footer; Risk board active on a placement page; a top bar with the sidebar toggle, the section breadcrumb and the theme menu; one layout for every signed-in page | `frontend/src/app/(app)/layout.tsx`, `frontend/src/components/layout/{MainLayout,AppSidebar,TopBar,nav}.tsx`, `frontend/src/components/ui/{sidebar,sheet,tooltip,breadcrumb,avatar}.tsx` | Done (Phase 2) |

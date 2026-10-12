@@ -74,11 +74,49 @@ test.describe("Authentication", () => {
     ).toBeVisible();
   });
 
-  test("authenticated user sees header with the app name", async ({ page }) => {
+  test("authenticated user sees the shell: logo link and section breadcrumb", async ({
+    page,
+  }) => {
     await page.goto("/");
 
     await expect(
-      page.getByRole("heading", { name: "PMO Intelligence" }),
+      page.getByRole("link", { name: "PMO Intelligence" }),
+    ).toHaveAttribute("href", "/");
+    await expect(
+      page
+        .getByRole("navigation", { name: "breadcrumb" })
+        .getByText("Risk board"),
     ).toBeVisible();
+  });
+
+  test("the sidebar collapses to an icon rail and stays so on reload", async ({
+    page,
+  }) => {
+    await page.goto("/");
+    const sidebar = page.locator("[data-slot='sidebar'][data-state]");
+    await expect(sidebar).toHaveAttribute("data-state", "expanded");
+
+    await page.getByRole("button", { name: "Toggle Sidebar" }).first().click();
+    await expect(sidebar).toHaveAttribute("data-state", "collapsed");
+
+    await page.reload();
+    await expect(sidebar).toHaveAttribute("data-state", "collapsed");
+    await page.getByRole("button", { name: "Toggle Sidebar" }).first().click();
+    await expect(sidebar).toHaveAttribute("data-state", "expanded");
+  });
+
+  test("on a phone the sidebar is a drawer that a link closes", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/");
+
+    await expect(page.getByRole("link", { name: "Sessions" })).toBeHidden();
+    await page.getByRole("button", { name: "Toggle Sidebar" }).click();
+    const drawer = page.getByRole("dialog");
+    await drawer.getByRole("link", { name: "Sessions" }).click();
+
+    await expect(page).toHaveURL(/\/sessions$/);
+    await expect(drawer).toBeHidden();
   });
 });

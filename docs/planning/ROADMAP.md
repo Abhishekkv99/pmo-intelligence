@@ -23,7 +23,7 @@ Six phases, each one or two sprints, each ending with a staging sign-off by the 
 
 ## Sprint 3: Visual Redesign (2026-10-12 – 2026-10-23)
 Not a PRD phase: moved ahead of Teams chat so the tool can be demonstrated to management (user decisions 2026-10-11 and 2026-10-12).
-- [ ] Design system, logo and app shell (collapsible sidebar, mobile drawer)
+- [x] Design system, logo and app shell (collapsible sidebar, mobile drawer) (Phases 1 and 2, 2026-10-12)
 - [ ] Sign-in page as a showcase (always dark, made-up preview data)
 - [ ] Risk board and placement page redesigned
 - [ ] Sessions pages, Admin, Actions and Settings redesigned (if time allows; otherwise BACKLOG)

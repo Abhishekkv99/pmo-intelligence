@@ -69,10 +69,11 @@
 | Shell design (Phase 1) | Stitch draws the signed-in shell and risk board in both themes for approval before tokens are written | Derive the tokens from Twilight without a further screen |
 | Judgement calls made while building Phase 1 (for approval at the checkpoint) | Contrast over the mockups' exact values: muted text #66635F (the mockup's #85817B is 3.7:1), green #15803D (the mockup's #16A34A is 3.3:1 as text), amber kept as a fill with dark text (#D97706 is 3.2:1 as text). `--radius` 0.75rem: cards 16px as in Twilight, buttons and inputs 10px (Twilight 8px). Focus ring plum #794B7A in light, lavender in dark. Chart line `--chart-1` #4C326E in light, lavender in dark. The sidebar is twilight purple in both themes through the sidebar tokens; the current sidebar got one class (`text-sidebar-foreground`) so its title stays readable until Phase 2 replaces it. The logo is a client component so each mark gets its own gradient id (`useId`); the wordmark's mark is decorative. `--lavender`, `--twilight` and `--gradient-twilight` added as brand tokens |
 | Copy on the showcase | Every claim is ours and true: no compliance badges (SOC 2, ISO), no "encrypted end-to-end", no client email ingestion, no automatic notification or "playbook", no invented counts or versions; the generated screens' copy is a reference only | — (found in the generated screens) |
+| Shell details (Phase 2, from the approved Twilight screen) | The top bar shows the sidebar toggle, the current section as a breadcrumb ("Risk board"; "Risk board / Placement" and "Sessions / Session" on a detail page, the parent a link) and the theme menu; "PMO Intelligence" is in the sidebar logo only, and `auth.spec.ts`'s header test changes with it. Risk board's icon is lucide `Gauge` (the screen's dollar sign reads as money); Sessions, Actions, Admin and Settings follow the screen (message, check-square, grid, gear). No subtitle under the product name (the screen's "v3.4 · Telemetry" is invented). The screen's "Jump to consultant" search goes to BACKLOG; no new Stitch variants, the approved screen is the shell design | As planned (the h1 "PMO Intelligence" in the top bar); section name and a working search; icons LayoutDashboard, ShieldAlert or Activity; the tagline as a subtitle |
 
 ## Task Checklist
 
->>> CURRENT PHASE: Phase 1 (built and checked; awaiting the commit)
+>>> CURRENT PHASE: Phase 3 (next: sign-in showcase variants in Stitch)
 
 Every phase: the Stitch step (variants on made-up data; the user picks one or asks for edits), then code, tests and docs, then the commit checkpoint, then stop. Any screenshot used for design reference comes from the local stack seeded with `seed_e2e_session.py --health`, never from staging. Before e2e: `docker compose up --build -d --wait frontend`, one worker; Vitest with `--maxWorkers=4`.
 
@@ -101,23 +102,23 @@ Every phase: the Stitch step (variants on made-up data; the user picks one or as
 - [x] `docs/DESIGN.md` (new: tokens, contrast, logo, motion rules), `ARCHITECTURE.md` (root layout, generic UI, `> Status:`), `FEATURES.md`, `TESTS.md`, `CHANGELOG.md` (also `BACKLOG.md`: the e2e race seen with one worker; README: no new make target; ROADMAP: nothing ticked until the shell lands)
 
 **Commit checkpoint**
-- [ ] `feat: add the design tokens, logo and motion setup`
+- [x] `feat: add the design tokens, logo and motion setup` (31700ab, 2026-10-12; not pushed; the Phase 1 judgement calls approved with the commit)
 
 ### Phase 2: App shell
 **Code work**
-- [ ] Stitch: shell variants (expanded, icon rail, phone drawer) around a placeholder board with made-up data; the user approves one
-- [ ] `pnpm exec shadcn add sidebar` (existing ui files kept; `globals.css` checked)
-- [ ] `src/components/layout/nav.ts`: the nav items with lucide icons, `visibleNavItems` and `getActiveHref` moved from `Sidebar.tsx`; Risk board active on `/placements/*` (fixes the Sprint 2 known issue)
-- [ ] `src/components/layout/AppSidebar.tsx`: logo link (not a heading), nav with tooltips, `collapsible="icon"`, rail, user menu with sign-out in the footer
-- [ ] `MainLayout.tsx`: `SidebarProvider` from the cookie, `SidebarInset`, the top bar (`SidebarTrigger`, the one `h1` "PMO Intelligence", `ThemeToggle`); `Sidebar.tsx` and `Header.tsx` removed once merged
-- [ ] Route group `src/app/(app)/layout.tsx`: `/`, `sessions`, `sessions/[sessionId]`, `placements/[placementId]`, `admin`, `actions`, `settings` moved under it, their own `MainLayout` wrappers removed
-- [ ] Tests: `Sidebar.test.tsx` → `nav.test.ts` (same labels and href); `AppSidebar.test.tsx` (active item, Admin hidden for other roles, placement path active); a `matchMedia` stub in `src/test/setup.ts`; all e2e
+- [x] Stitch: no new variants; the approved "Twilight Light & Dark Risk Board Comparison" screen is the shell design (user decision 2026-10-12; its gaps settled in the Decisions table, "Shell details")
+- [x] `pnpm exec shadcn add sidebar` (existing ui files kept; `globals.css` unchanged), and `breadcrumb` and `avatar` for the top bar and the user menu. The CLI (3.8.4) wrote `import { cn } from "cn"` into each new file and added the unrelated npm package `cn`; the imports were pointed at `@/lib/utils` and the package removed (deviation). `SidebarMenuSkeleton`'s random width made fixed (the purity lint rule refuses `Math.random`; unused here)
+- [x] `src/components/layout/nav.ts`: the nav items with lucide icons, `visibleNavItems` and `getActiveHref` moved from `Sidebar.tsx`; Risk board active on `/placements/*` (fixes the Sprint 2 known issue)
+- [x] `src/components/layout/AppSidebar.tsx`: logo link (not a heading), nav with tooltips, `collapsible="icon"`, rail, user menu with sign-out in the footer
+- [x] `MainLayout.tsx`: `SidebarProvider` from the cookie, `SidebarInset`, the top bar (`SidebarTrigger`, the section breadcrumb, `ThemeToggle`; see "Shell details"); `Sidebar.tsx` and `Header.tsx` removed once merged; the top bar is `TopBar.tsx`
+- [x] Route group `src/app/(app)/layout.tsx`: `/`, `sessions`, `sessions/[sessionId]`, `placements/[placementId]`, `admin`, `actions`, `settings` moved under it, their own `MainLayout` wrappers removed
+- [x] Tests: `Sidebar.test.tsx` → `nav.test.ts` (same labels and href, plus the active item and the breadcrumb: 17); `AppSidebar.test.tsx` (active item, Admin hidden for other roles, placement path active, the user menu signs out: 12); `TopBar.test.tsx` (4); a `matchMedia` stub in `src/test/setup.ts`; `auth.spec.ts`: the app-name heading test now checks the logo link and the breadcrumb, plus the rail kept across a reload and the phone drawer (+2). Frontend unit 245 with `--maxWorkers=4`; e2e 23 of 23 with one worker; screenshots in light, dark, the icon rail and at phone width checked (the logo mark was shrunk to 16px by the menu button and fixed)
 
 **Doc updates (concurrent)**
-- [ ] `ARCHITECTURE.md` (Shell and Pages rows with the new paths, `> Status:`), `DESIGN.md` (shell), `FEATURES.md`, `TESTS.md`, `CHANGELOG.md`
+- [x] `ARCHITECTURE.md` (Shell and Pages rows with the new paths, `> Status:`), `DESIGN.md` (shell), `FEATURES.md`, `TESTS.md`, `CHANGELOG.md` (also `ROADMAP.md`: the design system, logo and shell ticked; `BACKLOG.md`: the top-bar search; README: no new make target)
 
 **Commit checkpoint**
-- [ ] `feat: add the collapsible app shell`
+- [x] `feat: add the collapsible app shell` (2026-10-12; pushed with be6231b and 31700ab, user decision)
 
 ### Phase 3: Sign-in showcase and callback
 **Code work**
@@ -194,18 +195,18 @@ Every phase: the Stitch step (variants on made-up data; the user picks one or as
 - Each page waits on the user's approval of its design; Phases 6 and 7 depend on the time left.
 - The exit gates of PRD Phases 1 and 2 need real data on staging (the user's actions).
 
-## Session State (last updated: 2026-10-12 15:41)
+## Session State (last updated: 2026-10-12 16:55)
 - **Sprint**: 3 — Visual Redesign
-- **Current phase**: Phase 1
-- **Phase progress**: Phase 1 built and checked (uncommitted): Twilight light and twilight-dark tokens, fonts, logo and icon, motion, `DESIGN.md`; the shell design approved for Phase 2
-- **Last completed task**: Phase 1 checks: frontend unit 215, lint, types, format, e2e 20 of 21 (known race), screenshots in both themes
-- **Next task**: commit Phase 1 `feat: add the design tokens, logo and motion setup` (with the user's go-ahead; the judgement calls in the Decisions Log for approval); then Phase 2, the shell, from the approved screen
-- **Last commit**: be6231b "docs: plan sprint 3" (local, not pushed)
-- **Uncommitted changes**: this file; `docs/DESIGN.md` (new), `docs/ARCHITECTURE.md`, `docs/planning/BACKLOG.md`, `docs/tracking/{CHANGELOG,FEATURES,TESTS}.md`; `frontend/package.json`, `frontend/pnpm-lock.yaml` (motion 13.4.6), `frontend/src/app/{globals.css,layout.tsx,layout.test.tsx,icon.svg}` (icon new), `frontend/src/app/favicon.ico` (deleted), `frontend/src/components/brand/{Logo,Logo.test}.tsx` (new), `frontend/src/components/providers/MotionProvider.tsx` (new), `frontend/src/components/layout/Sidebar.tsx`, `frontend/src/proxy.ts`, `frontend/src/proxy.test.ts` (new)
+- **Current phase**: Phase 3 — sign-in showcase and callback (not started)
+- **Phase progress**: Phase 2 complete (9 of 9 tasks, committed); Phase 3 0 of 8
+- **Last completed task**: Phase 2 committed: `feat: add the collapsible app shell`
+- **Next task**: push be6231b, 31700ab and the Phase 2 commit together (read both CI filters first; a frontend-only deploy); then Phase 3 at the user's go-ahead: 2–3 Stitch sign-in variants, desktop and phone, on made-up placements
+- **Last commit**: "feat: add the collapsible app shell" (local, not pushed; hash in git log); before it 31700ab and be6231b (not pushed)
+- **Uncommitted changes**: none (just committed)
 - **Blockers**: none
-- **Tests passing**: 763 unit + 282 integration (backend, unchanged since 2026-10-11) + 215 frontend unit (`--maxWorkers=4`) + 20 of 21 e2e (one worker; the known recording race) = 1281 tests
-- **Files modified this session**: `docs/planning/{CURRENT-SPRINT,ROADMAP,BACKLOG}.md`
-- **Key decisions this session**: the 17 planning decisions above; in Phase 1 the Twilight direction, Plus Jakarta Sans and JetBrains Mono, a light default with a twilight-dark theme, the shell screen before tokens, and our own copy only (Decisions Log rows, 2026-10-12)
+- **Tests passing**: 763 unit + 282 integration (backend, unchanged since 2026-10-11) + 245 frontend unit (`--maxWorkers=4`) + 23 of 23 e2e (one worker) = 1313 tests
+- **Files modified this session**: the uncommitted changes above
+- **Key decisions this session**: the 17 planning decisions above; in Phase 1 the Twilight direction, Plus Jakarta Sans and JetBrains Mono, a light default with a twilight-dark theme, the shell screen before tokens, and our own copy only (Decisions Log rows, 2026-10-12); in Phase 2 build the shell from the approved screen with no new variants, the section breadcrumb instead of the app name in the top bar (search to BACKLOG), `Gauge` for Risk board, no subtitle, push with Phase 2 ("Shell details" row)
 - **Recovery instructions**:
   - Read this file first, then `docs/handover/sprint-02-handover.md`.
   - **Stitch**: its tools load only in a session started after it was connected (user scope); check they are listed before relying on them. The PMO project is `15166762438523107418` ("PMO Intelligence"); the chosen direction is the screen "PMO Intelligence — Twilight Sign-in Showcase". Generation calls time out on this side after about a minute but finish in Stitch 10–40 minutes later; poll `list_screens` instead of re-sending
