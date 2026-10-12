@@ -55,6 +55,8 @@ test("shows an analysed session with its evidence and recording", async ({
   );
   await expect(page.getByTestId("session-cost")).toContainText("$0.09");
   await expect(page.getByText("Sam (PMO SME)").first()).toBeVisible();
+  // The transcript sits in its own column, each line under its speaker.
+  await expect(page.getByTestId("transcript")).toContainText("Sam (PMO SME)");
   // The e2e user is a PMO manager, so the failed analysis step shows.
   await expect(page.getByTestId("node-errors")).toContainText(
     "Timed out after 240 s",

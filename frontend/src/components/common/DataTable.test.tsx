@@ -113,6 +113,26 @@ describe("DataTable", () => {
     expect(frame()).not.toHaveClass("border");
   });
 
+  it("adds a row's own classes, and tighter rows when dense", () => {
+    render(
+      <DataTable
+        columns={columns}
+        data={data}
+        searchPlaceholder="Search"
+        emptyMessage="Nobody"
+        dense
+        rowClassName={(r) =>
+          r.city === "Leeds" ? "bg-destructive/5" : undefined
+        }
+      />,
+    );
+
+    const [, leeds, bristol] = screen.getAllByRole("row");
+    expect(leeds).toHaveClass("bg-destructive/5");
+    expect(bristol).not.toHaveClass("bg-destructive/5");
+    expect(screen.getByRole("cell", { name: "Asha" })).toHaveClass("py-2");
+  });
+
   it("shows the empty message, or loading while loading", () => {
     const { rerender } = render(
       <DataTable

@@ -37,6 +37,10 @@ interface DataTableProps<T> {
   searchable?: boolean;
   /** False leaves out the table's own border, for a table inside a card. */
   framed?: boolean;
+  /** Tighter rows, for a long list read at a glance. */
+  dense?: boolean;
+  /** Extra classes for a row, e.g. to tint one that needs attention. */
+  rowClassName?: (row: T) => string | undefined;
 }
 
 /**
@@ -53,6 +57,8 @@ export function DataTable<T>({
   sortable = true,
   searchable = true,
   framed = true,
+  dense = false,
+  rowClassName,
 }: DataTableProps<T>) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [search, setSearch] = useState("");
@@ -137,11 +143,14 @@ export function DataTable<T>({
           <TableBody>
             {rows.length > 0 ? (
               rows.map((row) => (
-                <TableRow key={row.id}>
+                <TableRow key={row.id} className={rowClassName?.(row.original)}>
                   {row.getVisibleCells().map((cell) => (
                     <TableCell
                       key={cell.id}
-                      className="px-3 py-3 first:pl-4 last:pr-4"
+                      className={cn(
+                        "px-3 first:pl-4 last:pr-4",
+                        dense ? "py-2" : "py-3",
+                      )}
                     >
                       {flexRender(
                         cell.column.columnDef.cell,

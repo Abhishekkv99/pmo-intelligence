@@ -85,6 +85,38 @@ describe("SessionsList", () => {
       "title",
       "TranscriptionError: no audio",
     );
+    // A failed call's row is tinted; a settled one is not.
+    expect(row).toHaveClass("bg-destructive/5");
+    expect(
+      screen.getByRole("link", { name: "1 Oct 2026, 10:00" }).closest("tr"),
+    ).not.toHaveClass("bg-destructive/5");
+  });
+
+  it("searches the consultant, client, project, kind and status", async () => {
+    const user = userEvent.setup();
+    render(<SessionsList />);
+    const search = screen.getByLabelText("Search sessions");
+    const consultants = () =>
+      screen
+        .getAllByRole("row")
+        .slice(1)
+        .map((r) => within(r).getAllByRole("cell")[1].textContent);
+
+    await user.click(search);
+    await user.paste("technical help");
+    expect(consultants()).toEqual(["Priya Shah"]);
+
+    await user.clear(search);
+    await user.click(search);
+    await user.paste("failed");
+    expect(consultants()).toEqual(["Ann Brooks"]);
+
+    await user.clear(search);
+    await user.click(search);
+    await user.paste("nothing like this");
+    expect(
+      screen.getByText("No sessions match these filters."),
+    ).toBeInTheDocument();
   });
 
   it("filters by consultant", async () => {

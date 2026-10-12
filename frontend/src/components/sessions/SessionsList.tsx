@@ -5,6 +5,7 @@ import Link from "next/link";
 import type { ColumnDef } from "@tanstack/react-table";
 import { DataTable } from "@/components/common/DataTable";
 import { SessionStatusBadge } from "@/components/sessions/SessionStatusBadge";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -26,12 +27,13 @@ const ALL = "all";
  * Every session the user may read, newest call first: PMO managers and
  * admins see all of them, everyone else those of the placements naming them.
  * The call time opens the session page; the consultant's name opens the
- * placement page.
+ * placement page. A failed call's row is tinted, its reason on hover.
  */
 export function SessionsList() {
   const { sessions, isLoading, error } = useSessions();
   const [consultant, setConsultant] = useState(ALL);
   const [status, setStatus] = useState(ALL);
+  const [search, setSearch] = useState("");
 
   const consultants = useMemo(() => {
     const byId = new Map<string, string>();
@@ -40,15 +42,15 @@ export function SessionsList() {
     return [...byId.entries()].sort((a, b) => a[1].localeCompare(b[1]));
   }, [sessions]);
 
-  const rows = useMemo(
-    () =>
-      (sessions ?? []).filter(
-        (s) =>
-          (consultant === ALL || s.consultant.id === consultant) &&
-          (status === ALL || s.status === status),
-      ),
-    [sessions, consultant, status],
-  );
+  const rows = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    return (sessions ?? []).filter(
+      (s) =>
+        (consultant === ALL || s.consultant.id === consultant) &&
+        (status === ALL || s.status === status) &&
+        (query === "" || searchText(s).includes(query)),
+    );
+  }, [sessions, consultant, status, search]);
 
   const columns = useMemo<ColumnDef<SessionListItem>[]>(
     () => [
@@ -59,7 +61,7 @@ export function SessionsList() {
         cell: ({ row }) => (
           <Link
             href={`${ROUTES.sessions}/${row.original.id}`}
-            className="font-medium underline-offset-4 hover:underline"
+            className="font-mono text-xs font-medium whitespace-nowrap underline-offset-4 hover:underline"
           >
             {formatUkDateTime(row.original.held_at)}
           </Link>
@@ -102,6 +104,7 @@ export function SessionsList() {
           <SessionStatusBadge
             status={row.original.status}
             reason={row.original.error_message}
+            variant="dot"
           />
         ),
       },
@@ -109,17 +112,31 @@ export function SessionsList() {
         id: "duration",
         header: "Length",
         accessorFn: (s) => s.duration_seconds ?? 0,
-        cell: ({ row }) => formatDuration(row.original.duration_seconds),
+        cell: ({ row }) => (
+          <span className="font-mono text-xs whitespace-nowrap">
+            {formatDuration(row.original.duration_seconds)}
+          </span>
+        ),
       },
       {
         id: "signals",
         header: "Signals",
         accessorFn: (s) => s.signal_count,
+        cell: ({ row }) => (
+          <span className="font-mono tabular-nums">
+            {row.original.signal_count}
+          </span>
+        ),
       },
       {
         id: "actions",
         header: "Actions",
         accessorFn: (s) => s.action_count,
+        cell: ({ row }) => (
+          <span className="font-mono tabular-nums">
+            {row.original.action_count}
+          </span>
+        ),
       },
     ],
     [],
@@ -132,43 +149,72 @@ export function SessionsList() {
           {error}
         </p>
       )}
+      <div className="flex flex-wrap items-center gap-2 rounded-xl border bg-card p-2.5">
+        <Input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search sessions"
+          aria-label="Search sessions"
+          className="w-full sm:w-64"
+        />
+        <Select value={consultant} onValueChange={setConsultant}>
+          <SelectTrigger className="w-auto" aria-label="Consultant filter">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={ALL}>All consultants</SelectItem>
+            {consultants.map(([id, name]) => (
+              <SelectItem key={id} value={id}>
+                {name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={status} onValueChange={setStatus}>
+          <SelectTrigger className="w-auto" aria-label="Status filter">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={ALL}>All statuses</SelectItem>
+            {SESSION_STATUSES.map((s) => (
+              <SelectItem key={s} value={s}>
+                {humanize(s)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
       <DataTable
         columns={columns}
         data={rows}
         isLoading={isLoading}
+        searchable={false}
+        dense
         searchPlaceholder="Search sessions"
-        emptyMessage="No sessions yet. Recordings appear here once they are processed."
-        toolbar={
-          <>
-            <Select value={consultant} onValueChange={setConsultant}>
-              <SelectTrigger className="w-52" aria-label="Consultant filter">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ALL}>All consultants</SelectItem>
-                {consultants.map(([id, name]) => (
-                  <SelectItem key={id} value={id}>
-                    {name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select value={status} onValueChange={setStatus}>
-              <SelectTrigger className="w-40" aria-label="Status filter">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ALL}>All statuses</SelectItem>
-                {SESSION_STATUSES.map((s) => (
-                  <SelectItem key={s} value={s}>
-                    {humanize(s)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </>
+        emptyMessage={
+          (sessions ?? []).length === 0
+            ? "No sessions yet. Recordings appear here once they are processed."
+            : "No sessions match these filters."
+        }
+        rowClassName={(s) =>
+          s.status === "failed"
+            ? "bg-destructive/5 hover:bg-destructive/10"
+            : undefined
         }
       />
     </div>
   );
+}
+
+/** What the search box matches: the words the row shows. */
+function searchText(s: SessionListItem): string {
+  return [
+    s.consultant.name,
+    s.client.name,
+    s.project.name,
+    s.kind ? SESSION_KIND_LABELS[s.kind] : "Not classified",
+    humanize(s.status),
+  ]
+    .join(" ")
+    .toLowerCase();
 }

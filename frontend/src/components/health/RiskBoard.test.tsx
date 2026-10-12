@@ -242,19 +242,23 @@ describe("RiskBoard", () => {
     render(<RiskBoard />);
     const search = screen.getByLabelText("Search placements");
 
-    await user.type(search, "globex");
+    await user.click(search);
+    await user.paste("globex");
     expect(consultantsInOrder()).toEqual(["Ann Brooks"]);
 
     await user.clear(search);
-    await user.type(search, "contract horizon");
+    await user.click(search);
+    await user.paste("contract horizon");
     expect(consultantsInOrder()).toEqual(["Priya Shah"]);
 
     await user.clear(search);
-    await user.type(search, "book the");
+    await user.click(search);
+    await user.paste("book the");
     expect(consultantsInOrder()).toEqual(["Zoe Green"]);
 
     await user.clear(search);
-    await user.type(search, "nobody");
+    await user.click(search);
+    await user.paste("nobody");
     expect(screen.queryAllByTestId("level-section")).toEqual([]);
     expect(
       screen.getByText("No placements match these filters."),

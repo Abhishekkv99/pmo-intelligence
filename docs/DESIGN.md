@@ -1,6 +1,6 @@
 # Design System
 
-> **Status**: Sprint 3 Phase 4 (2026-10-12): the Twilight direction, its light and twilight-dark colours, fonts, logo and motion settings (Phase 1), the app shell (Phase 2), the sign-in showcase (Phase 3), the risk board (Phase 4) and the placement page (Phase 5) are built. The redesigned pages follow phase by phase; each section below says what is built.
+> **Status**: Sprint 3 Phase 4 (2026-10-12): the Twilight direction, its light and twilight-dark colours, fonts, logo and motion settings (Phase 1), the app shell (Phase 2), the sign-in showcase (Phase 3), the risk board (Phase 4), the placement page (Phase 5) and the sessions pages (Phase 6) are built. The redesigned pages follow phase by phase; each section below says what is built.
 
 PMO Intelligence is shown to management, so it should look like a premium product while staying calm and dense enough for daily PMO work. The look is called **Twilight**. It is editorial and Superhuman-like: one dramatic twilight-purple moment on a warm white canvas, large tight display type, a single lavender accent, and the product's own screens as the main imagery. Colour signals status; it never decorates.
 
@@ -142,6 +142,14 @@ Built in Phase 5 from the approved Stitch screen "Placement: Priya Raman (Varian
 - **Evidence**: each quote in its own card, with polarity, dimension and indicator first, then severity, confidence, speaker and, for a contributor, its weight and value (the configuration's value for the signal's polarity and severity), and a link to the moment in the call.
 - **Calls**: the table runs to the card's edges with the muted header row; length, signals and actions in mono.
 - The screen's subtitles ("Immediate attention", "Top signals by impact", "All recorded sessions", "Reported blockers"), its coloured call-kind pills and its coloured issue dots were left out: RAG colours mean health only, and issues carry no level.
+
+## Sessions
+Built in Phase 6 from the approved Stitch screens "Sessions (Variant 3: Dense Operational Ledger)" and "Session: Priya Raman (Variant 1: Two-Column Diagnostic & Transcript Rail)".
+
+- **List**: the title "Sessions" and the muted line "Every recorded call you can see, newest first."; the search and the consultant and status menus in one filter bar card; a dense table (8px row padding) with the call time, length and counts in mono. The status is a 6px dot and the word: muted once settled, the primary colour while in flight, and for a failed call the destructive red with its row tinted red at 5%. Red, amber and green stay for placement health.
+- **Session page**: the back link; the consultant's name as the title with the status pill and Retry; client · project, the time and length in mono and the project phase; "Kind of call" at the right on a desktop, below the name on a narrow screen. The recording keeps the browser's own audio controls, in a card. From 1024px, three fifths and two fifths: the summary, signals, issues, actions agreed, cost and failed steps on the left; the transcript on the right, sticky below the top bar and scrolling by itself, each line its speaker and a play button over the words. Below 1024px the transcript follows the analysis.
+- **Lists inside cards**: signals, issues, actions and transcript lines are separated by hairlines rather than each boxed.
+- The screens' subtitles ("Classified occurrences", "Verbatim log", "Active impediments", "Follow-up commitments"), "Processing cost", the "Type" heading and the custom player were left out: the sections keep their own names and the browser's player already handles seeking and the keyboard.
 
 ## Motion
 - The `motion` library (pinned at 13.4.6) is used in client components only, through `motion/react`.

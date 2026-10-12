@@ -38,6 +38,7 @@ import {
   speakerLabel,
   type SessionKind,
 } from "@/lib/sessions";
+import { cn } from "@/lib/utils";
 import type { ActionView, SessionDetail, SignalView } from "@/types/sessions";
 
 type Seek = ((ms: number) => void) | null;
@@ -103,77 +104,106 @@ function Header({
   }
 
   return (
-    <div className="space-y-2">
-      <div className="flex flex-wrap items-center gap-3">
-        <h2 className="text-2xl font-bold tracking-tight">
-          {session.consultant.name}
-        </h2>
-        <SessionStatusBadge
-          status={session.status}
-          reason={session.error_message}
-        />
-        {isGlobal && session.status === "failed" && (
-          <Button size="sm" variant="outline" disabled={busy} onClick={retry}>
-            <RotateCcw className="size-4" />
-            Retry
-          </Button>
-        )}
-      </div>
-      <p className="text-sm text-muted-foreground">
-        <Link
-          href={placementPath(session.placement_id)}
-          className="underline-offset-4 hover:underline"
-          title="Open the placement's health"
-        >
-          {session.client.name} · {session.project.name}
-        </Link>{" "}
-        · {formatUkDateTime(session.held_at)} (UK) ·{" "}
-        {formatDuration(session.duration_seconds)}
-        {session.project_phase ? ` · ${session.project_phase}` : ""}
-      </p>
-      <div className="flex flex-wrap items-center gap-2 text-sm">
-        <span className="text-muted-foreground">Kind of call:</span>
-        {isGlobal ? (
-          <Select
-            value={session.kind ?? undefined}
-            onValueChange={changeKind}
-            disabled={busy}
+    <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+      <div className="space-y-2">
+        <div className="flex flex-wrap items-center gap-3">
+          <h2 className="text-[32px] leading-tight font-semibold tracking-[-0.02em]">
+            {session.consultant.name}
+          </h2>
+          <SessionStatusBadge
+            status={session.status}
+            reason={session.error_message}
+          />
+          {isGlobal && session.status === "failed" && (
+            <Button size="sm" variant="outline" disabled={busy} onClick={retry}>
+              <RotateCcw className="size-4" />
+              Retry
+            </Button>
+          )}
+        </div>
+        <p className="text-sm text-muted-foreground">
+          <Link
+            href={placementPath(session.placement_id)}
+            className="underline-offset-4 hover:underline"
+            title="Open the placement's health"
           >
-            <SelectTrigger className="h-8 w-44" aria-label="Kind of call">
-              <SelectValue placeholder="Not classified" />
-            </SelectTrigger>
-            <SelectContent>
-              {SESSION_KINDS.map((kind) => (
-                <SelectItem key={kind} value={kind}>
-                  {SESSION_KIND_LABELS[kind]}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        ) : (
-          <span>
-            {session.kind
-              ? SESSION_KIND_LABELS[session.kind]
-              : "Not classified"}
+            {session.client.name} · {session.project.name}
+          </Link>{" "}
+          ·{" "}
+          <span className="font-mono text-xs">
+            {formatUkDateTime(session.held_at)} (UK) ·{" "}
+            {formatDuration(session.duration_seconds)}
           </span>
-        )}
-        {session.kind_overridden && (
-          <span className="text-xs text-muted-foreground">
-            set by a person
-            {session.session_class
-              ? `; classified as ${SESSION_KIND_LABELS[session.session_class]}`
-              : ""}
-          </span>
+          {session.project_phase ? ` · ${session.project_phase}` : ""}
+        </p>
+        {session.status === "failed" && session.error_message && (
+          <p
+            role="alert"
+            className="text-sm text-destructive"
+            data-testid="session-error"
+          >
+            {session.error_message}
+          </p>
         )}
       </div>
-      {session.status === "failed" && session.error_message && (
-        <p
-          role="alert"
-          className="text-sm text-destructive"
-          data-testid="session-error"
+      <KindOfCall
+        session={session}
+        isGlobal={isGlobal}
+        busy={busy}
+        onChange={changeKind}
+      />
+    </div>
+  );
+}
+
+/**
+ * The kind of call, at the top right on a desktop: a picker for PMO
+ * managers and admins (a person's choice outlives a later analysis), plain
+ * text for everyone else.
+ */
+function KindOfCall({
+  session,
+  isGlobal,
+  busy,
+  onChange,
+}: {
+  session: SessionDetail;
+  isGlobal: boolean;
+  busy: boolean;
+  onChange: (kind: string) => void;
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-2 text-sm lg:max-w-sm lg:shrink-0 lg:justify-end">
+      <span className="text-muted-foreground">Kind of call:</span>
+      {isGlobal ? (
+        <Select
+          value={session.kind ?? undefined}
+          onValueChange={onChange}
+          disabled={busy}
         >
-          {session.error_message}
-        </p>
+          <SelectTrigger className="h-8 w-44" aria-label="Kind of call">
+            <SelectValue placeholder="Not classified" />
+          </SelectTrigger>
+          <SelectContent>
+            {SESSION_KINDS.map((kind) => (
+              <SelectItem key={kind} value={kind}>
+                {SESSION_KIND_LABELS[kind]}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      ) : (
+        <span>
+          {session.kind ? SESSION_KIND_LABELS[session.kind] : "Not classified"}
+        </span>
+      )}
+      {session.kind_overridden && (
+        <span className="basis-full text-xs text-muted-foreground lg:text-right">
+          set by a person
+          {session.session_class
+            ? `; classified as ${SESSION_KIND_LABELS[session.session_class]}`
+            : ""}
+        </span>
       )}
     </div>
   );
@@ -187,7 +217,7 @@ function SignalItem({ signal, seek }: { signal: SignalView; seek: Seek }) {
         ? "secondary"
         : "outline";
   return (
-    <li className="space-y-1 rounded-md border p-3" data-testid="signal">
+    <li className="space-y-1 py-3 first:pt-0 last:pb-0" data-testid="signal">
       <div className="flex flex-wrap items-center gap-2 text-xs">
         <Badge variant={tone}>{humanize(signal.polarity)}</Badge>
         <span className="font-medium">{humanize(signal.dimension)}</span>
@@ -216,7 +246,7 @@ function ActionItem({ action, seek }: { action: ActionView; seek: Seek }) {
     action.owner?.email ??
     SPEAKER_ROLE_LABELS[action.owner_role];
   return (
-    <li className="space-y-1 rounded-md border p-3" data-testid="action">
+    <li className="space-y-1 py-3 first:pt-0 last:pb-0" data-testid="action">
       <div className="flex flex-wrap items-center gap-2">
         <span className="font-medium">{action.description}</span>
         <Badge variant={action.status === "done" ? "secondary" : "outline"}>
@@ -239,28 +269,38 @@ function ActionItem({ action, seek }: { action: ActionView; seek: Seek }) {
   );
 }
 
+/**
+ * A titled card. `className` and `contentClassName` let the transcript
+ * become a column that stays in view and scrolls by itself.
+ */
 function Section({
   title,
   count,
+  className,
+  contentClassName,
   children,
 }: {
   title: string;
   count?: number;
+  className?: string;
+  contentClassName?: string;
   children: React.ReactNode;
 }) {
   return (
-    <Card>
-      <CardHeader>
+    <Card className={cn("gap-4 py-5 shadow-none", className)}>
+      <CardHeader className="px-5">
         <CardTitle className="text-base">
           {title}
           {count !== undefined && (
-            <span className="ml-2 text-sm font-normal text-muted-foreground">
+            <span className="ml-2 rounded-md bg-muted px-1.5 font-mono text-xs font-normal text-muted-foreground tabular-nums">
               {count}
             </span>
           )}
         </CardTitle>
       </CardHeader>
-      <CardContent>{children}</CardContent>
+      <CardContent className={cn("px-5", contentClassName)}>
+        {children}
+      </CardContent>
     </Card>
   );
 }
@@ -330,46 +370,52 @@ export function SessionView({ sessionId }: { sessionId: string }) {
       )}
 
       {session.has_recording && (
-        <AudioPlayer ref={player} sessionId={session.id} />
+        <Card className="py-4 shadow-none">
+          <CardContent className="px-5">
+            <AudioPlayer ref={player} sessionId={session.id} />
+          </CardContent>
+        </Card>
       )}
 
-      <Section title="Summary">
-        {session.summary ? (
-          <p className="text-sm leading-relaxed">{session.summary}</p>
-        ) : (
-          <Nothing>
-            {analysed ? "No summary was produced." : "Not analysed yet."}
-          </Nothing>
-        )}
-      </Section>
+      {/* The analysis on the left; the transcript at the right, in view and
+          scrolling by itself, so a quote can be read in its context. */}
+      <div className="grid gap-6 lg:grid-cols-5">
+        <div className="min-w-0 space-y-6 lg:col-span-3">
+          <Section title="Summary">
+            {session.summary ? (
+              <p className="text-sm leading-relaxed">{session.summary}</p>
+            ) : (
+              <Nothing>
+                {analysed ? "No summary was produced." : "Not analysed yet."}
+              </Nothing>
+            )}
+          </Section>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <Section title="Signals" count={session.signals.length}>
-          {session.signals.length ? (
-            <ul className="space-y-2">
-              {session.signals.map((s) => (
-                <SignalItem key={s.id} signal={s} seek={seek} />
-              ))}
-            </ul>
-          ) : (
-            <Nothing>No signals.</Nothing>
-          )}
-          {session.quotes_rejected > 0 && (
-            <p className="mt-3 text-xs text-muted-foreground">
-              {session.quotes_rejected} item(s) dropped because their quote was
-              not found in the transcript.
-            </p>
-          )}
-        </Section>
+          <Section title="Signals" count={session.signals.length}>
+            {session.signals.length ? (
+              <ul className="divide-y">
+                {session.signals.map((s) => (
+                  <SignalItem key={s.id} signal={s} seek={seek} />
+                ))}
+              </ul>
+            ) : (
+              <Nothing>No signals.</Nothing>
+            )}
+            {session.quotes_rejected > 0 && (
+              <p className="mt-3 text-xs text-muted-foreground">
+                {session.quotes_rejected} item(s) dropped because their quote
+                was not found in the transcript.
+              </p>
+            )}
+          </Section>
 
-        <div className="space-y-6">
           <Section title="Issues" count={session.issues.length}>
             {session.issues.length ? (
-              <ul className="space-y-2">
+              <ul className="divide-y">
                 {session.issues.map((issue) => (
                   <li
                     key={issue.id}
-                    className="flex flex-wrap items-center gap-2 rounded-md border p-3 text-sm"
+                    className="flex flex-wrap items-center gap-2 py-3 text-sm first:pt-0 last:pb-0"
                     data-testid="issue"
                   >
                     <span className="font-medium">{issue.topic}</span>
@@ -396,7 +442,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
 
           <Section title="Actions agreed" count={session.actions.length}>
             {session.actions.length ? (
-              <ul className="space-y-2">
+              <ul className="divide-y">
                 {session.actions.map((a) => (
                   <ActionItem key={a.id} action={a} seek={seek} />
                 ))}
@@ -405,7 +451,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
               <Nothing>No actions.</Nothing>
             )}
             {session.closed_actions.length > 0 && (
-              <div className="mt-4 space-y-1">
+              <div className="mt-4 space-y-1 border-t pt-3">
                 <p className="text-sm font-medium">
                   Earlier actions this call closed
                 </p>
@@ -420,51 +466,61 @@ export function SessionView({ sessionId }: { sessionId: string }) {
 
           <Section title="Cost">
             <p className="text-sm" data-testid="session-cost">
-              {formatUsd(session.cost.total_usd)}{" "}
-              <span className="text-muted-foreground">
+              <span className="font-mono font-medium">
+                {formatUsd(session.cost.total_usd)}
+              </span>{" "}
+              <span className="font-mono text-xs text-muted-foreground">
                 (transcription {formatUsd(session.cost.transcription_usd)},
                 analysis {formatUsd(session.cost.analysis_usd)})
               </span>
             </p>
           </Section>
+
+          {session.node_errors && session.node_errors.length > 0 && (
+            <Section
+              title="Analysis steps that failed"
+              count={session.node_errors.length}
+            >
+              <ul className="space-y-1 text-sm" data-testid="node-errors">
+                {session.node_errors.map((e, i) => (
+                  <li key={i}>
+                    <span className="font-medium">{humanize(e.node)}</span>:{" "}
+                    {e.error}
+                  </li>
+                ))}
+              </ul>
+            </Section>
+          )}
         </div>
-      </div>
 
-      <Section title="Transcript" count={session.utterances.length}>
-        {session.utterances.length ? (
-          <ol className="space-y-2">
-            {session.utterances.map((u, i) => (
-              <li key={i} className="flex gap-3 text-sm">
-                <div className="w-44 shrink-0">
-                  <div className="font-medium">
-                    {speakerLabel(u.speaker, session.speakers)}
-                  </div>
-                  <SeekButton ms={u.start_ms} seek={seek} />
-                </div>
-                <p className="leading-relaxed">{u.text}</p>
-              </li>
-            ))}
-          </ol>
-        ) : (
-          <Nothing>No transcript yet.</Nothing>
-        )}
-      </Section>
-
-      {session.node_errors && session.node_errors.length > 0 && (
         <Section
-          title="Analysis steps that failed"
-          count={session.node_errors.length}
+          title="Transcript"
+          count={session.utterances.length}
+          className="lg:sticky lg:top-20 lg:col-span-2 lg:max-h-[calc(100vh-7rem)] lg:self-start"
+          contentClassName="min-h-0 lg:overflow-y-auto"
         >
-          <ul className="space-y-1 text-sm" data-testid="node-errors">
-            {session.node_errors.map((e, i) => (
-              <li key={i}>
-                <span className="font-medium">{humanize(e.node)}</span>:{" "}
-                {e.error}
-              </li>
-            ))}
-          </ul>
+          {session.utterances.length ? (
+            <ol className="divide-y" data-testid="transcript">
+              {session.utterances.map((u, i) => (
+                <li
+                  key={i}
+                  className="space-y-1 py-3 text-sm first:pt-0 last:pb-0"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-medium">
+                      {speakerLabel(u.speaker, session.speakers)}
+                    </span>
+                    <SeekButton ms={u.start_ms} seek={seek} />
+                  </div>
+                  <p className="leading-relaxed">{u.text}</p>
+                </li>
+              ))}
+            </ol>
+          ) : (
+            <Nothing>No transcript yet.</Nothing>
+          )}
         </Section>
-      )}
+      </div>
     </div>
   );
 }
