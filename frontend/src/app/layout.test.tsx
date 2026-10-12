@@ -2,10 +2,12 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import { act, render, screen } from "@testing-library/react";
 import { toast } from "sonner";
+import { useContext } from "react";
+import { MotionConfigContext } from "motion/react";
 
 vi.mock("next/font/google", () => ({
-  Geist: () => ({ variable: "font-geist-sans" }),
-  Geist_Mono: () => ({ variable: "font-geist-mono" }),
+  Plus_Jakarta_Sans: () => ({ variable: "font-plus-jakarta" }),
+  JetBrains_Mono: () => ({ variable: "font-jetbrains-mono" }),
 }));
 
 vi.mock("@/components/providers/AuthProvider", () => ({
@@ -52,6 +54,21 @@ describe("RootLayout", () => {
 
     expect(html).toContain("Page content");
     expect(html).toMatch(/<section[^>]*aria-label="Notifications/);
+  });
+
+  it("wraps the page in the motion settings that follow reduced motion", () => {
+    function Probe() {
+      const { reducedMotion } = useContext(MotionConfigContext);
+      return <output data-reduced-motion={reducedMotion} />;
+    }
+
+    const html = renderToStaticMarkup(
+      <RootLayout>
+        <Probe />
+      </RootLayout>,
+    );
+
+    expect(html).toContain('data-reduced-motion="user"');
   });
 });
 

@@ -11,6 +11,9 @@ All notable changes to this project will be documented in this file.
 - The register's CSV import: the Admin > Import tab, `POST /register/import` and its template. Placements are entered with the quick add or the placement dialog.
 
 ### Changed
+- A new look, "Twilight" (see `docs/DESIGN.md`): a warm white light theme with charcoal text, deep twilight purple for primary actions and the sidebar, and lavender as the one accent; a twilight-dark theme in the theme menu. The app now opens in the light theme rather than following the system. Text is set in Plus Jakarta Sans and numbers in JetBrains Mono (was Geist). The red, amber and green health colours pass 4.5:1 contrast as fills and as text in both themes (green is now #15803D in light).
+- A product logo (a lavender pulse line in a deep purple square) and a matching browser icon replace the default favicon.
+- Animations follow the reader's "reduce motion" setting, including the chart entrance.
 - The Consultant Director (CDM) replaces the tech lead: role `cdm` instead of `tech_lead`. A CDM is set on the consultant (Admin > Register > Consultants) and reads every placement of the consultants they manage, with the full health view. Projects no longer have a tech lead. Call analysis names the CDM and gives them the actions it owns; the placements table, the risk board filter, the placement page and the session page show the CDM. Migration 009 converts tech lead data: the role, each consultant's CDM from their latest project's tech lead, and speaker and owner roles.
 - The Placements table on Admin > Register shows the client and the project in separate columns.
 - Open flags are listed critical first, then the oldest, then in the PRD's trigger order; flags opened together came back in a random order.

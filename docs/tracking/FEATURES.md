@@ -89,3 +89,11 @@
 | Stack on placements (migration 008): in the Placements table (beside separate Client and Project columns) and dialog, a risk board filter, the placement page's register line; given to an SME too | `backend/alembic/versions/008_add_placement_stack.py`, `backend/app/models/register.py`, `frontend/src/components/admin/register/{PlacementsTable,PlacementDialog}.tsx`, `frontend/src/components/health/{RiskBoard,PlacementHealthView}.tsx` | Done (2026-10-11) |
 | The CSV import, its Import tab and `POST /register/import` removed (user decision 2026-10-11) | — | Done (2026-10-11) |
 | The Consultant Director (CDM, role `cdm`) replaces the tech lead: one CDM per consultant (Consultants tab), reading every placement of the consultants they manage with the full view; named in call analysis and given the CDM's actions; shown in the Placements table, the risk board filter and the placement page; projects no longer carry a tech lead (migration 009) | `backend/alembic/versions/009_replace_tech_lead_with_cdm.py`, `backend/app/models/{enums,register}.py`, `backend/app/dependencies.py`, `backend/app/db/repositories/{placement,session}_repo.py`, `frontend/src/components/admin/register/{ConsultantsTable,ProjectsTable}.tsx` | Done (2026-10-11) |
+
+## Sprint 3: Visual Redesign
+| Feature | Files | Status |
+|---------|-------|--------|
+| Twilight design system: warm white light theme (the default) and a twilight-dark theme, every colour AA-checked, the twilight-purple sidebar, a lavender accent and the twilight hero gradient as tokens | `frontend/src/app/globals.css`, `frontend/src/app/layout.tsx`, `docs/DESIGN.md` | Done (Phase 1) |
+| Plus Jakarta Sans for text, JetBrains Mono for numbers | `frontend/src/app/layout.tsx`, `frontend/src/app/globals.css` | Done (Phase 1) |
+| Product logo (`LogoMark`, `Wordmark`) and the browser icon; the proxy lets the icon through without a sign-in | `frontend/src/components/brand/Logo.tsx`, `frontend/src/app/icon.svg`, `frontend/src/proxy.ts` | Done (Phase 1) |
+| Motion that follows the reader's "reduce motion" setting (`motion` 13.4.6, `MotionConfig reducedMotion="user"`; the CSS chart entrance off too) | `frontend/src/components/providers/MotionProvider.tsx`, `frontend/src/app/globals.css` | Done (Phase 1) |

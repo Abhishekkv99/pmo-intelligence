@@ -42,7 +42,7 @@ export function Sidebar() {
   const items = visibleNavItems(hasGlobalRole(user?.role));
 
   return (
-    <aside className="flex h-screen w-64 flex-col border-r border-border bg-sidebar">
+    <aside className="flex h-screen w-64 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground">
       <div className="flex h-16 items-center border-b border-sidebar-border px-6">
         <Link href={ROUTES.home} className="text-lg font-semibold">
           {APP_NAME}

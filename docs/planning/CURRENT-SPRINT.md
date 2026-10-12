@@ -63,10 +63,16 @@
 | Exit gates | Alongside, not blocking | Not this sprint |
 | Route group | The signed-in pages move under `src/app/(app)/` with one shared layout, so the shell stays mounted; URLs unchanged | MainLayout per page |
 | Naming the design tool | Committed docs may name Google Stitch (a design tool) | Neutral wording only |
+| Design direction (Phase 1, after four plain token sheets were judged not modern enough and a research pass on Superhuman, Linear, Raycast and 2026 dashboard trends) | **Twilight** (Superhuman-like): a deep twilight gradient hero (#1B1938 → #4C326E → #794B7A → dusk) dissolving into warm white #FBFAF8; huge display type (line-height 0.96, tight tracking); lavender #CBB7FB accent, cream #E9E5DD sign-in button, charcoal #292827 text, warm grey #DCD7D3 hairlines; a large product screenshot; status red #DC2626, amber #D97706, green #16A34A. Replaces: indigo accent; "always dark" sign-in (it is now dark into light) | Aurora (Linear-like, dark, 3D board); Command centre (Raycast-like bento) and a mix of the two with Twilight's chart |
+| Font (Phase 1) | Plus Jakarta Sans for text, JetBrains Mono for numbers, as in Twilight. Replaces: keep Geist | Keep Geist |
+| Theme (Phase 1) | The app opens in the light Twilight theme; a twilight-dark theme (deep purple surfaces, lavender accents) stays in the theme menu with system, so every page still supports dark mode | Follow the system |
+| Shell design (Phase 1) | Stitch draws the signed-in shell and risk board in both themes for approval before tokens are written | Derive the tokens from Twilight without a further screen |
+| Judgement calls made while building Phase 1 (for approval at the checkpoint) | Contrast over the mockups' exact values: muted text #66635F (the mockup's #85817B is 3.7:1), green #15803D (the mockup's #16A34A is 3.3:1 as text), amber kept as a fill with dark text (#D97706 is 3.2:1 as text). `--radius` 0.75rem: cards 16px as in Twilight, buttons and inputs 10px (Twilight 8px). Focus ring plum #794B7A in light, lavender in dark. Chart line `--chart-1` #4C326E in light, lavender in dark. The sidebar is twilight purple in both themes through the sidebar tokens; the current sidebar got one class (`text-sidebar-foreground`) so its title stays readable until Phase 2 replaces it. The logo is a client component so each mark gets its own gradient id (`useId`); the wordmark's mark is decorative. `--lavender`, `--twilight` and `--gradient-twilight` added as brand tokens |
+| Copy on the showcase | Every claim is ours and true: no compliance badges (SOC 2, ISO), no "encrypted end-to-end", no client email ingestion, no automatic notification or "playbook", no invented counts or versions; the generated screens' copy is a reference only | — (found in the generated screens) |
 
 ## Task Checklist
 
->>> CURRENT PHASE: Phase 0 (plan written, awaiting the commit)
+>>> CURRENT PHASE: Phase 1 (built and checked; awaiting the commit)
 
 Every phase: the Stitch step (variants on made-up data; the user picks one or asks for edits), then code, tests and docs, then the commit checkpoint, then stop. Any screenshot used for design reference comes from the local stack seeded with `seed_e2e_session.py --health`, never from staging. Before e2e: `docker compose up --build -d --wait frontend`, one worker; Vitest with `--maxWorkers=4`.
 
@@ -78,18 +84,21 @@ Every phase: the Stitch step (variants on made-up data; the user picks one or as
 - [x] This file; `ROADMAP.md` (a Sprint 3 section; Milestone 3 marked for Sprint 4); `BACKLOG.md` (the redesign item in progress)
 
 **Commit checkpoint**
-- [ ] `docs: plan sprint 3`
+- [x] `docs: plan sprint 3` (be6231b, 2026-10-12; not pushed)
 
 ### Phase 1: Design system, tokens, logo and motion
 **Code work**
-- [ ] Stitch: create the project "PMO Intelligence" and a design system (indigo seed, neutral, Geist, 8 px roundness, light and dark); one token-sheet screen (buttons, badges, a card, a table row with RAG badges, the logo mark) in 2–3 variants; the user approves one
-- [ ] `src/app/globals.css`: the approved values as oklch, light and dark, under the existing token names (`--primary`, `--ring`, `--sidebar-primary`, `--sidebar-ring`, `--chart-1` take the accent); `--brand`/`--brand-foreground` in `@theme inline` if the logo or a gradient needs them; `--risk-*` unchanged; a `prefers-reduced-motion` block for `.chart-animate`
-- [ ] `src/components/brand/Logo.tsx` (`LogoMark`, `Wordmark`); `src/app/icon.svg`, `src/app/favicon.ico` deleted; `src/proxy.ts` matcher passes `icon.svg`
-- [ ] `pnpm add motion@13.4.6 --save-exact`; `src/components/providers/MotionProvider.tsx` (`MotionConfig reducedMotion="user"`) in `src/app/layout.tsx`
-- [ ] Tests: `Logo.test.tsx`; `layout.test.tsx` (the motion provider); the proxy matcher
+- [x] Stitch: project "PMO Intelligence" (`15166762438523107418`) and a first design system (indigo, Geist); token sheets in four colour treatments, judged not modern enough by the user; three showcase directions after research (Aurora, Twilight, Command centre); **Twilight chosen** (2026-10-12; deviation from the planned token sheet, see the Decisions Log)
+- [x] Stitch: the signed-in shell and risk board in the light and twilight-dark themes, side by side ("Twilight Light & Dark Risk Board Comparison"); approved 2026-10-12 without its invented parts (Export CSV, Telemetry Sync, version text, nav counts)
+- [x] `src/app/globals.css`: the Twilight values as oklch, light (warm white, charcoal, twilight purple, lavender, cream) and twilight-dark, under the existing token names; a twilight hero gradient token; `--risk-*` from Twilight's status colours; a `prefers-reduced-motion` block for `.chart-animate`
+- [x] Fonts: Plus Jakarta Sans and JetBrains Mono through `next/font/google` in `src/app/layout.tsx` (replacing Geist), its test mock updated; the theme opens light (`defaultTheme`), with twilight-dark and system in the theme menu
+- [x] `src/components/brand/Logo.tsx` (`LogoMark`: a lavender pulse line in a deep-purple rounded square, as in Twilight; `Wordmark`); `src/app/icon.svg`, `src/app/favicon.ico` deleted
+- [x] `src/proxy.ts` matcher passes `icon.svg`
+- [x] `pnpm add motion@13.4.6 --save-exact`; `src/components/providers/MotionProvider.tsx` (`MotionConfig reducedMotion="user"`) in `src/app/layout.tsx`
+- [x] Tests: `Logo.test.tsx` (4); `layout.test.tsx` (+1, the motion settings; the font mock follows the new fonts); `src/proxy.test.ts` (8). Frontend unit 215 with `--maxWorkers=4`; lint, types and format clean; e2e 20 of 21 with one worker (the known `sessions.spec.ts` recording race, BACKLOG; 2 of 3 alone); screenshots of the board, placement page and login in both themes checked
 
 **Doc updates (concurrent)**
-- [ ] `docs/DESIGN.md` (new: tokens, contrast, logo, motion rules), `ARCHITECTURE.md` (root layout, generic UI, `> Status:`), `FEATURES.md`, `TESTS.md`, `CHANGELOG.md`
+- [x] `docs/DESIGN.md` (new: tokens, contrast, logo, motion rules), `ARCHITECTURE.md` (root layout, generic UI, `> Status:`), `FEATURES.md`, `TESTS.md`, `CHANGELOG.md` (also `BACKLOG.md`: the e2e race seen with one worker; README: no new make target; ROADMAP: nothing ticked until the shell lands)
 
 **Commit checkpoint**
 - [ ] `feat: add the design tokens, logo and motion setup`
@@ -185,21 +194,21 @@ Every phase: the Stitch step (variants on made-up data; the user picks one or as
 - Each page waits on the user's approval of its design; Phases 6 and 7 depend on the time left.
 - The exit gates of PRD Phases 1 and 2 need real data on staging (the user's actions).
 
-## Session State (last updated: 2026-10-12 12:52)
+## Session State (last updated: 2026-10-12 15:41)
 - **Sprint**: 3 — Visual Redesign
-- **Current phase**: Phase 0
-- **Phase progress**: plan approved and written; commit not yet made
-- **Last completed task**: Sprint 3 planned with the user (2026-10-12)
-- **Next task**: commit `docs: plan sprint 3` (with the user's go-ahead), then Phase 1: create the Stitch project and design system and generate the token-sheet variants for approval
-- **Last commit**: 9a2963f "docs: record the cdm deploy and plan the redesign"
-- **Uncommitted changes**: this file, `planning/ROADMAP.md`, `planning/BACKLOG.md`
+- **Current phase**: Phase 1
+- **Phase progress**: Phase 1 built and checked (uncommitted): Twilight light and twilight-dark tokens, fonts, logo and icon, motion, `DESIGN.md`; the shell design approved for Phase 2
+- **Last completed task**: Phase 1 checks: frontend unit 215, lint, types, format, e2e 20 of 21 (known race), screenshots in both themes
+- **Next task**: commit Phase 1 `feat: add the design tokens, logo and motion setup` (with the user's go-ahead; the judgement calls in the Decisions Log for approval); then Phase 2, the shell, from the approved screen
+- **Last commit**: be6231b "docs: plan sprint 3" (local, not pushed)
+- **Uncommitted changes**: this file; `docs/DESIGN.md` (new), `docs/ARCHITECTURE.md`, `docs/planning/BACKLOG.md`, `docs/tracking/{CHANGELOG,FEATURES,TESTS}.md`; `frontend/package.json`, `frontend/pnpm-lock.yaml` (motion 13.4.6), `frontend/src/app/{globals.css,layout.tsx,layout.test.tsx,icon.svg}` (icon new), `frontend/src/app/favicon.ico` (deleted), `frontend/src/components/brand/{Logo,Logo.test}.tsx` (new), `frontend/src/components/providers/MotionProvider.tsx` (new), `frontend/src/components/layout/Sidebar.tsx`, `frontend/src/proxy.ts`, `frontend/src/proxy.test.ts` (new)
 - **Blockers**: none
-- **Tests passing**: 763 unit + 282 integration (backend) + 202 frontend unit (`--maxWorkers=4`) + 21 e2e = 1268 (Sprint 2 close; not re-run, nothing changed since)
+- **Tests passing**: 763 unit + 282 integration (backend, unchanged since 2026-10-11) + 215 frontend unit (`--maxWorkers=4`) + 20 of 21 e2e (one worker; the known recording race) = 1281 tests
 - **Files modified this session**: `docs/planning/{CURRENT-SPRINT,ROADMAP,BACKLOG}.md`
-- **Key decisions this session**: the 17 planning decisions above (2026-10-12)
+- **Key decisions this session**: the 17 planning decisions above; in Phase 1 the Twilight direction, Plus Jakarta Sans and JetBrains Mono, a light default with a twilight-dark theme, the shell screen before tokens, and our own copy only (Decisions Log rows, 2026-10-12)
 - **Recovery instructions**:
   - Read this file first, then `docs/handover/sprint-02-handover.md`.
-  - **Stitch**: its tools load only in a session started after it was connected (user scope); check they are listed before relying on them. The PMO project is created in Phase 1; record its id here.
+  - **Stitch**: its tools load only in a session started after it was connected (user scope); check they are listed before relying on them. The PMO project is `15166762438523107418` ("PMO Intelligence"); the chosen direction is the screen "PMO Intelligence — Twilight Sign-in Showcase". Generation calls time out on this side after about a minute but finish in Stitch 10–40 minutes later; poll `list_screens` instead of re-sending
   - **Local stack**: `docker compose up --build -d --wait`, `make migrate`, `make test-e2e`. Add `PMO_API_PORT=8100 PMO_WEB_PORT=3100` when another project holds ports 8000/3000.
   - **Push and `gh`**: use `Abhishekkv99`'s token per command, never a change to the default login: `git -c credential.helper= -c credential.helper='!f() { echo username=x-access-token; echo "password=$(gh auth token --user Abhishekkv99)"; }; f' push origin develop`.
   - **AWS sign-in**: `aws sso login --profile pmo-intelligence`. Nothing is ever deleted or overwritten in the main ITC account (`430006376054`).
