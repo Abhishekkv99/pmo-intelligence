@@ -1,6 +1,6 @@
 # Design System
 
-> **Status**: Sprint 3 Phase 4 (2026-10-12): the Twilight direction, its light and twilight-dark colours, fonts, logo and motion settings (Phase 1), the app shell (Phase 2), the sign-in showcase (Phase 3), the risk board (Phase 4), the placement page (Phase 5) and the sessions pages (Phase 6) are built. The redesigned pages follow phase by phase; each section below says what is built.
+> **Status**: Sprint 3 Phase 4 (2026-10-12): the Twilight direction, its light and twilight-dark colours, fonts, logo and motion settings (Phase 1), the app shell (Phase 2), the sign-in showcase (Phase 3), the risk board (Phase 4), the placement page (Phase 5), the sessions pages (Phase 6) and Admin, Actions and Settings (Phase 7) are built. The redesigned pages follow phase by phase; each section below says what is built.
 
 PMO Intelligence is shown to management, so it should look like a premium product while staying calm and dense enough for daily PMO work. The look is called **Twilight**. It is editorial and Superhuman-like: one dramatic twilight-purple moment on a warm white canvas, large tight display type, a single lavender accent, and the product's own screens as the main imagery. Colour signals status; it never decorates.
 
@@ -150,6 +150,15 @@ Built in Phase 6 from the approved Stitch screens "Sessions (Variant 3: Dense Op
 - **Session page**: the back link; the consultant's name as the title with the status pill and Retry; client · project, the time and length in mono and the project phase; "Kind of call" at the right on a desktop, below the name on a narrow screen. The recording keeps the browser's own audio controls, in a card. From 1024px, three fifths and two fifths: the summary, signals, issues, actions agreed, cost and failed steps on the left; the transcript on the right, sticky below the top bar and scrolling by itself, each line its speaker and a play button over the words. Below 1024px the transcript follows the analysis.
 - **Lists inside cards**: signals, issues, actions and transcript lines are separated by hairlines rather than each boxed.
 - The screens' subtitles ("Classified occurrences", "Verbatim log", "Active impediments", "Follow-up commitments"), "Processing cost", the "Type" heading and the custom player were left out: the sections keep their own names and the browser's player already handles seeking and the keyboard.
+
+## Admin, Actions and Settings
+Built in Phase 7 from the approved Stitch screens "Admin (Variant 1: Underlined Tab Bar & Full-Width Stacked Ledger)" and "Actions (Variant 1: Dashed Containment Card)".
+
+- **Admin**: the title and the muted line "The placement register, who can sign in, the recordings folder and the processing queue." (for the roles that see the tabs); the tabs as an underlined bar across a hairline, the active one in the text colour over a primary underline; the register's sub-tabs (Placements, Consultants, Clients, Projects) as small pills, the active one filled with the primary colour. The quick add is a full-width card with a monospace text area and the muted table header in its preview; the tables below follow "Tables and badges". Users and roles, Recordings and Processing use the same patterns; the queue's numbers are in mono.
+- **Empty state** (`EmptyState`): a large dashed card (the input hairline) on the card surface at half strength, with an optional line icon in a 56px lavender circle (lavender at 25% in light, 15% in dark, the icon in the primary colour), the title and a muted line. Actions (a check-square), Settings (a gear), the Admin no-access message (a shield) and the not-found pages (a search-off icon) use it.
+- **Actions and Settings**: the title and a muted line of our own ("What was agreed on calls, by owner and due date."; "Your preferences for the app."), then the empty state.
+- **Cards** are flat everywhere: the shadcn card has no shadow, only its hairline; the sign-in cards keep the editorial shadow they set themselves.
+- The screen's invented extension values ("Due in 14d", "Pending review", "Expired"), placement ids, format hint and "Batch Ingestion" heading, and the empty screen's subtitle, were left out.
 
 ## Motion
 - The `motion` library (pinned at 13.4.6) is used in client components only, through `motion/react`.

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { SearchX } from "lucide-react";
 import { EmptyState } from "@/components/common/EmptyState";
 import { LoadingSpinner } from "@/components/common/LoadingSpinner";
 import { DimensionScores } from "@/components/health/DimensionScores";
@@ -72,6 +73,7 @@ export function PlacementHealthView({ placementId }: { placementId: string }) {
   if (error instanceof ApiError && error.status === 404) {
     return (
       <EmptyState
+        icon={<SearchX />}
         title="Placement not found"
         description="It does not exist, or it is not one of your placements."
         action={{ label: "Risk board", href: ROUTES.home }}

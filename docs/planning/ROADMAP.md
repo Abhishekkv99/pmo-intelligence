@@ -26,7 +26,7 @@ Not a PRD phase: moved ahead of Teams chat so the tool can be demonstrated to ma
 - [x] Design system, logo and app shell (collapsible sidebar, mobile drawer) (Phases 1 and 2, 2026-10-12)
 - [x] Sign-in page as a showcase (a twilight hero into warm white, always light whatever the theme, made-up preview data) (Phase 3, 2026-10-12)
 - [x] Risk board and placement page redesigned (the board grouped by level with level counts that filter it; the placement page in a header card and two columns) (Phases 4 and 5, 2026-10-12)
-- [ ] Sessions pages, Admin, Actions and Settings redesigned (if time allows; otherwise BACKLOG)
+- [x] Sessions pages, Admin, Actions and Settings redesigned (the sessions list dense with a dot status, the session page with a transcript column; Admin with underlined tabs; Actions and Settings with an empty state) (Phases 6 and 7, 2026-10-13)
 - **Exit gate**: the user approves the sign-in page, the risk board and the placement page on staging after a demo walk-through
 
 ## Milestone 3: Teams Chat (Sprint 4)

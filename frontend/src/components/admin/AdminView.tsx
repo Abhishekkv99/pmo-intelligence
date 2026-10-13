@@ -2,6 +2,7 @@
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/components/providers/AuthProvider";
+import { ShieldCheck } from "lucide-react";
 import { EmptyState } from "@/components/common/EmptyState";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { hasGlobalRole } from "@/lib/roles";
@@ -41,12 +42,29 @@ export function AdminView() {
 
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold tracking-tight">Admin</h2>
+      <div className="space-y-2">
+        <h2 className="text-[32px] leading-tight font-semibold tracking-[-0.02em]">
+          Admin
+        </h2>
+        {isGlobal && (
+          <p className="text-sm text-muted-foreground">
+            The placement register, who can sign in, the recordings folder and
+            the processing queue.
+          </p>
+        )}
+      </div>
       {isGlobal ? (
         <Tabs value={tab} onValueChange={selectTab} className="space-y-4">
-          <TabsList>
+          <TabsList
+            variant="line"
+            className="h-10 w-full justify-start gap-4 border-b p-0"
+          >
             {ADMIN_TABS.map((t) => (
-              <TabsTrigger key={t.value} value={t.value}>
+              <TabsTrigger
+                key={t.value}
+                value={t.value}
+                className="flex-none px-1 data-[state=active]:after:bg-primary"
+              >
                 {t.label}
               </TabsTrigger>
             ))}
@@ -66,6 +84,7 @@ export function AdminView() {
         </Tabs>
       ) : (
         <EmptyState
+          icon={<ShieldCheck />}
           title="Admin is available to PMO managers and admins"
           description="Ask a PMO manager if you need access."
         />

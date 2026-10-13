@@ -120,6 +120,21 @@ describe("AdminView", () => {
       expect(
         screen.getByText("Admin is available to PMO managers and admins"),
       ).toBeInTheDocument();
+      // The subtitle describes the tabs, so it goes with them.
+      expect(
+        screen.queryByText(/The placement register, who can sign in/),
+      ).not.toBeInTheDocument();
     },
   );
+
+  it("describes the tabs under the title", () => {
+    signInAs("pmo_manager");
+    render(<AdminView />);
+
+    expect(
+      screen.getByText(
+        "The placement register, who can sign in, the recordings folder and the processing queue.",
+      ),
+    ).toBeInTheDocument();
+  });
 });

@@ -1,6 +1,9 @@
 "use client";
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
+const SUB_TAB =
+  "flex-none rounded-md px-3 data-[state=active]:border-transparent data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-none dark:data-[state=active]:border-transparent dark:data-[state=active]:bg-primary dark:data-[state=active]:text-primary-foreground";
 import { ClientsTable } from "./ClientsTable";
 import { ConsultantsTable } from "./ConsultantsTable";
 import { PlacementsTable } from "./PlacementsTable";
@@ -11,11 +14,19 @@ import { ProjectsTable } from "./ProjectsTable";
 export function RegisterTab() {
   return (
     <Tabs defaultValue="placements" className="space-y-3">
-      <TabsList>
-        <TabsTrigger value="placements">Placements</TabsTrigger>
-        <TabsTrigger value="consultants">Consultants</TabsTrigger>
-        <TabsTrigger value="clients">Clients</TabsTrigger>
-        <TabsTrigger value="projects">Projects</TabsTrigger>
+      <TabsList className="gap-1 bg-transparent p-0">
+        <TabsTrigger value="placements" className={SUB_TAB}>
+          Placements
+        </TabsTrigger>
+        <TabsTrigger value="consultants" className={SUB_TAB}>
+          Consultants
+        </TabsTrigger>
+        <TabsTrigger value="clients" className={SUB_TAB}>
+          Clients
+        </TabsTrigger>
+        <TabsTrigger value="projects" className={SUB_TAB}>
+          Projects
+        </TabsTrigger>
       </TabsList>
       <TabsContent value="placements" className="space-y-4">
         <QuickAddCard />

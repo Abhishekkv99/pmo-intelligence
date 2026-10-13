@@ -107,6 +107,7 @@ export function QuickAddCard() {
       <CardContent className="space-y-3">
         <Textarea
           aria-label="Quick add lines"
+          className="font-mono text-sm"
           placeholder={EXAMPLE}
           rows={3}
           value={text}
@@ -147,10 +148,10 @@ export function QuickAddCard() {
               {result.summary.updated} updated, {result.summary.unchanged}{" "}
               unchanged, {result.summary.errors} with errors.
             </p>
-            <div className="rounded-md border">
+            <div className="overflow-hidden rounded-xl border">
               <Table>
                 <TableHeader>
-                  <TableRow>
+                  <TableRow className="bg-muted/60 hover:bg-muted/60">
                     <TableHead>Line</TableHead>
                     <TableHead>Outcome</TableHead>
                     <TableHead>Placement</TableHead>

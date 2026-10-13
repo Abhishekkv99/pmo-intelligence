@@ -1,9 +1,21 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, it, expect, vi } from "vitest";
+import { SquareCheck } from "lucide-react";
 import { EmptyState } from "./EmptyState";
 
 describe("EmptyState", () => {
+  it("shows an icon only when given one", () => {
+    const { rerender } = render(<EmptyState title="Nothing" />);
+    expect(screen.getByTestId("empty-state").querySelector("svg")).toBeNull();
+
+    rerender(<EmptyState title="Nothing" icon={<SquareCheck />} />);
+    const icon = screen.getByTestId("empty-state").querySelector("svg");
+    expect(icon).not.toBeNull();
+    // The icon is decorative; the title says what the state is.
+    expect(icon!.closest("[aria-hidden]")).not.toBeNull();
+  });
+
   it("renders title", () => {
     render(<EmptyState title="No placements found" />);
     expect(screen.getByText("No placements found")).toBeInTheDocument();

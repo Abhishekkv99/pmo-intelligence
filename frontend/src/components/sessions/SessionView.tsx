@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import Link from "next/link";
-import { Play, RotateCcw } from "lucide-react";
+import { Play, RotateCcw, SearchX } from "lucide-react";
 import { toast } from "sonner";
 import { EmptyState } from "@/components/common/EmptyState";
 import { LoadingSpinner } from "@/components/common/LoadingSpinner";
@@ -325,6 +325,7 @@ export function SessionView({ sessionId }: { sessionId: string }) {
   if (error instanceof ApiError && error.status === 404) {
     return (
       <EmptyState
+        icon={<SearchX />}
         title="Session not found"
         description="It does not exist, or it is not one of your placements."
         action={{ label: "All sessions", href: ROUTES.sessions }}

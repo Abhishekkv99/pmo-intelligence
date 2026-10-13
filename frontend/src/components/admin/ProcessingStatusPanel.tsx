@@ -95,7 +95,7 @@ export function ProcessingStatusPanel({ enabled }: ProcessingStatusPanelProps) {
                   Waiting
                 </dt>
                 <dd
-                  className="text-2xl font-semibold"
+                  className="font-mono text-2xl font-semibold tabular-nums"
                   data-testid="queue-depth"
                 >
                   {status.queue_depth}
@@ -106,7 +106,7 @@ export function ProcessingStatusPanel({ enabled }: ProcessingStatusPanelProps) {
                   Running
                 </dt>
                 <dd
-                  className="text-2xl font-semibold"
+                  className="font-mono text-2xl font-semibold tabular-nums"
                   data-testid="queue-running"
                 >
                   {status.running.length}
@@ -120,7 +120,10 @@ export function ProcessingStatusPanel({ enabled }: ProcessingStatusPanelProps) {
                 <dt className="text-sm font-medium text-muted-foreground">
                   Backend memory
                 </dt>
-                <dd className="text-2xl font-semibold" data-testid="queue-rss">
+                <dd
+                  className="font-mono text-2xl font-semibold tabular-nums"
+                  data-testid="queue-rss"
+                >
                   {formatRss(status.rss_mib)}
                 </dd>
               </div>
