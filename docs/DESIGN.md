@@ -1,6 +1,6 @@
 # Design System
 
-> **Status**: Sprint 3 Phase 4 (2026-10-12): the Twilight direction, its light and twilight-dark colours, fonts, logo and motion settings (Phase 1), the app shell (Phase 2), the sign-in showcase (Phase 3), the risk board (Phase 4), the placement page (Phase 5), the sessions pages (Phase 6) and Admin, Actions and Settings (Phase 7) are built. The redesigned pages follow phase by phase; each section below says what is built.
+> **Status**: Sprint 3 complete (2026-10-13; values read back from the code in the sprint audit): the Twilight direction, its light and twilight-dark colours, fonts, logo and motion settings (Phase 1), the app shell (Phase 2), the sign-in showcase (Phase 3), the risk board (Phase 4), the placement page (Phase 5), the sessions pages (Phase 6) and Admin, Actions and Settings (Phase 7) are built. The redesigned pages follow phase by phase; each section below says what is built.
 
 PMO Intelligence is shown to management, so it should look like a premium product while staying calm and dense enough for daily PMO work. The look is called **Twilight**. It is editorial and Superhuman-like: one dramatic twilight-purple moment on a warm white canvas, large tight display type, a single lavender accent, and the product's own screens as the main imagery. Colour signals status; it never decorates.
 
@@ -15,7 +15,7 @@ All colours are CSS variables in `frontend/src/app/globals.css`, in oklch, light
 | `--background` | #FBFAF8 | Warm white canvas |
 | `--foreground` | #292827 | Charcoal text |
 | `--card`, `--popover` | #FFFFFF | Surfaces |
-| `--primary` | #1B1938 | Deep twilight: primary actions, white text |
+| `--primary` | #1B1938 | Deep twilight: primary actions, warm white text (#FBFAF8) |
 | `--secondary` | #E9E5DD | Cream: secondary actions |
 | `--muted` | #F4F1EC | Quiet surfaces |
 | `--muted-foreground` | #66635F | Secondary text |
@@ -65,7 +65,7 @@ Computed with the WCAG 2 relative-luminance formula; every pair in use passes AA
 |------|-------|
 | Charcoal on canvas (light) | 14.1 |
 | Muted #66635F on canvas / on muted (light) | 5.7 / 5.3 |
-| White on primary #1B1938 | 16.9 |
+| Warm white #FBFAF8 on primary #1B1938 | 16.2 |
 | Charcoal on cream #E9E5DD | 11.7 |
 | #DC2626 and white, either way | 4.8 |
 | #15803D and white, either way | 5.0 |
@@ -77,11 +77,11 @@ Computed with the WCAG 2 relative-luminance formula; every pair in use passes AA
 
 ## Type
 - **Plus Jakarta Sans** for all text and **JetBrains Mono** for numbers (scores, deltas, counts), loaded through `next/font/google` in `frontend/src/app/layout.tsx` as `--font-plus-jakarta` and `--font-jetbrains-mono`, and mapped to Tailwind's `font-sans` and `font-mono`.
-- Display (sign-in hero): up to 76px, line-height 0.96, tracking −0.035em. Page titles: 32px semibold, tracking −0.02em. Body 14–15px. Labels 11–12px; small caps labels are tracked out (0.2em).
+- Display (sign-in hero): `clamp(40px, 4.4vw, 62px)`, line-height 0.98, tracking −0.035em. Page titles: 32px semibold, tracking −0.02em. Body 14–15px. Labels 11–12px; small caps labels are tracked out: 0.2em on the sign-in eyebrow, 0.05em (`tracking-wider`) elsewhere (the sidebar's section label, the sample cards' headers).
 - Numbers in tables use `font-mono tabular-nums`.
 
 ## Shape and depth
-- `--radius` is 0.75rem: cards 16px (`rounded-xl`), buttons and inputs 10px (`rounded-md`), status pills fully round.
+- `--radius` is 0.75rem: cards 16px (`rounded-xl`), buttons and inputs 10px (`rounded-md`), status pills fully round (the register's sub-tabs are `rounded-md`, 10px).
 - Surfaces are flat with a 1px hairline border. The one large shadow is the editorial shadow under a product screenshot on the sign-in page.
 
 ## Logo
@@ -107,11 +107,11 @@ Built in Phase 2 from the approved Stitch screen "Twilight Light & Dark Risk Boa
 ## Sign-in
 Built in Phase 3 from the approved Stitch screen "Twilight Sign-in (Variant 3: Two-Column Split Preview)".
 
-- **Frame** (`AuthShell`): the twilight gradient (`--gradient-twilight`) behind the logo and the hero, dissolving into the warm white canvas; content up to 1240px wide; a hairline above the footer, which names the product and says "Internal tool." ("Sample data shown." on the login page).
+- **Frame** (`AuthShell`): the twilight gradient (`--gradient-twilight`) behind the logo and the hero, dissolving into the warm white canvas; content up to 1240px wide; a hairline above the lower part when the page has one (the login page's highlights; not the callback page), and a footer that names the product and says "Internal tool." ("Sample data shown." on the login page).
 - **Hero**: a lavender mono eyebrow ("Placement health, live"); the promise as the `h1`, white, `clamp(40px, 4.4vw, 62px)`, line-height 0.98, tracking −0.035em; the line under it white at 80%; the cream "Sign in with Microsoft" button (#E9E5DD, twilight text, Microsoft's four-square mark, a soft drop shadow, a 2px lift on hover unless reduced motion is on); the note under it white at 70%.
 - **Preview** (`MiniRiskBoard`): two cards with the editorial shadow (`shadow-editorial`). The board card has a mono capitals header and a "Sample data" tag, then three rows with the app's own trend and health badge (score and level word). The flag card is tinted with the red at 5%, with a 2px red hairline at 25%, the trigger name and its severity, the quote with a red rule, and when it was said ("12 Sep · 14:32", UK time, months named by the code so every browser shows the same).
-- **Highlights**: three columns between hairlines on the canvas (one column on a phone), each a 24px bold title and a muted paragraph.
-- **Phone**: below 1024px the hero stacks (promise, button, preview), with 16px side gutters; a long name wraps instead of being cut.
+- **Highlights**: three columns between hairlines on the canvas (one column on a phone), each a bold title (20px, 24px from 640px) and a muted paragraph.
+- **Phone**: below 1024px the hero stacks (promise, button, preview), with side gutters of 16px below 640px and 40px from 640px; a long name wraps instead of being cut.
 - **Entrance**: each hero block rises 12px into place over 0.5s, 50ms apart; reduced motion keeps only the fade.
 - The screen's "Live Status", bare-number badges and "Early warning flag" were replaced with the sample tag, the app's badge and the real trigger name.
 
@@ -128,7 +128,7 @@ Built in Phase 4 from the approved Stitch screen "Risk Board (Variant 2: Grouped
 - **Level counts**: four cards in a row (two on a phone), each a coloured dot, the level and its count in large mono. They count the whole board, whatever the filters; each is a button that shows only its level and sets the level menu to match, and a pressed card has a primary ring. A second click clears it.
 - **Filter bar**: one card holding the search and the menus (placement specialist, CDM, client, stack, level), each menu as wide as its text, so the bar fits on one line at desktop widths.
 - **Sections**: one card per level in the server's order (Red, Amber, Green, Not scored): a header strip tinted with the level's colour at 5% over a hairline at 20% (the card's edge at 30%), with the dot, the level as a heading in the text colour and the row count in a small mono tag; then the table. Not scored uses the muted surface and a grey dot. A level with no rows is not shown.
-- **Rows**: client · project and the next action wrap over up to two lines rather than widen the table; the due date sits above the action in mono, red with "· overdue" when past.
+- **Rows**: client · project wraps within a set width and the next action over at most two lines (cut with an ellipsis, the full text on hover), rather than widen the table; the due date sits above the action in mono, red with "· overdue" when past.
 - **SME**: one table with the same styling, no counts and no sections, under "Every placement you support, lowest Technical score first."
 - The screen's subtitles on the sections ("Immediate attention required", "Elevated monitoring", "Stable performance", "Initial onboarding · baseline pending") were left out: they were invented, and not scored means no signal in the lookback, not onboarding. No thresholds are shown, since the board's response carries none. Level labels are in the text colour rather than the level's colour, since amber text fails contrast on white.
 
@@ -139,14 +139,14 @@ Built in Phase 5 from the approved Stitch screen "Placement: Priya Raman (Varian
 - **Score tiles**: six across on a desktop (three on a tablet, two on a phone), each a card tinted with its level's colour at 5% over an edge at 40–50%, the dimension, the score in large mono and a line with the level's dot, the level word and the signal count. An SME sees the Technical tile alone, untinted.
 - **Two columns** from 1024px, three fifths and two fifths: the left holds "Health over the placement", "What moved the scores" and "Calls"; the right holds "Open flags", "Open issues", "Actions" and "Other placements". Narrower, they stack with the right column first.
 - **Section cards**: flat (no shadow), a 16px title with the count in a small mono tag. The open flags card takes a red edge while it holds a flag; a critical flag and an overdue action are tinted red at 5%.
-- **Evidence**: each quote in its own card, with polarity, dimension and indicator first, then severity, confidence, speaker and, for a contributor, its weight and value (the configuration's value for the signal's polarity and severity), and a link to the moment in the call.
+- **Evidence**: each quote in its own card, with polarity, dimension and indicator first, then severity, confidence, speaker and, for a contributor, its weight and value (the configuration's value for the signal's polarity and severity), and a link to its call (the session page, which plays each quote from its moment).
 - **Calls**: the table runs to the card's edges with the muted header row; length, signals and actions in mono.
 - The screen's subtitles ("Immediate attention", "Top signals by impact", "All recorded sessions", "Reported blockers"), its coloured call-kind pills and its coloured issue dots were left out: RAG colours mean health only, and issues carry no level.
 
 ## Sessions
 Built in Phase 6 from the approved Stitch screens "Sessions (Variant 3: Dense Operational Ledger)" and "Session: Priya Raman (Variant 1: Two-Column Diagnostic & Transcript Rail)".
 
-- **List**: the title "Sessions" and the muted line "Every recorded call you can see, newest first."; the search and the consultant and status menus in one filter bar card; a dense table (8px row padding) with the call time, length and counts in mono. The status is a 6px dot and the word: muted once settled, the primary colour while in flight, and for a failed call the destructive red with its row tinted red at 5%. Red, amber and green stay for placement health.
+- **List**: the title "Sessions" and the muted line "Every recorded call you can see, newest first."; the search and the consultant and status menus in one filter bar card; a dense table (8px row padding) with the call time, length and counts in mono. The status is a 6px dot and the word, the word muted: the dot muted once settled and in the primary colour while in flight; for a failed call both dot and word in the destructive red with its row tinted red at 5%. Red, amber and green stay for placement health.
 - **Session page**: the back link; the consultant's name as the title with the status pill and Retry; client · project, the time and length in mono and the project phase; "Kind of call" at the right on a desktop, below the name on a narrow screen. The recording keeps the browser's own audio controls, in a card. From 1024px, three fifths and two fifths: the summary, signals, issues, actions agreed, cost and failed steps on the left; the transcript on the right, sticky below the top bar and scrolling by itself, each line its speaker and a play button over the words. Below 1024px the transcript follows the analysis.
 - **Lists inside cards**: signals, issues, actions and transcript lines are separated by hairlines rather than each boxed.
 - The screens' subtitles ("Classified occurrences", "Verbatim log", "Active impediments", "Follow-up commitments"), "Processing cost", the "Type" heading and the custom player were left out: the sections keep their own names and the browser's player already handles seeking and the keyboard.
@@ -154,7 +154,7 @@ Built in Phase 6 from the approved Stitch screens "Sessions (Variant 3: Dense Op
 ## Admin, Actions and Settings
 Built in Phase 7 from the approved Stitch screens "Admin (Variant 1: Underlined Tab Bar & Full-Width Stacked Ledger)" and "Actions (Variant 1: Dashed Containment Card)".
 
-- **Admin**: the title and the muted line "The placement register, who can sign in, the recordings folder and the processing queue." (for the roles that see the tabs); the tabs as an underlined bar across a hairline, the active one in the text colour over a primary underline; the register's sub-tabs (Placements, Consultants, Clients, Projects) as small pills, the active one filled with the primary colour. The quick add is a full-width card with a monospace text area and the muted table header in its preview; the tables below follow "Tables and badges". Users and roles, Recordings and Processing use the same patterns; the queue's numbers are in mono.
+- **Admin**: the title and the muted line "The placement register, who can sign in, the recordings folder and the processing queue." (for the roles that see the tabs); the tabs as an underlined bar across a hairline, the active one in the text colour over a primary underline; the register's sub-tabs (Placements, Consultants, Clients, Projects) as small `rounded-md` tabs, the active one filled with the primary colour. The quick add is a full-width card with a monospace text area and the muted table header in its preview; the tables below follow "Tables and badges". Users and roles, Recordings and Processing use the same patterns; the queue's numbers are in mono.
 - **Empty state** (`EmptyState`): a large dashed card (the input hairline) on the card surface at half strength, with an optional line icon in a 56px lavender circle (lavender at 25% in light, 15% in dark, the icon in the primary colour), the title and a muted line. Actions (a check-square), Settings (a gear), the Admin no-access message (a shield) and the not-found pages (a search-off icon) use it.
 - **Actions and Settings**: the title and a muted line of our own ("What was agreed on calls, by owner and due date."; "Your preferences for the app."), then the empty state.
 - **Cards** are flat everywhere: the shadcn card has no shadow, only its hairline; the sign-in cards keep the editorial shadow they set themselves.
@@ -163,7 +163,7 @@ Built in Phase 7 from the approved Stitch screens "Admin (Variant 1: Underlined 
 ## Motion
 - The `motion` library (pinned at 13.4.6) is used in client components only, through `motion/react`.
 - `MotionProvider` (`frontend/src/components/providers/MotionProvider.tsx`) sets `reducedMotion="user"`: with the reader's "reduce motion" setting on, transforms and layout animations are skipped.
-- The CSS chart entrance (`.chart-animate`) is switched off under `prefers-reduced-motion: reduce`.
+- The CSS chart entrance classes (`.chart-animate`, kept from the frontend skeleton copied in Sprint 0) are switched off under `prefers-reduced-motion: reduce`; no component uses them now (the health chart draws without animation), so nothing on screen animates through them (BACKLOG, Tech Debt).
 
 ## Copy
 Every claim on screen is ours and true. Generated designs invented compliance badges (SOC 2, ISO 27001), "encrypted end-to-end", client email ingestion, automatic notifications and "playbooks", version numbers and counts; none of these appear in the app. Sample data on the sign-in page is plainly marked as sample data.

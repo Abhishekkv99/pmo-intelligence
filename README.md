@@ -79,6 +79,8 @@ A push to `develop` that passes deploys the changed side to staging. To rebuild 
 | `docs/PRD.md` | Product requirements |
 | `docs/ARCHITECTURE.md` | System design, what is built, data model |
 | `docs/API.md` | Endpoints and access rules |
+| `docs/DESIGN.md` | The look: colours, type, logo, page patterns, motion |
+| `docs/DEPLOYMENT.md` | Staging infrastructure, deploys and operator commands |
 | `docs/planning/` | Current sprint, roadmap, backlog |
 | `docs/tracking/` | Tests, features, changelog |
 | `docs/integrations/TEAMS-GRAPH-SETUP.md` | Microsoft Teams (Graph) access setup |

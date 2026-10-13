@@ -27,7 +27,7 @@ Not a PRD phase: moved ahead of Teams chat so the tool can be demonstrated to ma
 - [x] Sign-in page as a showcase (a twilight hero into warm white, always light whatever the theme, made-up preview data) (Phase 3, 2026-10-12)
 - [x] Risk board and placement page redesigned (the board grouped by level with level counts that filter it; the placement page in a header card and two columns) (Phases 4 and 5, 2026-10-12)
 - [x] Sessions pages, Admin, Actions and Settings redesigned (the sessions list dense with a dot status, the session page with a transcript column; Admin with underlined tabs; Actions and Settings with an empty state) (Phases 6 and 7, 2026-10-13)
-- **Exit gate**: the user approves the sign-in page, the risk board and the placement page on staging after a demo walk-through
+- **Exit gate**: the user approves the sign-in page, the risk board and the placement page on staging after a demo walk-through. **Met 2026-10-13**: walked on staging with five placements entered by the quick add (Not scored, since no real call has been processed yet); one change, the risk board's project in its own column, went to BACKLOG (see the Sprint 3 handover)
 
 ## Milestone 3: Teams Chat (Sprint 4)
 - [ ] Graph connector (RSC or application permission), poller, message store

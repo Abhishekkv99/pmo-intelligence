@@ -79,10 +79,11 @@
 | Judgement calls made while building Phase 4 (approved with the commit, 2026-10-12) | "No placements match these filters." when filters or the search hide every row (the empty board keeps its message); the section's level word in the text colour with only the dot coloured (amber text fails contrast on white); the health badge's score in mono, on the placement page too; the table restyle (muted header row, more padding) in every `DataTable`, Admin and Sessions included; the page title at the Twilight 32px; a level count of 0 still filters, showing the no-match message | — |
 | Copy on the showcase | Every claim is ours and true: no compliance badges (SOC 2, ISO), no "encrypted end-to-end", no client email ingestion, no automatic notification or "playbook", no invented counts or versions; the generated screens' copy is a reference only | — (found in the generated screens) |
 | Shell details (Phase 2, from the approved Twilight screen) | The top bar shows the sidebar toggle, the current section as a breadcrumb ("Risk board"; "Risk board / Placement" and "Sessions / Session" on a detail page, the parent a link) and the theme menu; "PMO Intelligence" is in the sidebar logo only, and `auth.spec.ts`'s header test changes with it. Risk board's icon is lucide `Gauge` (the screen's dollar sign reads as money); Sessions, Actions, Admin and Settings follow the screen (message, check-square, grid, gear). No subtitle under the product name (the screen's "v3.4 · Telemetry" is invented). The screen's "Jump to consultant" search goes to BACKLOG; no new Stitch variants, the approved screen is the shell design | As planned (the h1 "PMO Intelligence" in the top bar); section name and a working search; icons LayoutDashboard, ShieldAlert or Activity; the tagline as a subtitle |
+| Exit-gate data (Phase 8, 2026-10-13) | The user seeds the staging register with the quick add before the walk-through, so the board and the placement page are judged on real placements shown as Not scored; scores, the chart, flags and contributors are judged once a real call is processed (the Alongside work), not for this gate | The register already seeded; sign-in and the shell on staging with the data pages from local screenshots; hold the gate until a real call is processed |
 
 ## Task Checklist
 
->>> CURRENT PHASE: Phase 7 (next: commit checkpoint)
+>>> CURRENT PHASE: Phase 8 (next: the commit checkpoint)
 
 Every phase: the Stitch step (variants on made-up data; the user picks one or asks for edits), then code, tests and docs, then the commit checkpoint, then stop. Any screenshot used for design reference comes from the local stack seeded with `seed_e2e_session.py --health`, never from staging. Before e2e: `docker compose up --build -d --wait frontend`, one worker; Vitest with `--maxWorkers=4`.
 
@@ -188,14 +189,20 @@ Every phase: the Stitch step (variants on made-up data; the user picks one or as
 - [x] `ARCHITECTURE.md` (Pages, Admin and Generic UI rows, `> Status:`), `DESIGN.md` (Admin, Actions and Settings; status), `FEATURES.md` (a new row; the placeholder row's paths), `TESTS.md`, `CHANGELOG.md`, `ROADMAP.md` ("Sessions pages, Admin, Actions and Settings redesigned" ticked) (BACKLOG: nothing new; README: no new make target)
 
 **Commit checkpoint**
-- [ ] `feat: redesign the admin and placeholder pages`
+- [x] `feat: redesign the admin and placeholder pages` (4a61ac2, 2026-10-13; pushed, CI run 38358726340 green, the frontend alone built and deployed, the backend steps skipped)
 
 ### Phase 8: Staging, demo check, audit and handover
 **Code work and setup**
-- [ ] The pushes deploy the frontend (both CI filters read before saying what a push runs); the demo path walked on staging with the user in light, dark and at phone width (the exit gate)
+- [x] The pushes deploy the frontend (both CI filters read before saying what a push runs); the demo path walked on staging with the user in light, dark and at phone width (the exit gate)
+  - [x] Staging serves 4a61ac2 (CI run 38358726340: every job green, "Deploy to staging" done 06:53 UTC; the live sign-in page has the new Entra note; `/api/v1/health` healthy) (2026-10-13)
+  - [x] (2026-10-13: 5 placements added by the user) The user seeds a few placements on staging with the quick add (Admin > Register), so the board and the placement page have rows; they show as Not scored, with no chart, flags or contributors, until a real call is processed (user decision 2026-10-13, see the Decisions table)
+  - [x] (2026-10-13: approved by the user on staging; the exit gate met) The walk-through: sign-in, the shell, the risk board, a placement page; light and dark; sign-in and the shell at phone width; the user approves or lists changes
+    - Feedback so far, each noted in `BACKLOG.md` (user decision 2026-10-13: note the changes as backlog items, not fixes this sprint): the risk board's project in its own column
 
 **Doc updates (concurrent)**
-- [ ] Pages not redesigned to `BACKLOG.md`; `docs/tracking/SPRINT-AUDIT.md` (Rule C), `docs/handover/sprint-03-handover.md`, `ROADMAP.md`, `BACKLOG.md`
+- [x] Pages not redesigned to `BACKLOG.md` (none: every page was redesigned); `ROADMAP.md` (the exit gate met); `BACKLOG.md` (the redesign done, the project column, the unused chart CSS)
+- [x] `docs/tracking/SPRINT-AUDIT.md` (Rule C, 2026-10-13): every suite and linter run (1045 backend, 265 frontend unit, 23 e2e = 1333); six findings S3-1 to S3-6, each fixed, with a rule and a Learnings Log line; AUDIT PASSED
+- [x] `docs/handover/sprint-03-handover.md` (written 2026-10-13 after the user reviewed the audit)
 
 **Commit checkpoint**
 - [ ] `docs: complete sprint 3 audit and handover`
@@ -208,14 +215,14 @@ Every phase: the Stitch step (variants on made-up data; the user picks one or as
 - Each page waits on the user's approval of its design; Phases 6 and 7 depend on the time left.
 - The exit gates of PRD Phases 1 and 2 need real data on staging (the user's actions).
 
-## Session State (last updated: 2026-10-13 12:10)
+## Session State (last updated: 2026-10-13 14:50)
 - **Sprint**: 3 — Visual Redesign
-- **Current phase**: Phase 7 — Admin, Actions and Settings (built, awaiting the commit checkpoint)
-- **Phase progress**: Phases 3 to 6 complete and pushed; Phase 7 3 of 4 (commit left)
-- **Last completed task**: Phase 7 code, tests and docs (Admin variant 1, empty-state variant 1, subtitles of our own)
-- **Next task**: the user approves the Phase 7 judgement calls and the commit `feat: redesign the admin and placeholder pages`, and says whether to push (frontend only: read both CI filters first); then Phase 8 (the staging demo walk-through, the exit gate, then the audit and handover)
-- **Last commit**: 039fc3a "feat: redesign the sessions pages", pushed 2026-10-13 (CI run 38291055173 green; frontend deployed, backend untouched)
-- **Uncommitted changes**: Phase 7: `frontend/src/components/admin/{AdminView,AdminView.test,ProcessingStatusPanel}.tsx`, `frontend/src/components/admin/register/{RegisterTab,QuickAddCard}.tsx`, `frontend/src/components/common/{EmptyState,EmptyState.test}.tsx`, `frontend/src/components/ui/card.tsx`, `frontend/src/components/health/PlacementHealthView.tsx`, `frontend/src/components/sessions/SessionView.tsx`, `frontend/src/app/(app)/{actions,settings}/page.tsx`, `docs/{ARCHITECTURE,DESIGN}.md`, `docs/tracking/{TESTS,FEATURES,CHANGELOG}.md`, `docs/planning/ROADMAP.md`, this file (with the Session State after the Phase 6 push)
+- **Current phase**: Phase 8 — staging demo, audit and handover (exit gate met; audit passed; handover written; waiting for the commit)
+- **Phase progress**: Phases 1 to 7 complete, committed and pushed (every page redesigned)
+- **Last completed task**: the Rule C audit (passed, six findings fixed) and the handover `docs/handover/sprint-03-handover.md`
+- **Next task**: the user approves the commit `docs: complete sprint 3 audit and handover` (and says whether to push: docs only, so read both CI filters first); then the sprint is closed and Sprint 4 is planned with `/sprint-start` in a new session
+- **Last commit**: 4a61ac2 "feat: redesign the admin and placeholder pages", pushed 2026-10-13 (CI run 38358726340 green; frontend deployed, backend untouched)
+- **Uncommitted changes**: `docs/handover/sprint-03-handover.md` (new), `README.md`, `docs/{ARCHITECTURE,DESIGN,DEPLOYMENT}.md`, `docs/tracking/{SPRINT-AUDIT,TESTS,FEATURES}.md`, `docs/planning/{ROADMAP,BACKLOG,CURRENT-SPRINT}.md` (local, not committed: the local rules and the Learnings Log)
 - **Blockers**: none
 - **Tests passing**: 763 unit + 282 integration (backend, unchanged since 2026-10-11) + 265 frontend unit (`--maxWorkers=4`); 23 of 23 e2e (one worker) = 1333 tests
 - **Files modified this session**: the uncommitted changes above
