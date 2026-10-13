@@ -1,6 +1,6 @@
 # Sprint 3: Visual Redesign
 
-**Status**: `in-progress` (plan approved 2026-10-12)
+**Status**: `complete` (2026-10-13; plan approved 2026-10-12)
 **Duration**: 2026-10-12 – 2026-10-23 (2 weeks)
 **Objective**: a modern, management-ready look, designed page by page in Google Stitch and approved by the user before each page is built. The demo path comes first: the design system, a new app shell, a showcase sign-in page, the risk board and the placement page. Then the sessions pages and Admin if time allows; anything left goes to BACKLOG. Teams chat (PRD Phase 3, ROADMAP Milestone 3) moves to Sprint 4.
 **Exit gate**: the user approves the sign-in page, the risk board and the placement page on staging after a demo walk-through (light, dark, and phone width for sign-in and the shell); CI green.
@@ -83,7 +83,7 @@
 
 ## Task Checklist
 
->>> CURRENT PHASE: Phase 8 (next: the commit checkpoint)
+>>> CURRENT PHASE: none (Sprint 3 complete; next: plan Sprint 4 with `/sprint-start`)
 
 Every phase: the Stitch step (variants on made-up data; the user picks one or asks for edits), then code, tests and docs, then the commit checkpoint, then stop. Any screenshot used for design reference comes from the local stack seeded with `seed_e2e_session.py --health`, never from staging. Before e2e: `docker compose up --build -d --wait frontend`, one worker; Vitest with `--maxWorkers=4`.
 
@@ -205,24 +205,31 @@ Every phase: the Stitch step (variants on made-up data; the user picks one or as
 - [x] `docs/handover/sprint-03-handover.md` (written 2026-10-13 after the user reviewed the audit)
 
 **Commit checkpoint**
-- [ ] `docs: complete sprint 3 audit and handover`
+- [x] `docs: complete sprint 3 audit and handover` (c323346, 2026-10-13; pushed, CI run 38374137881 green, the deploy skipped as a docs-only commit)
 
 ### Alongside (not blocking)
 - [ ] The user seeds the staging register with the quick add, gives the consultant directors the CDM role and processes calls from consultants told beforehand (who and when recorded here); each run reviewed (node errors, rejected quotes, cost, timing), any prompt fix as its own `fix:` commit; then the Phase 1 and Phase 2 exit gates (BACKLOG High Priority)
 - [ ] A Teams admin confirms the chat RSC state and step A5 is run (`docs/integrations/TEAMS-GRAPH-SETUP.md`), so Sprint 4 can start
 
+## After Sprint 3 (2026-10-13): Teams chat route
+Not a sprint; recorded here until Sprint 4 is planned.
+- Opening the Teams app "PMO Intelligence" (Apps → Built for your org) showed "This app is not available. Please check with your admin". The Graph app's certificate sign-in works; its token holds no application permission (`Chat.Read.All` not granted, as intended). The chat RSC state cannot be read without an admin role.
+- A 1.0.1 package with a group-chat tab was considered (user choices: a static notice, on a public frontend route, as a between-sprints task) and **paused** before any code: the requirement below changes the route, and an install through Graph may not need a tab.
+- **Requirement (user, 2026-10-13)**: read every group chat titled `PRJ ITC <stack> - <consultant> - <client> - <start> - <end>`; `PRJ ITC` marks a PMO group.
+- **Decisions (user, 2026-10-13)**: route A (find the chats through one PMO account's chat list with `Chat.ReadBasic.All`, add the Teams app to each through Graph with `TeamsAppInstallation.ReadWriteAndConsentSelfForChat.All`, read with RSC `ChatMessage.Read.Chat`), not route B (`Chat.Read.All`, a protected API); the PMO accounts `Sunny.Dhanoe@InformationTechConsultants.com` and `uttam.kumar@InformationTechConsultants.com` cover every `PRJ ITC` chat (lists merged by chat ID). The two permissions were added to the app registration (`az ad app permission add`, with the user's go-ahead), not granted. Details and the admin request: `docs/integrations/TEAMS-GRAPH-SETUP.md`, "Part C". Next: the admin's consent, then a discovery check.
+
 ## Blockers and Dependencies
 - Each page waits on the user's approval of its design; Phases 6 and 7 depend on the time left.
 - The exit gates of PRD Phases 1 and 2 need real data on staging (the user's actions).
 
-## Session State (last updated: 2026-10-13 14:50)
+## Session State (last updated: 2026-10-13 16:00)
 - **Sprint**: 3 — Visual Redesign
-- **Current phase**: Phase 8 — staging demo, audit and handover (exit gate met; audit passed; handover written; waiting for the commit)
-- **Phase progress**: Phases 1 to 7 complete, committed and pushed (every page redesigned)
-- **Last completed task**: the Rule C audit (passed, six findings fixed) and the handover `docs/handover/sprint-03-handover.md`
-- **Next task**: the user approves the commit `docs: complete sprint 3 audit and handover` (and says whether to push: docs only, so read both CI filters first); then the sprint is closed and Sprint 4 is planned with `/sprint-start` in a new session
-- **Last commit**: 4a61ac2 "feat: redesign the admin and placeholder pages", pushed 2026-10-13 (CI run 38358726340 green; frontend deployed, backend untouched)
-- **Uncommitted changes**: `docs/handover/sprint-03-handover.md` (new), `README.md`, `docs/{ARCHITECTURE,DESIGN,DEPLOYMENT}.md`, `docs/tracking/{SPRINT-AUDIT,TESTS,FEATURES}.md`, `docs/planning/{ROADMAP,BACKLOG,CURRENT-SPRINT}.md` (local, not committed: the local rules and the Learnings Log)
+- **Current phase**: none — Sprint 3 complete (exit gate met, audit passed, handover written)
+- **Phase progress**: Phases 0 to 8 complete, committed and pushed
+- **Last completed task**: Phase 8 committed and pushed (the audit and the handover)
+- **Next task**: send the admin the request in `docs/integrations/TEAMS-GRAPH-SETUP.md`, "Part C" (consent to the two route A permissions, chat RSC state, the "not available" app); after consent, a discovery check of Sunny Dhanoe's and Uttam Kumar's `PRJ ITC` chats; then plan Sprint 4 with `/sprint-start` in a new session
+- **Last commit**: c323346 "docs: complete sprint 3 audit and handover", pushed 2026-10-13 (CI run 38374137881: Backend CI, Frontend CI and E2E green; the deploy skipped, docs only)
+- **Uncommitted changes**: this file (the Session State after the push; the "After Sprint 3" section), `docs/planning/BACKLOG.md` (open questions 1 and 4, the route A item), `docs/integrations/TEAMS-GRAPH-SETUP.md` (route, status, Part C)
 - **Blockers**: none
 - **Tests passing**: 763 unit + 282 integration (backend, unchanged since 2026-10-11) + 265 frontend unit (`--maxWorkers=4`); 23 of 23 e2e (one worker) = 1333 tests
 - **Files modified this session**: the uncommitted changes above

@@ -1,9 +1,9 @@
 # Teams / Microsoft Graph Access: Setup
 
 **Goal**: let PMO Intelligence read the consultant group chats it is explicitly added to, and nothing else.
-**Route**: resource-specific consent (RSC), with application permission `Chat.Read.All` requested in parallel as the fallback.
+**Route**: route A (decided 2026-10-13, see "Part C"): find every group chat titled `PRJ ITC …` through one PMO account's chat list, add the Teams app to each through Graph, and read each with resource-specific consent (RSC). Before 2026-10-13 the route was RSC with the app added to each chat by hand, and application permission `Chat.Read.All` requested in parallel as the fallback (left ungranted; not chosen).
 **Tenant**: Information Tech Consultants (`2b32b1fa-7899-482e-a6de-be99c0ff5516`)
-**Status**: A1–A3 done 2026-10-06 (app-only sign-in verified). A4: the package was submitted via "Submit an app to your org" on 2026-10-06, and the Teams app **PMO Intelligence 1.0.0 was seen published in the Teams admin center on 2026-10-08** (approval done; no ticket number was issued). Its availability is the org-wide default, *everyone, including guests and external users*: to be narrowed to the PMO team (BACKLOG). Installed for no one yet. Still open: chat RSC state (admin step 1) and the A5 read test, both before Phase 3 watches real chats.
+**Status**: 2026-10-13: route A chosen; its two permissions added to the app registration, not yet consented ("Part C"); opening the Teams app showed "This app is not available. Please check with your admin"; the app's certificate sign-in works and its token holds no application permission. A1–A3 done 2026-10-06 (app-only sign-in verified). A4: the package was submitted via "Submit an app to your org" on 2026-10-06, and the Teams app **PMO Intelligence 1.0.0 was seen published in the Teams admin center on 2026-10-08** (approval done; no ticket number was issued). Its availability is the org-wide default, *everyone, including guests and external users*: to be narrowed to the PMO team (BACKLOG). Installed for no one yet. Still open: chat RSC state (admin step 1) and the A5 read test, both before Phase 3 watches real chats.
 **Research date**: 2026-10-06. Graph rules change, so re-check the linked Microsoft pages before acting.
 
 | Part | Who | Needs admin rights? |
@@ -82,6 +82,33 @@ Send this after A2 (and A4 if you used "Submit an app to your org"). Fill in the
 
 ---
 
+## Part C: Reading every PRJ ITC chat (route A, decided 2026-10-13)
+**Requirement** (user, 2026-10-13): read every group chat whose title has the form `PRJ ITC <stack> - <consultant> - <client> - <start> - <end>`, for example `PRJ ITC DS - Stephen Owusu - UST Global - 21/9/2026 - 21/09/2027`. `PRJ ITC` marks a PMO group. The title is the quick-add line format, so each chat maps to its placement by consultant, client and start date.
+
+**How it works**:
+1. **Find**: list the chats of the PMO accounts that between them are members of every `PRJ ITC` chat (named 2026-10-13: `Sunny.Dhanoe@InformationTechConsultants.com` and `uttam.kumar@InformationTechConsultants.com`; the lists are merged by chat ID) (`GET /users/{id}/chats`, application `Chat.ReadBasic.All`: chat titles and members, not messages) and keep the `PRJ ITC` titles.
+2. **Join**: add the Teams app "PMO Intelligence" to each such chat that does not have it (`POST /chats/{id}/installedApps` with its RSC permissions in `consentedPermissionSet`, application `TeamsAppInstallation.ReadWriteAndConsentSelfForChat.All`; the plainer `TeamsAppInstallation.ReadWriteSelfForChat.All` cannot install an app that needs RSC). Each chat shows that the app was added.
+3. **Read**: poll each chat's messages with the RSC permission `ChatMessage.Read.Chat` (see "Engineering notes").
+
+| Application permission | App role ID | Why |
+|------------------------|-------------|-----|
+| `Chat.ReadBasic.All` | `b2e060da-3baf-4687-9611-f4ebc0f0cbde` | Find the `PRJ ITC` chats by title |
+| `TeamsAppInstallation.ReadWriteAndConsentSelfForChat.All` | `ba1ba90b-2d8f-487e-9f16-80728d85bb5c` | Add the app to each found chat and grant its chat RSC |
+
+Role IDs read from the tenant's Microsoft Graph service principal on 2026-10-13. Both were added to the app registration on 2026-10-13 with `az ad app permission add` (not by `Register-GraphApp.ps1`, which adds only `Chat.Read.All`); not yet granted. Not chosen: route B, application `Chat.Read.All`, a Microsoft protected API that reads every chat in the tenant.
+
+**Still to confirm before Sprint 4 builds on it**: that `Chat.ReadBasic.All` is not a protected API (Microsoft's protected-API page could not be opened on 2026-10-13); whether the Teams app's availability settings also govern an install through Graph; whether a package with RSC permissions only installs into a chat this way.
+
+**Request to the tenant administrator** (after the two permissions are added to the app registration):
+
+> PMO Intelligence needs to read the PMO group chats, the chats titled "PRJ ITC …" (one per consultant placement), and nothing else. Please grant tenant-wide admin consent (Entra → App registrations → PMO Intelligence Graph → API permissions → Grant admin consent) to two application permissions on the Entra app **PMO Intelligence Graph** (app ID `d3b0556f-bcf2-4a5a-8d05-37f40aaa03b3`):
+>
+> - `Chat.ReadBasic.All`: read the names and members of chats, not their messages. The service lists the chats of Sunny Dhanoe and Uttam Kumar, who are in every PMO group chat, and keeps only the "PRJ ITC" ones.
+> - `TeamsAppInstallation.ReadWriteAndConsentSelfForChat.All`: lets the PMO Intelligence Teams app add itself to those chats and grant its own chat-level read permission there. Every chat shows that the app was added, and removing it from a chat stops the reading.
+>
+> Messages are read only in those chats, with the chat-level permission `ChatMessage.Read.Chat`. The app never posts and takes no automated action. Please also confirm that chat RSC is not `DisabledForAllApps` (`Get-MgBetaChatRscConfiguration`), and check why the Teams app "PMO Intelligence" shows "This app is not available. Please check with your admin" (Teams admin center → Manage apps → PMO Intelligence: status, publishing state, users and groups). The fallback `Chat.Read.All` is still not needed; please leave it ungranted.
+
+---
 ## Results to record (goes into the Sprint 0 handover)
 
 | Item | Value |
@@ -95,6 +122,8 @@ Send this after A2 (and A4 if you used "Submit an app to your org"). Fill in the
 | Fallback `Chat.Read.All` status | requested, not granted |
 | Admin ticket number | none issued: the app was approved without one (Sprint 0 exit gate met by the approval itself, user decision 2026-10-08) |
 | Test chat verified (A5 date) | not yet run (before Phase 3) |
+| Route A permissions (Part C) | added to the app registration 2026-10-13; admin consent not yet granted |
+| PMO accounts covering every `PRJ ITC` chat | `Sunny.Dhanoe@InformationTechConsultants.com`, `uttam.kumar@InformationTechConsultants.com` (named by the user 2026-10-13; coverage not yet checked) |
 
 ---
 
