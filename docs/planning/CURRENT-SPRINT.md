@@ -216,20 +216,20 @@ Not a sprint; recorded here until Sprint 4 is planned.
 - Opening the Teams app "PMO Intelligence" (Apps → Built for your org) showed "This app is not available. Please check with your admin". The Graph app's certificate sign-in works; its token holds no application permission (`Chat.Read.All` not granted, as intended). The chat RSC state cannot be read without an admin role.
 - A 1.0.1 package with a group-chat tab was considered (user choices: a static notice, on a public frontend route, as a between-sprints task) and **paused** before any code: the requirement below changes the route, and an install through Graph may not need a tab.
 - **Requirement (user, 2026-10-13)**: read every group chat titled `PRJ ITC <stack> - <consultant> - <client> - <start> - <end>`; `PRJ ITC` marks a PMO group.
-- **Decisions (user, 2026-10-13)**: route A (find the chats through one PMO account's chat list with `Chat.ReadBasic.All`, add the Teams app to each through Graph with `TeamsAppInstallation.ReadWriteAndConsentSelfForChat.All`, read with RSC `ChatMessage.Read.Chat`), not route B (`Chat.Read.All`, a protected API); the PMO accounts `Sunny.Dhanoe@InformationTechConsultants.com` and `uttam.kumar@InformationTechConsultants.com` cover every `PRJ ITC` chat (lists merged by chat ID). The two permissions were added to the app registration (`az ad app permission add`, with the user's go-ahead), not granted. Details and the admin request: `docs/integrations/TEAMS-GRAPH-SETUP.md`, "Part C". Next: the admin's consent, then a discovery check.
+- **Decisions (user, 2026-10-13)**: route A (find the chats through one PMO account's chat list with `Chat.ReadBasic.All`, add the Teams app to each through Graph with `TeamsAppInstallation.ReadWriteAndConsentSelfForChat.All`, read with RSC `ChatMessage.Read.Chat`), not route B (`Chat.Read.All`, a protected API); the PMO accounts `Sunny.Dhanoe@InformationTechConsultants.com` and `uttam.kumar@InformationTechConsultants.com` cover every `PRJ ITC` chat (lists merged by chat ID). The two permissions were added to the app registration (`az ad app permission add`, with the user's go-ahead), not granted. Details and the admin request: `docs/integrations/TEAMS-GRAPH-SETUP.md`, "Part C". Admin consent granted 2026-10-14, `Chat.Read.All` included and kept for now as a fallback (user decision 2026-10-14). Discovery check 2026-10-14 (read-only): 151 distinct `PRJ ITC` chats across the two accounts; 42 titles parse with the quick add's parser, 109 do not (Part C has the breakdown).
 
 ## Blockers and Dependencies
 - Each page waits on the user's approval of its design; Phases 6 and 7 depend on the time left.
 - The exit gates of PRD Phases 1 and 2 need real data on staging (the user's actions).
 
-## Session State (last updated: 2026-10-13 16:00)
+## Session State (last updated: 2026-10-14 10:00)
 - **Sprint**: 3 — Visual Redesign
 - **Current phase**: none — Sprint 3 complete (exit gate met, audit passed, handover written)
 - **Phase progress**: Phases 0 to 8 complete, committed and pushed
-- **Last completed task**: Phase 8 committed and pushed (the audit and the handover)
-- **Next task**: send the admin the request in `docs/integrations/TEAMS-GRAPH-SETUP.md`, "Part C" (consent to the two route A permissions, chat RSC state, the "not available" app); after consent, a discovery check of Sunny Dhanoe's and Uttam Kumar's `PRJ ITC` chats; then plan Sprint 4 with `/sprint-start` in a new session
-- **Last commit**: c323346 "docs: complete sprint 3 audit and handover", pushed 2026-10-13 (CI run 38374137881: Backend CI, Frontend CI and E2E green; the deploy skipped, docs only)
-- **Uncommitted changes**: this file (the Session State after the push; the "After Sprint 3" section), `docs/planning/BACKLOG.md` (open questions 1 and 4, the route A item), `docs/integrations/TEAMS-GRAPH-SETUP.md` (route, status, Part C)
+- **Last completed task**: admin consent checked (three application permissions granted, `Chat.Read.All` among them) and the read-only discovery check run (151 `PRJ ITC` chats, 42 titles parse)
+- **Next task**: plan Sprint 4 (Teams chat) with `/sprint-start` in a new session, including how chat titles that do not parse are matched to placements (151 `PRJ ITC` chats, 42 parse)
+- **Last commit**: 619ba69 "docs: record the route for reading PMO group chats", pushed 2026-10-13 (CI run 38379038687: Backend CI, Frontend CI and E2E green; the deploy skipped, docs only)
+- **Uncommitted changes**: this file, `docs/integrations/TEAMS-GRAPH-SETUP.md` (discovery results), `docs/planning/BACKLOG.md` (route A item)
 - **Blockers**: none
 - **Tests passing**: 763 unit + 282 integration (backend, unchanged since 2026-10-11) + 265 frontend unit (`--maxWorkers=4`); 23 of 23 e2e (one worker) = 1333 tests
 - **Files modified this session**: the uncommitted changes above

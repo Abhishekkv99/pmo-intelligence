@@ -99,7 +99,9 @@ Role IDs read from the tenant's Microsoft Graph service principal on 2026-10-13.
 
 **Still to confirm before Sprint 4 builds on it**: that `Chat.ReadBasic.All` is not a protected API (Microsoft's protected-API page could not be opened on 2026-10-13); whether the Teams app's availability settings also govern an install through Graph; whether a package with RSC permissions only installs into a chat this way.
 
-**Request to the tenant administrator** (after the two permissions are added to the app registration):
+**Discovery check (2026-10-14, read-only: chat lists only, nothing installed, no message read)**: admin consent was granted on 2026-10-14, and the app's token holds `Chat.ReadBasic.All`, `TeamsAppInstallation.ReadWriteAndConsentSelfForChat.All` and also `Chat.Read.All` (granted with the others, though the request asked to leave it ungranted). Kept granted for now as a fallback (user decision 2026-10-14); the code calls Graph only for `PRJ ITC` chats. `GET /users/{id}/chats` answered for both accounts, so `Chat.ReadBasic.All` works app-only without a protected-API approval. Sunny Dhanoe: 504 chats, 326 group chats, 147 titled `PRJ ITC`; Uttam Kumar: 3,383 chats, 2,822 group chats, 124 titled `PRJ ITC`; together 151 distinct `PRJ ITC` chats (whether any exists outside both lists is not known). Only 42 of the 151 titles parse with the quick add's line parser: 57 differ in separators (no space round a dash, dates in brackets, an extra or missing part), 40 write a date as D/M/YY or YYYY-MM-DD, 10 write the prefix `PRJ ITC-` or with a dash after `PRJ ITC`, and 2 have an end date before the start; 41 use en dashes. The list includes old engagements (titles with 2021 and 2025 dates). Still not tested: an install through Graph, and whether the Teams app's "not available" state blocks it.
+
+**Request to the tenant administrator** (after the two permissions are added to the app registration; sent, and consent granted 2026-10-14):
 
 > PMO Intelligence needs to read the PMO group chats, the chats titled "PRJ ITC …" (one per consultant placement), and nothing else. Please grant tenant-wide admin consent (Entra → App registrations → PMO Intelligence Graph → API permissions → Grant admin consent) to two application permissions on the Entra app **PMO Intelligence Graph** (app ID `d3b0556f-bcf2-4a5a-8d05-37f40aaa03b3`):
 >
@@ -119,11 +121,11 @@ Role IDs read from the tenant's Microsoft Graph service principal on 2026-10-13.
 | Certificate thumbprint and expiry date | `F46877044D95A517407208FF2D2FE9F382684BD3`, expires 2027-10-06 |
 | Chat RSC state (admin step 1) | not yet confirmed (needs a Teams or Global admin; before Phase 3) |
 | Teams app approved (date) | submitted 2026-10-06; seen **published, version 1.0.0** on 2026-10-08 (exact approval date not recorded). Available to: everyone (org-wide default, including guests and external users), to be narrowed to the PMO team. Installed for: no one |
-| Fallback `Chat.Read.All` status | requested, not granted |
+| Fallback `Chat.Read.All` status | granted 2026-10-14 with the route A permissions (not asked for; see Part C). Kept granted for now as a fallback (user decision 2026-10-14); the code calls Graph only for `PRJ ITC` chats. |
 | Admin ticket number | none issued: the app was approved without one (Sprint 0 exit gate met by the approval itself, user decision 2026-10-08) |
 | Test chat verified (A5 date) | not yet run (before Phase 3) |
-| Route A permissions (Part C) | added to the app registration 2026-10-13; admin consent not yet granted |
-| PMO accounts covering every `PRJ ITC` chat | `Sunny.Dhanoe@InformationTechConsultants.com`, `uttam.kumar@InformationTechConsultants.com` (named by the user 2026-10-13; coverage not yet checked) |
+| Route A permissions (Part C) | added to the app registration 2026-10-13; admin consent granted 2026-10-14 (with `Chat.Read.All` as well) |
+| PMO accounts covering every `PRJ ITC` chat | `Sunny.Dhanoe@InformationTechConsultants.com`, `uttam.kumar@InformationTechConsultants.com` (named by the user 2026-10-13); 151 distinct `PRJ ITC` chats between them on 2026-10-14 |
 
 ---
 
