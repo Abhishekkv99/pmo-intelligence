@@ -1,242 +1,237 @@
-# Sprint 3: Visual Redesign
+# Sprint 4: Teams Chat
 
-**Status**: `complete` (2026-10-13; plan approved 2026-10-12)
-**Duration**: 2026-10-12 – 2026-10-23 (2 weeks)
-**Objective**: a modern, management-ready look, designed page by page in Google Stitch and approved by the user before each page is built. The demo path comes first: the design system, a new app shell, a showcase sign-in page, the risk board and the placement page. Then the sessions pages and Admin if time allows; anything left goes to BACKLOG. Teams chat (PRD Phase 3, ROADMAP Milestone 3) moves to Sprint 4.
-**Exit gate**: the user approves the sign-in page, the risk board and the placement page on staging after a demo walk-through (light, dark, and phone width for sign-in and the shell); CI green.
+**Status**: `in-progress` (plan approved 2026-10-14)
+**Duration**: 2026-10-14 – 2026-10-27 (2 weeks)
+**Objective**: PRD Phase 3 (ROADMAP Milestone 3): read the PMO group chats (titled `PRJ ITC …`) through Microsoft Graph, store their messages, run the chat pipeline into the one `signals` table, track cadence, add the gone-quiet and missed-commitment triggers, and show messages on the placement page.
+**Exit gate (PRD)**: one real group watched for a week; new posts appear within 5 minutes; no message read outside the watched groups.
 **Branch**: `develop`
-**Previous sprint**: Sprint 2 (Health v1), complete 2026-10-11 without its exit gate; see `docs/handover/sprint-02-handover.md`. Its plan, session notes and Decisions Log are in git history (`9a2963f`); the post-sprint quick add (`73045d8`) and CDM (`8368ce9`) work is recorded there too.
+**Previous sprint**: Sprint 3 (Visual Redesign), complete 2026-10-13; see `docs/handover/sprint-03-handover.md`. Its plan, Decisions Log and session notes are in git history (`b4efa3a`).
 
 ---
 
 ## Research Findings Summary
-- **Stitch**: no project for PMO yet. Its tools create a project and a design system, generate a screen from a text prompt, generate 1–5 variants (refine, explore or reimagine), edit screens, and read a screen (its HTML and a screenshot link). Screens are generated from text only, so every prompt carries made-up sample data and nothing from staging is ever sent. The HTML is a reference: pages are rebuilt in the app's own components (shadcn/ui, Tailwind tokens), keeping dark mode, the RAG tokens, polling, access rules and tests.
-- **Current frontend** (surveyed 2026-10-12):
-  - Neutral shadcn tokens (oklch) in `src/app/globals.css`, with the `--risk-*` RAG tokens and `--chart-1`…`5`; Geist fonts; next-themes with class switching.
-  - The sidebar (`components/layout/Sidebar.tsx`) has text items and no icons, and is neither collapsible nor usable on a phone. The header repeats the app name as the page's `h1`.
-  - No logo: the only asset is `src/app/favicon.ico`, and there is no `public/`.
-  - The sign-in page is a centred card (`app/login/page.tsx`, `components/auth/LoginForm.tsx`).
-  - shadcn `new-york`, `radix-ui` 1.4, lucide; no sidebar, tooltip, sheet or avatar component yet; no animation library.
-- **Tokens and contrast**: Tailwind 4 keeps oklch values in `:root`/`.dark` and maps them through `@theme inline`, as the app already does.
-  - White on indigo #6366F1 is about 4.47:1, just under WCAG AA, so the light `--primary` is near #4F46E5 (`oklch(0.511 0.262 277)`) and the dark one near #818CF8 with a dark foreground; #6366F1 stays for the logo.
-  - `--accent` and `--secondary` stay tinted neutrals, since menus use `--accent` for hover.
-  - Muted text on dark surfaces is where dark themes usually fail contrast, so it is checked.
-- **Forced dark sign-in**: a wrapper with the `dark` class (and `color-scheme: dark`) redefines the variables beneath it, and the `dark:` variant (`@custom-variant dark (&:is(.dark *))`) follows it. The user's theme choice is never changed (no `setTheme`). Portals (toasts, dialogs, tooltips, selects) render on `body`, outside the wrapper, so the sign-in page uses none and shows errors inline.
-- **shadcn sidebar**: added with the pinned CLI (`pnpm exec shadcn add sidebar`).
-  - It brings sheet, tooltip and `hooks/use-mobile.ts`, and offers to overwrite button, input, separator and skeleton; the existing files are kept and `globals.css` is checked afterwards.
-  - The open state lives in the `sidebar_state` cookie, read with `!== "false"` so the sidebar starts open; `cookies()` is async in Next 16.
-  - jsdom needs a `matchMedia` stub.
-- **motion**: 14.0.0 is a new major (2026-10-02) and 14.1.0 is from 2026-10-09, so 13.4.6 (2026-09-29) is pinned exactly. It works in client components only (`motion/react`), with `MotionConfig reducedMotion="user"`. jsdom has no `IntersectionObserver`, so no `whileInView` without a stub. The existing `.chart-animate` keyframes also get a reduced-motion block.
-- **Favicon**: `src/app/icon.svg` (a Next metadata file) replaces `favicon.ico`. `src/proxy.ts`'s matcher lets only `favicon.ico` through, so it must also pass `icon.svg`, or signed-out browsers are sent to `/login` for the icon.
-- **Sign-in UX**: enterprise SSO as the single primary action, with clear inline errors; a second column only for context, which here is the showcase.
-- **Tests that read visible text**:
-  - The e2e auth setup waits for the heading "Risk board", and Playwright matches names as case-insensitive substrings in strict mode, so no new heading may contain "Risk board".
-  - `auth.spec.ts` expects one heading "PMO Intelligence" (the top bar), links "Actions" and "Settings" (no new link may contain those words), and one `[data-slot='card-title']` with "Sign In", so the showcase does not use `CardTitle`.
-  - `Sidebar.test.tsx` checks the nav labels and the Risk board href.
-  - `PlacementHealthView.test.tsx` checks the link "← Risk board".
-- **Code to reuse**:
-  - From `components/layout/Sidebar.tsx`, moved: `visibleNavItems`, `getActiveHref`, `globalOnly`.
-  - From `lib/roles.ts` and `lib/constants.ts`: `hasGlobalRole`, `ROUTES`, `APP_NAME`, `APP_TAGLINE`.
-  - From `components/health/HealthIndicators.tsx`: `HealthBadge`, `TrendIndicator`, `LEVEL_CLASSES`, `NotScored`.
-  - From `lib/health.ts`: the formatters and chart helpers.
-  - `HealthChart`, for the sign-in mini chart.
-  - `ThemeToggle`, as it is.
-  - `DataTable`, `EmptyState` and `ErrorFallback`: restyled, not replaced.
+Microsoft Graph pages read 2026-10-14; Graph rules change, so re-check before acting.
+
+- **Polling rule** ([Teams API overview, "Polling requirements"](https://learn.microsoft.com/en-us/graph/api/resources/teams-api-overview)): "If your app polls to see whether a resource has changed, you can only do that once per day." Anything faster must use change notifications (webhooks); apps that break the rule risk extra throttling or suspension. So the PRD's poll every 2 to 5 minutes is replaced by a webhook with a once-a-day catch-up read (user decision below). GETs that are not polling (a notification's message, a backfill) are allowed.
+- **Change notifications for chat messages** ([chatMessage notifications](https://learn.microsoft.com/en-us/graph/teams-changenotifications-chatmessage)):
+  - `/appCatalogs/teamsApps/{teams-app-id}/installedToChats/getAllMessages`: every chat where our Teams app is installed, in one subscription; application permission `Chat.Read.WhereInstalled` (not yet requested or granted).
+  - `/chats/{id}/messages`: per chat; RSC `ChatMessage.Read.Chat` is supported there "for the beta version only currently", or `Chat.Read.All` on v1.0.
+  - Without resource data no encryption certificate is needed: the notification carries the message's resource path, and the message is then read with a GET.
+- **Subscription lifetime** ([subscription resource](https://learn.microsoft.com/en-us/graph/api/resources/subscription)): chatMessage at most 4,320 minutes (three days); beyond one hour a `lifecycleNotificationUrl` is required (`subscriptionRemoved`, `reauthorizationRequired`, `missed`). chatMessage latency: under 10 s on average, at most 1 minute. The endpoint must answer the validation request (a `validationToken` query parameter, echoed as text/plain) within 10 seconds; `clientState` (up to 128 characters) lets the endpoint check a notification came from the subscription.
+- **Reading messages** ([list chat messages](https://learn.microsoft.com/en-us/graph/api/chat-list-messages)): least-privileged application permission is RSC `ChatMessage.Read.Chat`; `$top` at most 50; `$orderby` `lastModifiedDateTime` or `createdDateTime`, descending only; `$filter` on `lastModifiedDateTime` (`gt`, `lt`) only with `$orderby` on the same property; pages through `@odata.nextLink`. System events come as `messageType` `systemEventMessage`; deleted messages carry `deletedDateTime`; bodies are often HTML.
+- **Adding the app to a chat** ([add app to chat](https://learn.microsoft.com/en-us/graph/api/chat-post-installedapps)): `POST /chats/{id}/installedApps` with `teamsApp@odata.bind` to `appCatalogs/teamsApps/{catalog id}` and `consentedPermissionSet.resourceSpecificPermissions` matching the manifest (`ChatMessage.Read.Chat`, `ChatMember.Read.Chat`, both Application); `TeamsAppInstallation.ReadWriteAndConsentSelfForChat.All` (granted) can install an app that needs RSC, the plainer `…ReadWriteSelfForChat.All` cannot. 201 on success.
+- **Catalog id** ([list teamsApp](https://learn.microsoft.com/en-us/graph/api/appcatalogs-list-teamsapps)): an org-published app's catalog `id` is generated and differs from the manifest id (`0f2eaf35-…`, stamped as `externalId`). Looking it up app-only needs `AppCatalog.Read.All` (not granted); a one-off lookup by a signed-in user (Graph Explorer, `AppCatalog.Submit` delegated) and a setting avoid the extra permission.
+- **Throttling** ([Teams service limits](https://learn.microsoft.com/en-us/graph/throttling-limits)): per app per tenant, `GET /chats/{id}/messages` 20 rps and 1 rps per chat; `GET /users/{id}/chats` 20 rps (1 rps per user); `POST installedApps` 30 rps and 1 rps per chat. A sustained rate of about 83% of the listed value is also enforced, so a backfill paces itself and honours `Retry-After` with exponential backoff.
+- **Open to test on the tenant** (no page answers them): whether an install through Graph works while the Teams app shows "This app is not available. Please check with your admin"; whether a package with RSC permissions only (no tab or bot) installs into a chat this way.
+- **Credentials**: msal Python reads a `.pfx` directly (`client_credential={"private_key_pfx_path": ..., "passphrase": ...}`, since 1.29/1.30); `scripts/teams/verify_chat_access.py` already uses it. msal is not a backend dependency yet. The certificate is only on the developer's machine; secrets reach the backend container only as environment variables from `pmo-intelligence/staging/app` (`infra/modules/environment/secrets.tf`, `ecs.tf`).
+
+### Codebase survey (2026-10-14)
+- **Ready**: `SourceKind.MESSAGE`; `CHAT_PRIORITY = 0` in `processing_queue.py`; `RiskTrigger.GONE_QUIET` and `MISSED_COMMITMENT` with meanings and severities (medium); `SpeakerRole` documented for chat authors; `processing_costs.message_id` (no FK yet); `consultants.entra_oid` ("links a Teams message author to the consultant"); migration 005 already allows `message` source kinds and the `overdue` action status; the frontend has the trigger labels and `SOURCE_KINDS`.
+- **Missing**: `teams_groups` and `messages` models (next migration 010); Graph settings; any HTTP retry code (a Graph client needs its own 429/503 handling); a message class enumeration; trigger inputs for cadence and actions; quiet and missed-commitment thresholds in the health configuration (its model forbids unknown keys, so a new `v2.json`); a snapshot reason for chat; nothing sets an action `overdue`.
+- **Session pipeline reuse** (`app/ai/session/`): `llm_node` (timeout, cost, non-fatal) is typed to the session state and prefixes `session_`; `TranscriptIndex` in `quote_check.py` already accepts any list of `{text, speaker, start_ms}`, so a chat thread can be checked the same way; the prompts' `common.py` text assumes a call. Tests mock the model with `FakeModel` (`tests/unit/session_pipeline_helpers.py`).
+- **Title parsing**: the quick add's `parse_line` (`register_quick_add.py`) needs spaces round every separator, five parts, `D/M/YYYY` or `D-M-YY`, and a full consultant name; it fails on the 109 titles. `recordings/folder_names.py` (`fold`) and `recordings/name_match.py` (`match_folder`, first or last name as a whole word) already handle first-name-only titles.
+- **Loops**: `recordings/periodic.py` and `health_jobs.py` show the loop, fixed-id job, runner registration and takeover patterns to copy.
+- **Frontend**: the placement page's left column ends with "Calls" (a messages section fits after it); `EvidenceItem` links only session evidence; the risk board's "Last call" column is the pattern for "Last post"; Admin tabs are listed in `ADMIN_TABS` (`AdminView.tsx`) and `RecordingsTab` with `useRecordings` is the pattern for a Teams tab.
 
 ## User Decisions Made
 | Question | User Choice | Alternatives Offered |
 |----------|------------|---------------------|
-| Scope | The demo path first (design system and shell, sign-in, risk board, placement page), then the sessions pages and Admin if time allows; leftovers to BACKLOG | Every page; sign-in and shell only |
-| Teams chat (Milestone 3) | Sprint 4; the chat RSC check with the Teams admin runs alongside this sprint | Later, after the exit gates; decide at Sprint 4 planning |
-| Dates | 2026-10-12 – 2026-10-23 | One week |
-| Design review | For each page, 2–3 Stitch variants on made-up data; the user approves one (or asks for edits) before any code | The design system and sign-in only, the rest reviewed in the browser |
-| Shell | The shadcn `sidebar` block: an icon per item, collapsible to an icon rail, a drawer on a phone, the user menu in its footer | Restyle the current sidebar |
-| Responsive | Sign-in and the shell down to phone width; the data pages desktop-first | Every redesigned page; desktop only |
-| Motion | The `motion` library, pinned exactly at 13.4.6, in client components only, reduced motion respected | CSS only (tw-animate-css); 14.1.0 |
-| Sign-in preview | A live React component drawn from hard-coded, made-up placements; no API call before sign-in | A static image |
-| Accent | Indigo/violet; red, amber and green stay reserved for RAG | Blue; teal; three proposals from Stitch |
-| Logo | A simple SVG mark (a pulse line in a rounded square) beside the wordmark, also the favicon | Wordmark only; the user supplies one |
-| Sign-in theme | Always dark, whatever the theme setting | Follow the theme |
-| Font | Keep Geist and Geist Mono | Inter; Plus Jakarta Sans or Manrope for headings |
-| Test text | Page headings, nav labels, aria-labels and test ids stay; the login and header copy follow the design, their tests changed in the same commit | Any text follows the design |
-| Design doc | `docs/DESIGN.md` (tokens, logo, shell, page patterns, motion), kept current phase by phase | No separate doc |
-| Exit gates | Alongside, not blocking | Not this sprint |
-| Route group | The signed-in pages move under `src/app/(app)/` with one shared layout, so the shell stays mounted; URLs unchanged | MainLayout per page |
-| Naming the design tool | Committed docs may name Google Stitch (a design tool) | Neutral wording only |
-| Design direction (Phase 1, after four plain token sheets were judged not modern enough and a research pass on Superhuman, Linear, Raycast and 2026 dashboard trends) | **Twilight** (Superhuman-like): a deep twilight gradient hero (#1B1938 → #4C326E → #794B7A → dusk) dissolving into warm white #FBFAF8; huge display type (line-height 0.96, tight tracking); lavender #CBB7FB accent, cream #E9E5DD sign-in button, charcoal #292827 text, warm grey #DCD7D3 hairlines; a large product screenshot; status red #DC2626, amber #D97706, green #16A34A. Replaces: indigo accent; "always dark" sign-in (it is now dark into light) | Aurora (Linear-like, dark, 3D board); Command centre (Raycast-like bento) and a mix of the two with Twilight's chart |
-| Font (Phase 1) | Plus Jakarta Sans for text, JetBrains Mono for numbers, as in Twilight. Replaces: keep Geist | Keep Geist |
-| Theme (Phase 1) | The app opens in the light Twilight theme; a twilight-dark theme (deep purple surfaces, lavender accents) stays in the theme menu with system, so every page still supports dark mode | Follow the system |
-| Shell design (Phase 1) | Stitch draws the signed-in shell and risk board in both themes for approval before tokens are written | Derive the tokens from Twilight without a further screen |
-| Judgement calls made while building Phase 1 (for approval at the checkpoint) | Contrast over the mockups' exact values: muted text #66635F (the mockup's #85817B is 3.7:1), green #15803D (the mockup's #16A34A is 3.3:1 as text), amber kept as a fill with dark text (#D97706 is 3.2:1 as text). `--radius` 0.75rem: cards 16px as in Twilight, buttons and inputs 10px (Twilight 8px). Focus ring plum #794B7A in light, lavender in dark. Chart line `--chart-1` #4C326E in light, lavender in dark. The sidebar is twilight purple in both themes through the sidebar tokens; the current sidebar got one class (`text-sidebar-foreground`) so its title stays readable until Phase 2 replaces it. The logo is a client component so each mark gets its own gradient id (`useId`); the wordmark's mark is decorative. `--lavender`, `--twilight` and `--gradient-twilight` added as brand tokens |
-| Sign-in design (Phase 3) | Stitch variant 3, "Twilight Sign-in (Variant 3: Two-Column Split Preview)" (`993d6e9bb3ff47089a97890d72e7b361`): the promise and "Sign in with Microsoft" on the left, a three-row risk board card over a flag card with its quote on the right, in the twilight hero; the three highlights and the footer on warm white below. The preview uses the app's own pieces: the health badge with the level in words, the real trigger name ("Client dissatisfaction", critical) and a "Sample data" tag in place of "Live Status". No chart (the plan's mini chart dropped). The phone layout stacks (promise, button, cards, highlights) and is reviewed in the browser, with no Stitch phone screen. The page always looks as designed, whatever the theme (a light token scope inside a dark theme; the theme setting never changed), and the callback page uses the same shell | Variant 1 (risk board preview), variant 2 (placement page preview); bare-number badges, "Early warning flag", "Live Status"; a mini chart card; a Stitch phone screen first; the lower part following the theme |
-| Risk board design (Phase 4) | Stitch variant 2, "Risk Board (Variant 2: Grouped Level Sections)" (`51a5144a2ce3454dbdb045ee3e9901e1`): the heading with the subtitle "Every active placement, most at risk first.", a summary strip of four level counts, the filter bar, then one section per level (Red, Amber, Green, Not scored), each a card headed by the level's dot, the level and its count, with its own table. The headings say the level and count only: the screen's subtitles ("Immediate attention required", "Stable performance", and "Initial onboarding · baseline pending", which is wrong: not scored means no signal in the lookback) are dropped, and no thresholds are shown (the board's response carries none). The counts are buttons that filter the board: a click shows only that level and sets the level menu to match, a second click clears it; they count every row before the other filters and the search; a section with no rows is hidden. An SME sees one plain table (no strip, no sections), with the subtitle "Every placement you support, lowest Technical score first." Risk board keeps the `Gauge` icon and Admin its icon (the screen's dollar sign and missing icon are not the shell) | Variant 1 (coloured left edge), variant 3 (dense table, large score); subtitles of our own; live counts that follow the filters; counts for display only; the SME view as today |
-| Placement page design (Phase 5) | Stitch variant 1, "Placement: Priya Raman (Variant 1: Executive KPI Banner & Dual-Column Cockpit)" (`1f5ded7af0014a2e861fe6a9d5afb9ca`): one header card (the name, the overall and its trend, the status, client · project · weeks in, the register fields, the scoring line, then the six score tiles); below it two columns, the left with the chart, what moved the scores and the calls, the right with the open flags, open issues, actions and other placements. "What moved the scores" shows each contributor's weight and its value (the configuration's value for the signal's polarity and severity, from the stored snapshot; no API change). Below 1024px the columns stack with the right one first (flags, issues, actions, then the chart, contributors and calls). Kept from the page as it is: the calls' Status column, an action's "agreed on a call" link, every evidence detail (polarity, indicator, severity, confidence, speaker), the SME view. Dropped from the screen: its subtitles ("Immediate attention", "Top signals by impact", "All recorded sessions", "Reported blockers"), the coloured call-kind pills (RAG colours mean health only) and the coloured issue dots (issues have no level) | Variant 2 (chart first), variant 3 (dense ledger), a mix; weight only; the left column first when stacked |
-| Sessions pages design (Phase 6) | Sessions list: Stitch variant 3, "Sessions (Variant 3: Dense Operational Ledger)" (`3d700190ba8d45fc8101fa89c439689c`): the subtitle "Every recorded call you can see, newest first.", one filter bar card (search, consultant, status), a denser table with the status as a dot and a word and a failed call's row tinted red. Session page: variant 1, "Session: Priya Raman (Variant 1: Two-Column Diagnostic & Transcript Rail)" (`8220a711f0e54d0caf3644c8eac907d6`): the header (name, status, client · project link, time, length, phase; the kind of call at the right), the recording across the top, then the summary, signals, issues, actions agreed and cost on the left and the transcript in its own column on the right that scrolls by itself and stays in view; stacked on a narrow screen. The recording keeps the browser's own `<audio controls>` in a card styled like the design (no custom player). Kept: "Kind" (not the screen's "Type"), Retry, the kind override note, the node errors for the global roles, the in-flight note, the dropped-quotes note. Dropped: the screens' subtitles ("Classified occurrences", "Verbatim log", "Active impediments", "Follow-up commitments") and "Processing cost" (the section stays "Cost") | List: variant 1 (plain ledger), variant 2 (grouped by day). Page: variant 2 (stacked), variant 3 (signals table). A custom player |
-| Admin and empty-state design (Phase 7) | Admin: Stitch variant 1, "Admin (Variant 1: Underlined Tab Bar & Full-Width Stacked Ledger)" (`208e4948ff424b07979eb54abc137619`): the title and the subtitle "The placement register, who can sign in, the recordings folder and the processing queue.", an underlined tab bar (Register, Users and roles, Recordings, Processing), the register's sub-tabs as small pills, the quick add as a full-width card with its preview table, the placements table full width; Users and roles, Recordings and Processing restyled to the same patterns without screens of their own. Dropped from the screen: its extension values ("Due in 14d", "Pending review", "Expired"; the real ones are Not due, Due, Requested, Confirmed, Declined), placement ids ("#PL-1094"), the format hint and the heading "Batch Ingestion". Empty state: variant 1, "Actions (Variant 1: Dashed Containment Card)" (`fb81b43363a54b32aca8873032f6aeca`): a lavender icon in a soft circle, the heading and the line inside a large dashed card, for Actions, Settings and the not-found and no-access states. Actions and Settings get subtitles of our own: "What was agreed on calls, by owner and due date." and "Your preferences for the app." (the screen's "Every commitment and follow-up across client placements." dropped) | Admin variant 2 (quick add in a side column), variant 3 (segmented controls, a folding quick add); empty state variant 2 (plain centred), variant 3 (horizontal card); no subtitles |
-| Judgement calls made while building Phase 7 (approved with the commit, 2026-10-13) | Cards flat app-wide (the shadcn card's default shadow removed; the sign-in cards keep their own editorial shadow); the empty-state icon passed as an element so the server pages can give it; icons on the no-access (a shield) and not-found (a search-off) states as well; the Admin subtitle only for the roles that see the tabs; the dashed outline in the input hairline; the queue's numbers in mono; the quick add's own longer description kept (not the screen's one-liner) | — |
-| Judgement calls made while building Phase 6 (approved with the commit, 2026-10-13) | The risk board's and the list's search tests paste each query instead of typing it (typed, they passed Vitest's 5 s limit in a full run); "No sessions match these filters." when filters or the search hide every call; the status dot muted once settled, the primary colour in flight, red when failed (the pill unchanged elsewhere); the transcript after the analysis below 1024px; signals, issues, actions and transcript lines separated by hairlines rather than boxed; the list's headers still sort | — |
-| Judgement calls made while building Phase 5 (approved with the commit, 2026-10-12) | `HealthChart.tsx` left as it was (it already draws from the tokens and the thresholds); the score tiles tinted by level with a level dot and the score in mono in the text colour (amber text fails contrast, so the numbers are not coloured as in the screen); a critical flag and an overdue action tinted red at 5%, and the open flags card's edge red while it holds a flag; flat section cards with the count in a small mono tag, and the calls table to the card's edges | — |
-| Judgement calls made while building Phase 4 (approved with the commit, 2026-10-12) | "No placements match these filters." when filters or the search hide every row (the empty board keeps its message); the section's level word in the text colour with only the dot coloured (amber text fails contrast on white); the health badge's score in mono, on the placement page too; the table restyle (muted header row, more padding) in every `DataTable`, Admin and Sessions included; the page title at the Twilight 32px; a level count of 0 still filters, showing the no-match message | — |
-| Copy on the showcase | Every claim is ours and true: no compliance badges (SOC 2, ISO), no "encrypted end-to-end", no client email ingestion, no automatic notification or "playbook", no invented counts or versions; the generated screens' copy is a reference only | — (found in the generated screens) |
-| Shell details (Phase 2, from the approved Twilight screen) | The top bar shows the sidebar toggle, the current section as a breadcrumb ("Risk board"; "Risk board / Placement" and "Sessions / Session" on a detail page, the parent a link) and the theme menu; "PMO Intelligence" is in the sidebar logo only, and `auth.spec.ts`'s header test changes with it. Risk board's icon is lucide `Gauge` (the screen's dollar sign reads as money); Sessions, Actions, Admin and Settings follow the screen (message, check-square, grid, gear). No subtitle under the product name (the screen's "v3.4 · Telemetry" is invented). The screen's "Jump to consultant" search goes to BACKLOG; no new Stitch variants, the approved screen is the shell design | As planned (the h1 "PMO Intelligence" in the top bar); section name and a working search; icons LayoutDashboard, ShieldAlert or Activity; the tagline as a subtitle |
-| Exit-gate data (Phase 8, 2026-10-13) | The user seeds the staging register with the quick add before the walk-through, so the board and the placement page are judged on real placements shown as Not scored; scores, the chart, flags and contributors are judged once a real call is processed (the Alongside work), not for this gate | The register already seeded; sign-in and the shell on staging with the data pages from local screenshots; hold the gate until a real call is processed |
+| Live route (2026-10-14) | **One app-wide webhook**: a change-notification subscription to `/appCatalogs/teamsApps/{id}/installedToChats/getAllMessages` (needs application permission `Chat.Read.WhereInstalled` with admin consent), renewed before its three-day limit, plus a once-a-day catch-up read per chat with a date range; messages read with RSC `ChatMessage.Read.Chat` | Per-chat webhooks with `Chat.Read.All`; per-chat webhooks with RSC on beta; poll every 5 minutes as the PRD says (breaks Microsoft's rule) |
+| Which chats (2026-10-14) | **Every `PRJ ITC` chat linked to an active placement whose end date has not passed** is watched automatically (the app added to it); old engagements are never touched | Pilot chats a PMO manager turns on; all 151 |
+| Title matching (2026-10-14) | **Tolerant parser plus an Admin link**: the parser widened for the variants seen (no spaces round dashes, dates in brackets, D/M/YY, YYYY-MM-DD, `PRJ ITC-`); a title matching exactly one placement links automatically; the rest are listed in Admin > Teams to link to a placement, or to create its placement from the title (prefilled, as the quick add does) | Auto-create placements like the quick add; manual link only |
+| History (2026-10-14) | **Whole chat history** read when a chat is first watched | 30 days; since 2026-07-24; from now on only |
+| Analysis of history (2026-10-14) | **Store and analyse everything** through the chat pipeline (older signals never move a score, but are kept as evidence and for the later "who else had this blocker" search) | Store all, analyse only the 104 days the health model reads |
+| Consultant in the chat (2026-10-14) | **Name match with an Admin override**: the chat's members (RSC `ChatMember.Read.Chat`) matched to the placement's consultant by first and last name, as recording folders are; a single match sets `consultants.entra_oid`; none or several, Admin asks a person to pick | A person picks for every chat; match by email |
+| Working days (gone quiet, 2026-10-14) | **Monday to Friday minus England and Wales bank holidays**, the holidays and the 5 days in the health configuration (a new version, v2) | Monday to Friday only; 7 calendar days |
+| Missed commitment (2026-10-14) | **Overdue plus no consultant update**: an open action past its due date becomes `overdue` (any owner); a consultant-owned overdue action opens the flag only if the consultant has neither posted in the chat nor had a completed call since the due date; the chat pipeline may close actions from messages, as calls do | Any consultant action past due opens the flag; past due by N working days |
+| Dates (2026-10-14) | **2026-10-14 – 2026-10-27** (two weeks) | Three weeks; one week |
+| Backlog pulled in (2026-10-14) | **All four**: the risk board's project in its own column; the `sessions.spec.ts` seed (a decodable WebM, the cold-start allowance on the retry test); remove the unused `.chart-animate` CSS; mypy strict on the backend tests, with `make lint` and CI widened to `app tests` | Any subset |
+| Graph certificate (2026-10-14) | **In the app secret**: two new keys in `pmo-intelligence/staging/app` (`GRAPH_CERTIFICATE_PFX_BASE64`, `GRAPH_CERTIFICATE_PASSWORD`), injected as environment variables; Terraform adds the key names, the values are put with `put-secret-value` | A separate secret |
+| Start (2026-10-14) | **A spike on the tenant first**: a script installs the app into one test chat titled `PRJ ITC TEST …`, reads it with RSC, and creates and validates one `installedToChats` subscription; the build phases start only once it works; if it fails, stop and decide | Build and test as we go |
+
+| Pipeline unit (2026-10-14) | **One job per chat, batched**: a notification queues the chat's job (the queue merges repeats); the job takes every unanalysed message in the chat, with the messages before them as context, classifies them in one call, drops noise, and extracts from the rest | One run per message |
+| Catalog id (2026-10-14) | **A one-off lookup kept as a setting**: a signed-in person runs `appCatalogs/teamsApps?$filter=externalId eq '0f2eaf35-928a-4321-9261-692893f270ff'` in Graph Explorer during the spike; the id goes into `TEAMS_CATALOG_APP_ID`. No new permission | Request `AppCatalog.Read.All` |
+| Cost guard (2026-10-14) | **Count first, a person confirms**: watching a chat stores its whole history at once; analysing stored history waits until Admin > Teams shows the message count and an estimated LLM cost and a PMO manager presses "Analyse history". New messages are analysed as they arrive | A monthly cap; no guard |
+| Placement ends (2026-10-14) | **Remove the app, keep the data**: the app removes itself from the chat (the chat shows it), so nothing more is read; stored messages and signals stay (retention is product Phase 5); an extension adds it back | Stop processing but stay installed; keep watching until turned off |
 
 ## Task Checklist
 
->>> CURRENT PHASE: none (Sprint 3 complete; next: plan Sprint 4 with `/sprint-start`)
+>>> CURRENT PHASE: Phase 0 (plan awaiting approval)
 
-Every phase: the Stitch step (variants on made-up data; the user picks one or asks for edits), then code, tests and docs, then the commit checkpoint, then stop. Any screenshot used for design reference comes from the local stack seeded with `seed_e2e_session.py --health`, never from staging. Before e2e: `docker compose up --build -d --wait frontend`, one worker; Vitest with `--maxWorkers=4`.
+Every phase: re-read this plan, code and tests, the doc list walked item by item, the commit checkpoint, then stop. Backend: `make test-backend` with `-rf`; frontend Vitest with `--maxWorkers=4`; e2e with one worker after `docker compose up --build -d --wait <changed service>`. Every Graph call in tests is mocked (an `httpx` mock transport); no test calls Microsoft. Test data uses made-up names only: real chat titles name real consultants, so the title shapes are reproduced with invented names. Every push: both CI filters read before saying what it runs and deploys, and the deploy recorded in DEPLOYMENT's status in the next commit.
 
 ### Phase 0: Plan
 **Code work**
-- [x] Plan approved (2026-10-12)
+- [x] Plan approved (2026-10-14, with its judgement calls)
 
 **Doc updates (concurrent)**
-- [x] This file; `ROADMAP.md` (a Sprint 3 section; Milestone 3 marked for Sprint 4); `BACKLOG.md` (the redesign item in progress)
+- [x] This file; `ROADMAP.md` (Milestone 3 dated Sprint 4, the webhook replacing the poll noted); `BACKLOG.md` (the four pulled items marked for Sprint 4; open question 4 notes the webhook and `Chat.Read.WhereInstalled`)
 
 **Commit checkpoint**
-- [x] `docs: plan sprint 3` (be6231b, 2026-10-12; not pushed)
+- [ ] `docs: plan sprint 4`
 
-### Phase 1: Design system, tokens, logo and motion
+### Phase 1: Spike on the tenant (scripts only, nothing deployed)
+**Setup (the user and the tenant admin)**
+- [ ] `Chat.Read.WhereInstalled` added to the Graph app registration (`az ad app permission add`, with the user's go-ahead) and admin consent requested (the request text added to `TEAMS-GRAPH-SETUP.md`)
+- [ ] The catalog id looked up in Graph Explorer by a signed-in person and recorded
+- [ ] A test group chat titled `PRJ ITC TEST - <made-up name> - <made-up client> - 1/10/2026 - 31/3/2027` with the user and one colleague
+
 **Code work**
-- [x] Stitch: project "PMO Intelligence" (`15166762438523107418`) and a first design system (indigo, Geist); token sheets in four colour treatments, judged not modern enough by the user; three showcase directions after research (Aurora, Twilight, Command centre); **Twilight chosen** (2026-10-12; deviation from the planned token sheet, see the Decisions Log)
-- [x] Stitch: the signed-in shell and risk board in the light and twilight-dark themes, side by side ("Twilight Light & Dark Risk Board Comparison"); approved 2026-10-12 without its invented parts (Export CSV, Telemetry Sync, version text, nav counts)
-- [x] `src/app/globals.css`: the Twilight values as oklch, light (warm white, charcoal, twilight purple, lavender, cream) and twilight-dark, under the existing token names; a twilight hero gradient token; `--risk-*` from Twilight's status colours; a `prefers-reduced-motion` block for `.chart-animate`
-- [x] Fonts: Plus Jakarta Sans and JetBrains Mono through `next/font/google` in `src/app/layout.tsx` (replacing Geist), its test mock updated; the theme opens light (`defaultTheme`), with twilight-dark and system in the theme menu
-- [x] `src/components/brand/Logo.tsx` (`LogoMark`: a lavender pulse line in a deep-purple rounded square, as in Twilight; `Wordmark`); `src/app/icon.svg`, `src/app/favicon.ico` deleted
-- [x] `src/proxy.ts` matcher passes `icon.svg`
-- [x] `pnpm add motion@13.4.6 --save-exact`; `src/components/providers/MotionProvider.tsx` (`MotionConfig reducedMotion="user"`) in `src/app/layout.tsx`
-- [x] Tests: `Logo.test.tsx` (4); `layout.test.tsx` (+1, the motion settings; the font mock follows the new fonts); `src/proxy.test.ts` (8). Frontend unit 215 with `--maxWorkers=4`; lint, types and format clean; e2e 20 of 21 with one worker (the known `sessions.spec.ts` recording race, BACKLOG; 2 of 3 alone); screenshots of the board, placement page and login in both themes checked
+- [ ] `scripts/teams/spike_chat_route.py` (run with `uv run --with msal --with requests`, certificate as in `verify_chat_access.py`): (1) add the app to the test chat (`POST /chats/{id}/installedApps` with the RSC permission set); (2) list its members (`ChatMember.Read.Chat`); (3) read its messages (`ChatMessage.Read.Chat`), printing ids, times, types and author ids only, never content; (4) create one subscription to `installedToChats/getAllMessages` without resource data, pointing at a local receiver; (5) remove the app again (`DELETE installedApps`), confirming the "placement ends" path
+- [ ] `scripts/teams/spike_receiver.py`: a local HTTP receiver that answers the validation token and logs each notification's subscription id, change type and resource path only, reached through a temporary tunnel (Microsoft dev tunnels) for the length of the spike
+- [ ] Results: install works (or the exact error) while the app shows "not available"; an RSC-only package installs; a test post's notification arrives and how fast. **If the install or the subscription fails, stop and decide with the user before Phase 3**
 
 **Doc updates (concurrent)**
-- [x] `docs/DESIGN.md` (new: tokens, contrast, logo, motion rules), `ARCHITECTURE.md` (root layout, generic UI, `> Status:`), `FEATURES.md`, `TESTS.md`, `CHANGELOG.md` (also `BACKLOG.md`: the e2e race seen with one worker; README: no new make target; ROADMAP: nothing ticked until the shell lands)
+- [ ] `docs/integrations/TEAMS-GRAPH-SETUP.md` (a "Part D: spike" with steps and results; the results table: catalog id, `Chat.Read.WhereInstalled`, install and notification results), `FEATURES.md` (the spike scripts as operator tools), `CHANGELOG.md` (README: no new make target)
 
 **Commit checkpoint**
-- [x] `feat: add the design tokens, logo and motion setup` (31700ab, 2026-10-12; not pushed; the Phase 1 judgement calls approved with the commit)
+- [ ] `chore: add the chat route spike scripts`
 
-### Phase 2: App shell
+### Phase 2: Backlog clean-ups (independent; can run while the admin consent is awaited)
 **Code work**
-- [x] Stitch: no new variants; the approved "Twilight Light & Dark Risk Board Comparison" screen is the shell design (user decision 2026-10-12; its gaps settled in the Decisions table, "Shell details")
-- [x] `pnpm exec shadcn add sidebar` (existing ui files kept; `globals.css` unchanged), and `breadcrumb` and `avatar` for the top bar and the user menu. The CLI (3.8.4) wrote `import { cn } from "cn"` into each new file and added the unrelated npm package `cn`; the imports were pointed at `@/lib/utils` and the package removed (deviation). `SidebarMenuSkeleton`'s random width made fixed (the purity lint rule refuses `Math.random`; unused here)
-- [x] `src/components/layout/nav.ts`: the nav items with lucide icons, `visibleNavItems` and `getActiveHref` moved from `Sidebar.tsx`; Risk board active on `/placements/*` (fixes the Sprint 2 known issue)
-- [x] `src/components/layout/AppSidebar.tsx`: logo link (not a heading), nav with tooltips, `collapsible="icon"`, rail, user menu with sign-out in the footer
-- [x] `MainLayout.tsx`: `SidebarProvider` from the cookie, `SidebarInset`, the top bar (`SidebarTrigger`, the section breadcrumb, `ThemeToggle`; see "Shell details"); `Sidebar.tsx` and `Header.tsx` removed once merged; the top bar is `TopBar.tsx`
-- [x] Route group `src/app/(app)/layout.tsx`: `/`, `sessions`, `sessions/[sessionId]`, `placements/[placementId]`, `admin`, `actions`, `settings` moved under it, their own `MainLayout` wrappers removed
-- [x] Tests: `Sidebar.test.tsx` → `nav.test.ts` (same labels and href, plus the active item and the breadcrumb: 17); `AppSidebar.test.tsx` (active item, Admin hidden for other roles, placement path active, the user menu signs out: 12); `TopBar.test.tsx` (4); a `matchMedia` stub in `src/test/setup.ts`; `auth.spec.ts`: the app-name heading test now checks the logo link and the breadcrumb, plus the rail kept across a reload and the phone drawer (+2). Frontend unit 245 with `--maxWorkers=4`; e2e 23 of 23 with one worker; screenshots in light, dark, the icon rail and at phone width checked (the logo mark was shrunk to 16px by the menu button and fixed)
+- [ ] Risk board: `client` and `project` as separate columns in `RiskBoard.tsx`; the search and the client filter unchanged
+- [ ] `sessions.spec.ts` seed: a small decodable WebM in `app/cli/seed_e2e_session.py`, and the cold-start allowance (`test.setTimeout`) on the retry test
+- [ ] Remove `.chart-animate` and its delay classes from `globals.css` (and its reduced-motion block), after `git grep` shows no user
+- [ ] mypy strict on `tests`: fix the 57 errors in 8 test files; `make lint` and the CI mypy step widened to `app tests`
+- [ ] Tests: `RiskBoard.test.tsx` (the two columns); e2e 23 of 23 with one worker, then `sessions.spec.ts` three times alone; `uv run mypy app tests` clean
 
 **Doc updates (concurrent)**
-- [x] `ARCHITECTURE.md` (Shell and Pages rows with the new paths, `> Status:`), `DESIGN.md` (shell), `FEATURES.md`, `TESTS.md`, `CHANGELOG.md` (also `ROADMAP.md`: the design system, logo and shell ticked; `BACKLOG.md`: the top-bar search; README: no new make target)
+- [ ] `ARCHITECTURE.md` (Risk board row; CI table's mypy step; `> Status:`), `DESIGN.md` (risk board columns; the chart entrance removed), `BACKLOG.md` (the four items ticked), `TESTS.md`, `FEATURES.md`, `CHANGELOG.md`, `DEPLOYMENT.md` status for the push (README: `make lint` row if its description changes)
 
 **Commit checkpoint**
-- [x] `feat: add the collapsible app shell` (88f83e2, 2026-10-12; pushed with be6231b and 31700ab, CI green, frontend deployed)
+- [ ] `test: type-check the backend tests` and `feat: show the risk board's project in its own column` (two commits; the seed and CSS fixes with the second, or as `fix:`/`chore:` if the user prefers)
 
-### Phase 3: Sign-in showcase and callback
+### Phase 3: Data model, settings and the Graph client
 **Code work**
-- [x] Stitch: 3 desktop variants with made-up placements and our own copy; the user chose variant 3 (2026-10-12); the phone layout is reviewed in the browser (see "Sign-in design")
-- [x] `src/components/auth/AuthShell.tsx` (the full-viewport frame with the logo; always light, not forced dark, per "Sign-in design"), `Showcase.tsx` (the promise, "calls and chat in, health and early warnings out", 3–4 highlights, a motion entrance), `MiniRiskBoard.tsx` (`HealthIndicators`; no mini chart, per "Sign-in design"), `showcase-data.ts` (fixed ISO dates, typed against `types/health.ts`, plainly made up)
-- [x] `LoginForm.tsx` restyled (the button keeps its text; the Entra note follows the approved design, "Staff with a role only · Microsoft Entra ID", under the test-text decision; its test still matches); `src/app/login/page.tsx`; the callback page inside `AuthShell`; `APP_TAGLINE` only if the approved copy changes it
-- [x] Tests: `Showcase.test.tsx` (9: the sample rows, the sample tag, the flag, the highlights, no request, the light frame, the UK time); `LoginForm.test.tsx` and the callback `page.test.tsx` unchanged (their text is kept or still matched); `auth.spec.ts` checks the promise heading and the sample tag in place of the "Sign In" card title. Frontend unit 254 (`--maxWorkers=4`, every row compared with `vitest list`), lint, types, format clean; screenshots at desktop, phone and under the dark theme setting, and the callback's failure, checked (from `next dev` on port 3100, which wrote `frontend/AGENTS.md`, now in `.git/info/exclude`). e2e 23 of 23 with one worker after Docker Desktop was force-restarted (it had answered every request with 500)
+- [ ] `app/models/enums.py`: `MessageClass` (the PRD's classes: consultant update, question, stakeholder context, praise, concern, escalation, administrative, noise, with meanings for the prompts), `TeamsChatMatch` (`matched`, `chosen`, `needs_choice`, `unmatched`, `unparsed`), `TeamsWatchState` (`not_watched`, `installing`, `watching`, `removed`, `failed`), `HistoryState` (`none`, `stored`, `analysing`, `analysed`), `SnapshotReason.CHAT`
+- [ ] Migration 010: `teams_groups` (`graph_chat_id` unique, `title`, the parsed title fields, `placement_id`, match status and candidates, `consultant_member_oid` and its match status, watch state, `installed_at`, `removed_at`, `sync_requested_at`, `last_synced_at`, `last_message_at`, history state, `error_message`), `messages` (`teams_group_id`, `graph_message_id` unique with the group, `author_entra_oid`, `author_name`, `author_role`, `posted_at`, `last_modified_at`, `deleted_at`, `body_text`, `reply_to_message_id`, `message_type`, `message_class`, `is_noise`, `is_history`, `analysed_at`), `graph_subscriptions` (`subscription_id`, `resource`, `expires_at`), the FK `processing_costs.message_id` → `messages`, and the snapshot reason's CHECK; the PRD's `kind`/`graph_team_id`/`delta_token` columns not built (group chats only, no delta for chats)
+- [ ] `app/config.py`: `GRAPH_TENANT_ID`, `GRAPH_CLIENT_ID`, `GRAPH_CERTIFICATE_PFX_BASE64`, `GRAPH_CERTIFICATE_PASSWORD`, `GRAPH_CLIENT_STATE` (the webhook secret), `TEAMS_CATALOG_APP_ID`, `TEAMS_DISCOVERY_ACCOUNTS`, `TEAMS_ENABLED` (off by default), `TEAMS_NOTIFICATION_BASE_URL`; `.env.example`
+- [ ] `app/services/teams/graph_client.py`: msal certificate token (cached until expiry), one `httpx.AsyncClient` with a finite timeout and an injectable transport, paging through `@odata.nextLink`, `Retry-After` and exponential backoff on 429, 503 and 504, pacing under the per-chat 1 rps; any failure a `GraphError`. `uv add msal` (mypy override if untyped)
+- [ ] Infra: `app_secret_keys` gains the Graph secrets and `GRAPH_CLIENT_STATE`; the non-secret ids in the backend environment; `teams_enabled` module variable (false until Phase 5's rollout). Terraform plan shown, applied only with approval (replaces the backend task definition, so the backend redeploys); the values put with `put-secret-value` by the user
+- [ ] Tests: migration up and down; the Graph client (token reuse, paging, `Retry-After`, backoff limit, error mapping) on a mock transport; settings
 
 **Doc updates (concurrent)**
-- [x] `ARCHITECTURE.md` (a Sign-in row, auth flow step 1, `> Status:`), `DESIGN.md` (Sign-in, Theme), `FEATURES.md`, `TESTS.md` (unit rows; the e2e count after the run), `CHANGELOG.md` (also `ROADMAP.md`: the sign-in item ticked; BACKLOG: nothing new; README: no new make target)
+- [ ] `ARCHITECTURE.md` (Data Model: migration 010 with differences from the draft; Backend rows for Settings, Enumerations, the Graph client; Infrastructure; `> Status:`), `DEPLOYMENT.md` (a new section "12. Teams chat (Graph secrets, catalog id)"; status), `.env.example`, `FEATURES.md`, `TESTS.md`, `CHANGELOG.md`
 
 **Commit checkpoint**
-- [x] `feat: add the sign-in showcase` (7576cda, 2026-10-12; not pushed)
+- [ ] `feat: add the teams chat data model and graph client`
 
-### Phase 4: Risk board
+### Phase 4: Discovery, title matching, watching and Admin > Teams
 **Code work**
-- [x] Stitch: 3 variants, light and dark, 12 made-up rows, the filter bar and the summary strip; the user chose variant 2, grouped level sections (2026-10-12; see "Risk board design")
-- [x] `RiskBoard.tsx` (the level counts as filter buttons, the filter bar card with its own search, a section per level, wrapping client · project and next action; the server's order, the filters and the SME view kept, the SME as one table), `HealthIndicators.tsx` (`health-badge` kept, the score in mono), `DataTable.tsx` (`searchable` and `framed` options, the muted header row, cell padding); the page keeps its h2 "Risk board" at the Twilight title size
-- [x] Tests: `RiskBoard.test.tsx` (11 → 15: sections, counts, count filter and clear, search; the SME without counts or sections); `DataTable.test.tsx` (4 → 6); `risk-board.spec.ts` (the Amber section, the Green count). Frontend unit 260 with `--maxWorkers=4` (every row compared with `vitest list`); lint, types (after `next typegen` refreshed stale `.next/types`), format clean; e2e 23 of 23 with one worker against the rebuilt frontend; screenshots in light and dark at 1440px checked (the filter bar wrapped and the next action ran off the card; fixed)
+- [ ] `app/services/teams/chat_titles.py`: the tolerant parser (hyphen or en dash with or without spaces, `PRJ ITC-` and `PRJ ITC - <stack> -`, dates `D/M/YYYY`, `D/M/YY`, `D-M-YY`, `YYYY-MM-DD`, in brackets or not, a missing or extra part reported); the quick add's `parse_line` left as it is
+- [ ] Matching (`chat_match.py`): client by normalised name, consultant with `name_match.match_folder` (first or last name), placement by consultant, client and start date (any of the client's projects); exactly one is `matched`, else `needs_choice` or `unmatched`; `matched` and `chosen` never changed by a later scan
+- [ ] Discovery job (`teams_discovery`, fixed id, backlog priority): lists `TEAMS_DISCOVERY_ACCOUNTS`' chats (`Chat.ReadBasic.All`), keeps `PRJ ITC` titles, merges by chat id, upserts `teams_groups`, re-matches the undecided ones; once a day (the loop pattern of `recordings/periodic.py`) and on "Scan now"
+- [ ] Watch policy (`teams_watch` job per chat): a chat linked to an active placement whose end date has not passed is watched: the app added (`POST installedApps`), its members read and the consultant matched by name (a single match sets `consultants.entra_oid`; otherwise Admin asks); a watched chat whose placement ended or whose end date passed has the app removed (`DELETE installedApps`) and keeps its data; re-evaluated after discovery, a register edit and the daily run
+- [ ] Routes (`app/api/v1/teams.py`, `pmo_manager` and `admin`; `{chat_id}` routes under `require_roles`, the coverage test extended like `{folder_id}`): `GET /teams/chats` (with the last scan), `POST /teams/scan`, `PUT /teams/chats/{chat_id}/placement`, `POST /teams/chats/{chat_id}/placement` (create from the title through the quick add's writer, the line prefilled and editable), `PUT /teams/chats/{chat_id}/consultant-member`
+- [ ] Admin > Teams tab (`components/admin/teams/TeamsTab.tsx`, `hooks/useTeamsChats.ts`): the last scan and Scan now; every `PRJ ITC` chat with its title, match, placement, watch state, consultant member, last message and history state; pickers for the placement and the consultant member; "Create placement from title"; polls like the Recordings tab
+- [ ] Tests: the parser on every title shape seen (made-up names); matching; discovery and watch jobs on a mock transport (install, remove, member match, failure recorded); every route called and its response read; `TeamsTab.test.tsx`; an Admin e2e (the tab lists seeded chats; links one)
 
 **Doc updates (concurrent)**
-- [x] `ARCHITECTURE.md` (Risk board and Tables rows, `> Status:`), `DESIGN.md` (Tables and badges, Risk board, status), `FEATURES.md` (a new row; the risk board page's path moved to `(app)/`), `TESTS.md`, `CHANGELOG.md` (ROADMAP: nothing ticked until the placement page; BACKLOG: nothing new; README: no new make target)
+- [ ] `docs/API.md` (Teams section), `ARCHITECTURE.md` (Backend and Frontend rows; a "Teams chat (as built)" section; `> Status:`), `DESIGN.md` (the Teams tab), `TEAMS-GRAPH-SETUP.md`, `FEATURES.md`, `TESTS.md`, `CHANGELOG.md`
 
 **Commit checkpoint**
-- [x] `feat: redesign the risk board` (5ee6b1b, 2026-10-12; pushed with 7576cda, CI run 38269922575 green, the frontend alone built and deployed, the backend steps skipped)
+- [ ] `feat: find, match and watch the pmo group chats`
 
-### Phase 5: Placement page
+### Phase 5: Messages in: history, webhook, subscription and catch-up
 **Code work**
-- [x] Stitch: 3 variants, light and dark, on a made-up placement; the user chose variant 1 (2026-10-12; see "Placement page design")
-- [x] `PlacementHealthView.tsx` (the header card with the tiles, two columns with the side column first in the DOM, flat section cards with a count tag, the calls table to the card's edges, overdue actions tinted), `DimensionScores.tsx` (tinted tiles, mono scores, a level dot), `FlagList.tsx` (critical tinted), `EvidenceItem.tsx` (the contributor's value); test ids and the link text "← Risk board" kept; the SME view unchanged. `HealthChart.tsx` unchanged (deviation: it already draws from the tokens and the thresholds, and the screenshots needed no change)
-- [x] Tests: `PlacementHealthView.test.tsx` (8 → 9: the value beside the weight, none on a flag's evidence; the reading order); `placement-health.spec.ts` (the contributor's weight and value); `HealthChart.test.tsx` unchanged with the chart. Frontend unit 261 with `--maxWorkers=4` (every row compared with `vitest list`); lint, types, format clean; e2e 23 of 23 with one worker against the rebuilt frontend; screenshots of a seeded placement in light and dark at 1440px and at 820px checked (the scoring line wrapped; widened)
+- [ ] History: when a chat becomes watched, its whole history is read once (`GET /chats/{id}/messages`, paced) and stored (HTML to plain text; system events stored as such and never analysed; deletions kept as `deleted_at` with the text cleared), marked `is_history`; the chat's history state becomes `stored`
+- [ ] Webhook (`POST /teams/notifications` and `POST /teams/lifecycle`, public, guarded by `require_graph_client_state`, listed as token-scoped in the coverage test): answers the validation token as text/plain; checks `clientState` in constant time; for each notification records `sync_requested_at` on its chat and queues the chat's sync job (`CHAT_PRIORITY`); answers 202 at once; a notification for a chat not watched is dropped and logged
+- [ ] Sync job (`teams_sync`, one per chat): reads messages changed since the chat's watermark (`lastModifiedDateTime gt`), stores new, edited and deleted ones, queues the chat's analysis; a sync is triggered only by a notification, the daily catch-up or a lifecycle `missed`, never on a timer, so the polling rule holds
+- [ ] Subscription manager: creates the one `installedToChats` subscription when absent, renews it a day before its three-day expiry, re-authorises on `reauthorizationRequired`, recreates on `subscriptionRemoved`, and on `missed` queues a sync of every watched chat; a daily catch-up sync of every watched chat (one date-ranged read each)
+- [ ] Takeover step: chats whose `sync_requested_at` is newer than `last_synced_at` are queued again (a notification taken by the non-owner task during a deploy is not lost); counts logged, zero included
+- [ ] Rollout to staging: `teams_enabled` true (Terraform, with approval); the subscription created; the test chat checked (a post appears in the database within 5 minutes)
+- [ ] Tests: validation echo, client state refused, notification to job, sync (new, edited, deleted, system event), history paging, subscription create, renew and lifecycle events, takeover requeue
 
 **Doc updates (concurrent)**
-- [x] `ARCHITECTURE.md` (Placement page row with its `(app)/` path, `> Status:`), `DESIGN.md` (Placement page, status), `FEATURES.md` (a new row; the older row's path and contributor detail), `TESTS.md`, `CHANGELOG.md`, `ROADMAP.md` ("Risk board and placement page redesigned" ticked) (BACKLOG: nothing new; README: no new make target)
+- [ ] `docs/API.md` (the notification routes), `ARCHITECTURE.md` (Teams chat section; Infrastructure; `> Status:`), `DEPLOYMENT.md` (section 12: turning it on, checking the subscription; status), `TEAMS-GRAPH-SETUP.md` ("Engineering notes" updated: webhook, not polling), `FEATURES.md`, `TESTS.md`, `CHANGELOG.md`
 
 **Commit checkpoint**
-- [x] `feat: redesign the placement page` (8921f35, 2026-10-12; pushed, CI run 38278815981 green, the frontend alone built and deployed, the backend steps skipped)
+- [ ] `feat: receive teams chat messages through change notifications`
 
-### Phase 6 (if time): Sessions list and session page
+### Phase 6: Chat pipeline
 **Code work**
-- [x] Stitch: 3 sessions list and 3 session page variants, light and dark, on made-up calls; the user chose list variant 3 and page variant 1, with the browser's own audio controls (2026-10-13; see "Sessions pages design")
-- [x] `SessionsList.tsx` (its own search in a filter bar card, dense rows, mono times and counts, the dot status, a failed row tinted), `SessionStatusBadge.tsx` (a `dot` form; the pill elsewhere), `DataTable.tsx` (`dense`, `rowClassName`), `SessionView.tsx` (the header in two columns with the kind of call at the right, the recording in a card, the analysis and the sticky transcript column, hairline-separated rows), the sessions page (title and subtitle); `AudioPlayer.tsx` unchanged (the browser's controls kept, user decision); test ids kept
-- [x] Tests: `SessionsList.test.tsx` (4 → 5: the search and the no-match message; the failed row tinted), `DataTable.test.tsx` (6 → 7: row classes and dense rows), `sessions.spec.ts` (the transcript column); the risk board's and the list's search tests paste each query (they typed long strings and passed the 5 s limit in a full run). Frontend unit 263 with `--maxWorkers=4` (every row compared with `vitest list`); lint, types, format clean; e2e 23 of 23 with one worker against the rebuilt frontend; screenshots of the list and a seeded session in light and dark at 1440px and at 820px checked (the kind of call sat above the name at 820px; moved into a second header column)
+- [ ] `app/ai/node.py`: `llm_node` generalised (state type and operation prefix as parameters; the session pipeline unchanged in behaviour)
+- [ ] `app/ai/chat/` (LangGraph, gpt-5.4-mini, structured output, every node non-fatal, timed, costed, with `CHAT_NODE_TIMEOUT_SECONDS`): `classify` (each new message's `MessageClass`; noise stops there), then in parallel `signals` (dimension, polarity, severity, confidence, quote, note, indicator per `SIGNAL_INDICATORS_BY_CATEGORY`) and `actions` (owner role, due date worked out from the post's UK date, earlier open actions it closes), then `emit` (every quote must be found in the one message it cites, through `TranscriptIndex`; the author's role from the chat's mapping, not the model). Prompts cite the enumerations from `enums.py`
+- [ ] Context: the batch's messages plus the previous messages in the chat as context only (never quoted from), the placement's people, the open issues and actions
+- [ ] Storing (`chat_analysis.py`): signals with `source_kind` `message`, `source_id` the message, `occurred_at` its post time, no offset; actions and closed actions; a `processing_costs` row per call with `message_id`; `analysed_at` on each message; signals embedded (`signal_embeddings.py` generalised to messages); then a health recompute (reason `chat`)
+- [ ] History analysis guard: history messages are not analysed until "Analyse history" (Admin > Teams, `POST /teams/history/analyse`), which shows the stored count and an estimated cost first (from the measured cost per message of the live analysis, or a configured estimate before any); new messages analysed as they arrive
+- [ ] Tests: each node with a mocked model, the failure path, quote-not-in-message rejection, noise stopping early, indicator clearing, author role from mapping, storing and the recompute, the history guard
 
 **Doc updates (concurrent)**
-- [x] `ARCHITECTURE.md` (Sessions list, Session page and Tables rows with their `(app)/` paths, `> Status:`), `DESIGN.md` (Sessions, status), `FEATURES.md` (a new row; the session page row's path), `TESTS.md`, `CHANGELOG.md` (ROADMAP: the "Sessions pages, Admin, Actions and Settings" item stays open until Phase 7 or BACKLOG; BACKLOG: nothing new; README: no new make target)
+- [ ] `ARCHITECTURE.md` (a "Chat pipeline (as built)" section; Backend rows; `> Status:`), `docs/API.md` (history analysis), `FEATURES.md`, `TESTS.md`, `CHANGELOG.md`
 
 **Commit checkpoint**
-- [x] `feat: redesign the sessions pages` (039fc3a, 2026-10-13; pushed, CI run 38291055173 green, the frontend alone built and deployed, the backend steps skipped)
+- [ ] `feat: analyse teams chat messages`
 
-### Phase 7 (if time): Admin, Actions and Settings
+### Phase 7: Cadence, overdue actions and the two triggers
 **Code work**
-- [x] Stitch: 3 Admin variants and 3 empty-state variants, light and dark, on made-up data (the requests took about 45 minutes); the user chose Admin variant 1 and empty-state variant 1, with subtitles of our own on Actions and Settings (2026-10-13; see "Admin and empty-state design")
-- [x] `AdminView.tsx` (title, subtitle for the global roles, the `line` tabs across a hairline, an icon on the no-access state), `RegisterTab.tsx` (pill sub-tabs), `QuickAddCard.tsx` (monospace text area, muted preview header), `ProcessingStatusPanel.tsx` (mono numbers), `EmptyState.tsx` (dashed card, an optional icon passed as an element), `ui/card.tsx` (no default shadow), the Actions and Settings pages (title, subtitle, icon), the not-found states of the placement and session pages (an icon); dialogs keep their labels
-- [x] Tests: `EmptyState.test.tsx` (6 → 7: the icon), `AdminView.test.tsx` (11 → 12: the subtitle with the tabs only); the admin e2e unchanged and passing. Frontend unit 265 with `--maxWorkers=4` (every row compared with `vitest list`); lint, types, format clean; e2e 23 of 23 with one worker against the rebuilt frontend, after a first run found the Actions page crashing (React error 441: the server page passed the icon component to the client `EmptyState`; fixed by passing elements); screenshots of every Admin tab, Actions and Settings in light and dark checked (the dashed outline was too faint; darkened)
+- [ ] Health configuration `config/v2.json`: v1's values plus `gone_quiet` (5 working days, the England and Wales bank holidays for 2026 and 2027) and `missed_commitment`; `TriggerSettings` gains both; `HEALTH_CONFIG_VERSION` default `v2`
+- [ ] Cadence (pure, in `app/health/`): working days since the consultant's last post; posts per week; questions to the consultant left unanswered (counted, shown, not a trigger)
+- [ ] Overdue: the daily run (and every recompute) marks an open action past its due date (UK date) `overdue`
+- [ ] Triggers: **gone quiet** for an active placement with a watched chat and a known consultant member, when the last consultant post is 5 or more working days back (none ever: counted from when the chat was first watched); **missed commitment** per consultant-owned overdue action (subject the action id) when the consultant has neither posted nor had a completed call since its due date; the flag shows its action (risk flags gain the action reference, or the subject key resolved on read)
+- [ ] Tests: exact working-day counts across weekends and bank holidays; both triggers' hits and misses; overdue marking; the v2 configuration loaded and validated
 
 **Doc updates (concurrent)**
-- [x] `ARCHITECTURE.md` (Pages, Admin and Generic UI rows, `> Status:`), `DESIGN.md` (Admin, Actions and Settings; status), `FEATURES.md` (a new row; the placeholder row's paths), `TESTS.md`, `CHANGELOG.md`, `ROADMAP.md` ("Sessions pages, Admin, Actions and Settings redesigned" ticked) (BACKLOG: nothing new; README: no new make target)
+- [ ] `ARCHITECTURE.md` (Health model and recompute sections; `> Status:`), `docs/API.md` (flag fields if they change), `FEATURES.md`, `TESTS.md`, `CHANGELOG.md`, `DEPLOYMENT.md` (the v2 configuration on staging)
 
 **Commit checkpoint**
-- [x] `feat: redesign the admin and placeholder pages` (4a61ac2, 2026-10-13; pushed, CI run 38358726340 green, the frontend alone built and deployed, the backend steps skipped)
+- [ ] `feat: add the gone-quiet and missed-commitment triggers`
 
-### Phase 8: Staging, demo check, audit and handover
+### Phase 8: Messages on the pages
+**Code work**
+- [ ] Backend: the risk board's `last_post_at` and `days_since_last_post` (the consultant's latest post); the placement health response's notable messages (those that produced a signal or action, newest first, with author role, time, class and the signals' quotes) and the chat's cadence; evidence from a message resolved to its message; the SME view keeps Technical evidence only
+- [ ] Frontend: a "Last post" column on the risk board; a "Messages" section on the placement page after "Calls" (notable messages, cadence line); `EvidenceItem` shows a message's evidence as "posted <time>"; a message-sourced action reads "agreed in the chat". No Stitch round: the new pieces follow the existing table and section patterns (a judgement call for approval)
+- [ ] Tests: `RiskBoard.test.tsx`, `PlacementHealthView.test.tsx`, `EvidenceItem` cases, the health view's integration tests, `placement-health.spec.ts` with a seeded message
+
+**Doc updates (concurrent)**
+- [ ] `ARCHITECTURE.md` (Health views; Risk board and Placement page rows; `> Status:`), `docs/API.md`, `DESIGN.md`, `FEATURES.md`, `TESTS.md`, `CHANGELOG.md`, `ROADMAP.md` (Milestone 3 items ticked as delivered)
+
+**Commit checkpoint**
+- [ ] `feat: show teams messages on the board and placement page`
+
+### Phase 9: Staging, exit gate, audit and handover
 **Code work and setup**
-- [x] The pushes deploy the frontend (both CI filters read before saying what a push runs); the demo path walked on staging with the user in light, dark and at phone width (the exit gate)
-  - [x] Staging serves 4a61ac2 (CI run 38358726340: every job green, "Deploy to staging" done 06:53 UTC; the live sign-in page has the new Entra note; `/api/v1/health` healthy) (2026-10-13)
-  - [x] (2026-10-13: 5 placements added by the user) The user seeds a few placements on staging with the quick add (Admin > Register), so the board and the placement page have rows; they show as Not scored, with no chart, flags or contributors, until a real call is processed (user decision 2026-10-13, see the Decisions table)
-  - [x] (2026-10-13: approved by the user on staging; the exit gate met) The walk-through: sign-in, the shell, the risk board, a placement page; light and dark; sign-in and the shell at phone width; the user approves or lists changes
-    - Feedback so far, each noted in `BACKLOG.md` (user decision 2026-10-13: note the changes as backlog items, not fixes this sprint): the risk board's project in its own column
+- [ ] Every watched chat on staging listed; the history count and estimate shown; "Analyse history" pressed only on the user's say-so
+- [ ] The exit gate: one real group watched for a week (from the Phase 5 rollout, so it ends inside the sprint only if Phase 5 is on staging by 2026-10-20); new posts in the database within 5 minutes; no message stored from a chat that is not watched (a query over `messages` against `teams_groups`)
 
 **Doc updates (concurrent)**
-- [x] Pages not redesigned to `BACKLOG.md` (none: every page was redesigned); `ROADMAP.md` (the exit gate met); `BACKLOG.md` (the redesign done, the project column, the unused chart CSS)
-- [x] `docs/tracking/SPRINT-AUDIT.md` (Rule C, 2026-10-13): every suite and linter run (1045 backend, 265 frontend unit, 23 e2e = 1333); six findings S3-1 to S3-6, each fixed, with a rule and a Learnings Log line; AUDIT PASSED
-- [x] `docs/handover/sprint-03-handover.md` (written 2026-10-13 after the user reviewed the audit)
+- [ ] `ROADMAP.md` (the exit gate), `BACKLOG.md` (anything not done), `docs/tracking/SPRINT-AUDIT.md` (Rule C), `docs/handover/sprint-04-handover.md`
 
 **Commit checkpoint**
-- [x] `docs: complete sprint 3 audit and handover` (c323346, 2026-10-13; pushed, CI run 38374137881 green, the deploy skipped as a docs-only commit)
+- [ ] `docs: complete sprint 4 audit and handover`
 
 ### Alongside (not blocking)
-- [ ] The user seeds the staging register with the quick add, gives the consultant directors the CDM role and processes calls from consultants told beforehand (who and when recorded here); each run reviewed (node errors, rejected quotes, cost, timing), any prompt fix as its own `fix:` commit; then the Phase 1 and Phase 2 exit gates (BACKLOG High Priority)
-- [ ] A Teams admin confirms the chat RSC state and step A5 is run (`docs/integrations/TEAMS-GRAPH-SETUP.md`), so Sprint 4 can start
+- [ ] Real calls on staging and the PRD Phase 1 and 2 exit gates (BACKLOG High Priority)
+- [ ] The Teams app's availability narrowed to the PMO team (admin action, BACKLOG)
 
-## After Sprint 3 (2026-10-13): Teams chat route
-Not a sprint; recorded here until Sprint 4 is planned.
-- Opening the Teams app "PMO Intelligence" (Apps → Built for your org) showed "This app is not available. Please check with your admin". The Graph app's certificate sign-in works; its token holds no application permission (`Chat.Read.All` not granted, as intended). The chat RSC state cannot be read without an admin role.
-- A 1.0.1 package with a group-chat tab was considered (user choices: a static notice, on a public frontend route, as a between-sprints task) and **paused** before any code: the requirement below changes the route, and an install through Graph may not need a tab.
-- **Requirement (user, 2026-10-13)**: read every group chat titled `PRJ ITC <stack> - <consultant> - <client> - <start> - <end>`; `PRJ ITC` marks a PMO group.
-- **Decisions (user, 2026-10-13)**: route A (find the chats through one PMO account's chat list with `Chat.ReadBasic.All`, add the Teams app to each through Graph with `TeamsAppInstallation.ReadWriteAndConsentSelfForChat.All`, read with RSC `ChatMessage.Read.Chat`), not route B (`Chat.Read.All`, a protected API); the PMO accounts `Sunny.Dhanoe@InformationTechConsultants.com` and `uttam.kumar@InformationTechConsultants.com` cover every `PRJ ITC` chat (lists merged by chat ID). The two permissions were added to the app registration (`az ad app permission add`, with the user's go-ahead), not granted. Details and the admin request: `docs/integrations/TEAMS-GRAPH-SETUP.md`, "Part C". Admin consent granted 2026-10-14, `Chat.Read.All` included and kept for now as a fallback (user decision 2026-10-14). Discovery check 2026-10-14 (read-only): 151 distinct `PRJ ITC` chats across the two accounts; 42 titles parse with the quick add's parser, 109 do not (Part C has the breakdown).
+## Judgement calls for approval with the plan
+- The webhook routes are public (Graph cannot send a Bearer token), guarded by the client state, and listed as token-scoped in the route-coverage test
+- `messages` keeps the body text of every message in a watched chat (the PRD's "the raw chat, kept so a flag can quote it"); system events are stored but never analysed
+- The PRD's `teams_groups.kind`, `graph_team_id`, `graph_channel_id` and `delta_token` are not built: PMO groups are group chats, and chats have no delta query for an app
+- Discovery runs once a day and on "Scan now" (listing two accounts' chats is not polling a resource for change at the forbidden rate)
+- The placement page shows notable messages (with a signal or action), not every message; no Stitch round for the new column and section
+- Sprint risk: nine phases in two weeks. The cut line, if needed: Phases 1 to 7 are the milestone; Phase 8's page work can move to Sprint 5 with the exit gate judged from Admin > Teams and the database
 
 ## Blockers and Dependencies
-- Each page waits on the user's approval of its design; Phases 6 and 7 depend on the time left.
-- The exit gates of PRD Phases 1 and 2 need real data on staging (the user's actions).
+- Admin consent for `Chat.Read.WhereInstalled` (tenant admin): needed for the spike's subscription step and Phase 5
+- The catalog id of the Teams app "PMO Intelligence" (a one-off lookup by a signed-in person)
+- Whether an install through Graph works while the app shows "not available" (spike)
+- The Graph certificate's values put into the app secret by the user (Phase 3)
+- The week-long exit-gate watch needs Phase 5 on staging by 2026-10-20
 
-## Session State (last updated: 2026-10-14 10:00)
-- **Sprint**: 3 — Visual Redesign
-- **Current phase**: none — Sprint 3 complete (exit gate met, audit passed, handover written)
-- **Phase progress**: Phases 0 to 8 complete, committed and pushed
-- **Last completed task**: admin consent checked (three application permissions granted, `Chat.Read.All` among them) and the read-only discovery check run (151 `PRJ ITC` chats, 42 titles parse)
-- **Next task**: plan Sprint 4 (Teams chat) with `/sprint-start` in a new session, including how chat titles that do not parse are matched to placements (151 `PRJ ITC` chats, 42 parse)
-- **Last commit**: 619ba69 "docs: record the route for reading PMO group chats", pushed 2026-10-13 (CI run 38379038687: Backend CI, Frontend CI and E2E green; the deploy skipped, docs only)
-- **Uncommitted changes**: this file, `docs/integrations/TEAMS-GRAPH-SETUP.md` (discovery results), `docs/planning/BACKLOG.md` (route A item)
-- **Blockers**: none
-- **Tests passing**: 763 unit + 282 integration (backend, unchanged since 2026-10-11) + 265 frontend unit (`--maxWorkers=4`); 23 of 23 e2e (one worker) = 1333 tests
-- **Files modified this session**: the uncommitted changes above
-- **Key decisions this session**: the 17 planning decisions above; in Phase 1 the Twilight direction, Plus Jakarta Sans and JetBrains Mono, a light default with a twilight-dark theme, the shell screen before tokens, and our own copy only (Decisions Log rows, 2026-10-12); in Phase 2 build the shell from the approved screen with no new variants, the section breadcrumb instead of the app name in the top bar (search to BACKLOG), `Gauge` for Risk board, no subtitle, push with Phase 2 ("Shell details" row)
+## Session State (last updated: 2026-10-14 12:00)
+- **Sprint**: 4 — Teams Chat
+- **Current phase**: Phase 0 — plan approved 2026-10-14; doc updates done, commit checkpoint
+- **Last completed task**: every planning question answered (16 decisions above); the task checklist written
+- **Next task**: the `docs: plan sprint 4` commit (awaiting the user), then Phase 1 (the spike) once asked to continue
+- **Last commit**: b4efa3a "docs: record the chat discovery results and the granted permissions", pushed 2026-10-14
+- **Uncommitted changes**: this file (Sprint 3's version is in git at b4efa3a), `ROADMAP.md`, `BACKLOG.md`
+- **Blockers**: none for planning
+- **Tests passing**: 763 unit + 282 integration (backend) + 265 frontend unit; 23 e2e = 1333 (unchanged since Sprint 3)
+- **Files modified this session**: this file, `docs/planning/ROADMAP.md`, `docs/planning/BACKLOG.md`
 - **Recovery instructions**:
-  - Read this file first, then `docs/handover/sprint-02-handover.md`.
-  - **Stitch**: its tools load only in a session started after it was connected (user scope); check they are listed before relying on them. The PMO project is `15166762438523107418` ("PMO Intelligence"); the chosen direction is the screen "PMO Intelligence — Twilight Sign-in Showcase". Generation calls time out on this side after about a minute but finish in Stitch 10–40 minutes later; poll `list_screens` instead of re-sending
+  - Read this file first, then `docs/handover/sprint-03-handover.md` and `docs/integrations/TEAMS-GRAPH-SETUP.md` (Part C).
+  - The discovery script of 2026-10-14 is not in the repo (it lived in an earlier session's scratchpad).
   - **Local stack**: `docker compose up --build -d --wait`, `make migrate`, `make test-e2e`. Add `PMO_API_PORT=8100 PMO_WEB_PORT=3100` when another project holds ports 8000/3000.
   - **Push and `gh`**: use `Abhishekkv99`'s token per command, never a change to the default login: `git -c credential.helper= -c credential.helper='!f() { echo username=x-access-token; echo "password=$(gh auth token --user Abhishekkv99)"; }; f' push origin develop`.
   - **AWS sign-in**: `aws sso login --profile pmo-intelligence`. Nothing is ever deleted or overwritten in the main ITC account (`430006376054`).
@@ -244,6 +239,5 @@ Not a sprint; recorded here until Sprint 4 is planned.
 ## Decisions Log
 | Decision | Rationale |
 |----------|-----------|
-| Carried from Sprint 2: the Phase 1 and Phase 2 exit gates are in BACKLOG High Priority, and placements are entered on Admin > Register or with the quick add (the CSV import was removed) | User decisions 2026-10-11 (Sprint 2 Decisions Log, in git history) |
-| Carried from Sprint 2: the redesign's landing page is the sign-in page as a showcase (not a public marketing page), in a neutral modern SaaS style with a dark hero, not the ITC brand; the preview uses made-up data only; screenshots for design reference come from the local stack's seeded data, never staging | User decisions 2026-10-11 (BACKLOG) |
-| Every row of "User Decisions Made" above | User decisions 2026-10-12, Sprint 3 planning; alternatives listed with each |
+| Carried from Sprint 3: the Phase 1 and Phase 2 exit gates stay in BACKLOG High Priority, alongside | User decisions 2026-10-11 and 2026-10-13 |
+| Every row of "User Decisions Made" above | User decisions 2026-10-14, Sprint 4 planning; alternatives listed with each |
