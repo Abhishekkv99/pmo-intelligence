@@ -237,6 +237,25 @@ describe("RiskBoard", () => {
     ).toHaveTextContent("All levels");
   });
 
+  it("heads the client and the project as separate columns", () => {
+    render(<RiskBoard />);
+
+    const headers = screen
+      .getAllByTestId("level-section")[0]
+      .querySelectorAll("th");
+    expect([...headers].map((h) => h.textContent)).toEqual([
+      "Consultant",
+      "Client",
+      "Project",
+      "Weeks in",
+      "Health",
+      "Trend",
+      "Flags",
+      "Last call",
+      "Next action",
+    ]);
+  });
+
   it("searches the consultant, client, project, flags and next action", async () => {
     const user = userEvent.setup();
     render(<RiskBoard />);
@@ -273,7 +292,10 @@ describe("RiskBoard", () => {
     expect(
       within(tr).getByRole("link", { name: "Priya Shah" }),
     ).toHaveAttribute("href", "/placements/p1");
-    expect(within(tr).getByText("Acme · Data platform")).toBeInTheDocument();
+    // The client and the project each have their own column.
+    const cells = within(tr).getAllByRole("cell");
+    expect(cells[1]).toHaveTextContent(/^Acme$/);
+    expect(cells[2]).toHaveTextContent(/^Data platform$/);
     expect(within(tr).getByText("7")).toBeInTheDocument();
     expect(within(tr).getByTestId("health-badge")).toHaveTextContent("4.6Red");
     expect(

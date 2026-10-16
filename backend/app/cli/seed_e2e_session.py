@@ -34,6 +34,7 @@ import sys
 import uuid
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, time, timedelta
+from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from app.config import settings
@@ -60,8 +61,9 @@ from app.services.upload_service import session_media_key
 
 HELD_AT = datetime(2026, 10, 1, 9, 0, tzinfo=UTC)
 SEEDED_FAILURE = "Seeded failure for the end-to-end tests; retry it"
-# The first bytes of a WebM file; enough for the media route to serve it.
-RECORDING = b"\x1a\x45\xdf\xa3" + b"\x00" * 2048
+# Under a second of silence, Opus in WebM (1.2 KB), recorded with Chromium's
+# MediaRecorder: a file the browser decodes, so the player keeps its element.
+RECORDING = (Path(__file__).parent / "e2e_recording.webm").read_bytes()
 
 UTTERANCES = [
     ("A", "Thanks for joining, how is the first month going?", 0, 4_000),

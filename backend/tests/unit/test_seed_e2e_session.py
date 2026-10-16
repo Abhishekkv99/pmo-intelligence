@@ -6,6 +6,7 @@ import pytest
 
 from app.cli import seed_e2e_session as seed
 from app.config import settings
+from app.services.media_files import matches_extension
 from app.services.quote_check import TranscriptIndex
 
 
@@ -51,6 +52,15 @@ class TestQuotes:
         match = transcript.find(quote)
         assert match is not None
         assert match.offset_ms == offset_ms
+
+
+class TestRecording:
+    def test_the_recording_is_a_webm_file_the_upload_check_accepts(self) -> None:
+        assert matches_extension(".webm", seed.RECORDING[:16])
+        # Real Opus audio (Chromium decodes it), not a header padded with zeros.
+        assert b"webm" in seed.RECORDING[:64]
+        assert b"OpusHead" in seed.RECORDING
+        assert 500 < len(seed.RECORDING) < 4_096
 
 
 class TestHealthDates:

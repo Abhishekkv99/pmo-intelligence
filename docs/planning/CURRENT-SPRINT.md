@@ -57,7 +57,7 @@ Microsoft Graph pages read 2026-10-14; Graph rules change, so re-check before ac
 
 ## Task Checklist
 
->>> CURRENT PHASE: Phase 1 (spike done; commit checkpoint)
+>>> CURRENT PHASE: Phase 3 (next, when asked; Phase 2 committed 2026-10-17, not pushed)
 
 Every phase: re-read this plan, code and tests, the doc list walked item by item, the commit checkpoint, then stop. Backend: `make test-backend` with `-rf`; frontend Vitest with `--maxWorkers=4`; e2e with one worker after `docker compose up --build -d --wait <changed service>`. Every Graph call in tests is mocked (an `httpx` mock transport); no test calls Microsoft. Test data uses made-up names only: real chat titles name real consultants, so the title shapes are reproduced with invented names. Every push: both CI filters read before saying what it runs and deploys, and the deploy recorded in DEPLOYMENT's status in the next commit.
 
@@ -86,21 +86,21 @@ Every phase: re-read this plan, code and tests, the doc list walked item by item
 - [x] (also `BACKLOG.md`: the RSC items superseded, two follow-ups; `ROADMAP.md` and `ARCHITECTURE.md` "Teams Connector" and `> Status:`: the route) `docs/integrations/TEAMS-GRAPH-SETUP.md` (a "Part D: spike" with steps and results; the results table: catalog id, `Chat.Read.WhereInstalled`, install and notification results), `FEATURES.md` (the spike scripts as operator tools), `CHANGELOG.md` (README: no new make target)
 
 **Commit checkpoint**
-- [ ] `chore: add the chat route spike scripts`
+- [x] `chore: add the chat route spike scripts` (62b2a0a, 2026-10-16; pushed)
 
 ### Phase 2: Backlog clean-ups (independent; can run while the admin consent is awaited)
 **Code work**
-- [ ] Risk board: `client` and `project` as separate columns in `RiskBoard.tsx`; the search and the client filter unchanged
-- [ ] `sessions.spec.ts` seed: a small decodable WebM in `app/cli/seed_e2e_session.py`, and the cold-start allowance (`test.setTimeout`) on the retry test
-- [ ] Remove `.chart-animate` and its delay classes from `globals.css` (and its reduced-motion block), after `git grep` shows no user
-- [ ] mypy strict on `tests`: fix the 57 errors in 8 test files; `make lint` and the CI mypy step widened to `app tests`
-- [ ] Tests: `RiskBoard.test.tsx` (the two columns); e2e 23 of 23 with one worker, then `sessions.spec.ts` three times alone; `uv run mypy app tests` clean
+- [x] (2026-10-16) Risk board: `client` and `project` as separate columns in `RiskBoard.tsx`; the search and the client filter unchanged
+- [x] (2026-10-16; user choice: recorded with Chromium's MediaRecorder, committed as `app/cli/e2e_recording.webm`, 1,179 bytes, 0.90 s of silence in Opus; the e2e test now also waits for the player's metadata) `sessions.spec.ts` seed: a small decodable WebM in `app/cli/seed_e2e_session.py`, and the cold-start allowance (`test.setTimeout(90_000)`) on the retry test
+- [x] (2026-10-16; the `fade-slide-in` keyframes too, which only it used) Remove `.chart-animate` and its delay classes from `globals.css` (and its reduced-motion block), after `git grep` shows no user
+- [x] (2026-10-16; 70 errors in 17 files once a module-name clash, `unit.x` vs `tests.unit.x`, was cleared with `explicit_package_bases` in `pyproject.toml`; `testcontainers` added to the untyped modules) mypy strict on `tests`: fix the 57 errors in 8 test files; `make lint` and the CI mypy step widened to `app tests`
+- [x] (2026-10-16: backend 1046 passed, 764 unit + 282 integration; frontend 266; e2e 23 of 23 with one worker, `sessions.spec.ts` 3 of 3 runs alone with the default workers; `make lint` clean) Tests: `RiskBoard.test.tsx` (the two columns); e2e 23 of 23 with one worker, then `sessions.spec.ts` three times alone; `uv run mypy app tests` clean
 
 **Doc updates (concurrent)**
 - [ ] `ARCHITECTURE.md` (Risk board row; CI table's mypy step; `> Status:`), `DESIGN.md` (risk board columns; the chart entrance removed), `BACKLOG.md` (the four items ticked), `TESTS.md`, `FEATURES.md`, `CHANGELOG.md`, `DEPLOYMENT.md` status for the push (README: `make lint` row if its description changes)
 
 **Commit checkpoint**
-- [ ] `test: type-check the backend tests` and `feat: show the risk board's project in its own column` (two commits; the seed and CSS fixes with the second, or as `fix:`/`chore:` if the user prefers)
+- [x] (1c250a0 and the feat commit, 2026-10-17; the shared docs split by hunk) `test: type-check the backend tests` and `feat: show the risk board's project in its own column` (two commits; the seed and CSS fixes with the second, or as `fix:`/`chore:` if the user prefers)
 
 ### Phase 3: Data model, settings and the Graph client
 **Code work**
@@ -230,17 +230,19 @@ Every phase: re-read this plan, code and tests, the doc list walked item by item
 - The week-long exit-gate watch needs Phase 5 on staging by 2026-10-20
 - (done 2026-10-16) Microsoft dev tunnels installed and signed in; the spike's tunnel deleted afterwards
 
-## Session State (last updated: 2026-10-16 15:50)
+## Session State (last updated: 2026-10-17 00:10)
 - **Sprint**: 4 — Teams Chat
-- **Current phase**: Phase 1 — the spike done; commit checkpoint (`chore: add the chat route spike scripts`), awaiting the user
-- **Last completed task**: the per-chat subscription test (created, updated and deleted notifications; the post's within about a second); the subscription and the tunnel deleted; Part D written
-- **Next task**: the Phase 1 commit and push (approved); then Phase 2 (backlog clean-ups) when asked
-- **Last commit**: a53aba4 "docs: plan sprint 4", pushed 2026-10-14 (docs only)
-- **Uncommitted changes**: the two spike scripts (new); this file; `docs/integrations/TEAMS-GRAPH-SETUP.md`, `docs/tracking/FEATURES.md`, `docs/tracking/CHANGELOG.md`, `docs/planning/BACKLOG.md`, `docs/planning/ROADMAP.md`, `docs/ARCHITECTURE.md`
+- **Current phase**: Phase 2 — backlog clean-ups, complete and committed (not pushed yet)
+- **Phase progress**: 5 of 5 code tasks complete; docs and commit checkpoint done
+- **Last completed task**: the Phase 2 commits: 1c250a0 "test: type-check the backend tests", then "feat: show the risk board's project in its own column"
+- **Next task**: push to `develop` when the user says so (both sides deploy to staging: `backend/**` and `frontend/**` changed, so processing restarts), then record the deploy in DEPLOYMENT's `> Status:` in the next commit; then Phase 3 (data model, settings and the Graph client) when asked
+- **Last commit**: the Phase 2 feat commit (hash recorded after it is made), after 1c250a0
+- **Uncommitted changes**: none (just committed)
 - **Blockers**: none
-- **Tests passing**: 763 unit + 282 integration (backend) + 265 frontend unit; 23 e2e = 1333 (unchanged since Sprint 3; no app code changed)
-- **Files modified this session**: the uncommitted changes above
-- **Key decisions this session**: `Chat.Read.All` for good, one subscription per watched chat, no app install (2026-10-16); the two unused permissions removed from the app registration (2026-10-16; the admin to revoke their consents)
+- **Tests passing**: 764 unit + 282 integration (backend, one `pytest -rf` run) + 266 frontend unit (`--maxWorkers=4`); 23 e2e (one worker) = 1335; `sessions.spec.ts` 3 of 3 runs alone with the default workers; `make lint` clean (mypy on 206 files)
+- **Files created this session**: `backend/app/cli/e2e_recording.webm`
+- **Files modified this session**: `frontend/src/components/health/RiskBoard.tsx` and its test; `frontend/src/app/globals.css`; `frontend/tests/e2e/sessions.spec.ts`; `backend/app/cli/seed_e2e_session.py`; `backend/pyproject.toml`; `Makefile`; `.github/workflows/ci.yml`; 18 files under `backend/tests/`; `README.md`; `docs/ARCHITECTURE.md`, `docs/DESIGN.md`, `docs/planning/BACKLOG.md`, `docs/tracking/{TESTS,FEATURES,CHANGELOG}.md`; this file
+- **Key decisions this session**: `Chat.Read.All` for good, one subscription per watched chat, no app install (2026-10-16); the two unused permissions removed from the app registration (2026-10-16; the admin to revoke their consents); the seed's recording made with Chromium's MediaRecorder and committed as a fixture (user choice 2026-10-16, over a WAV built in code or an ffmpeg image); mypy module names from paths with `explicit_package_bases`, not a `tests/__init__.py` (which would change pytest's discovery)
 - **Recovery instructions**:
   - Read this file first, then `docs/handover/sprint-03-handover.md` and `docs/integrations/TEAMS-GRAPH-SETUP.md` (Part C).
   - The discovery script of 2026-10-14 is not in the repo (it lived in an earlier session's scratchpad).

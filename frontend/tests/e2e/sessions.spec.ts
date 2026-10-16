@@ -66,6 +66,13 @@ test("shows an analysed session with its evidence and recording", async ({
   // the Bearer token, with Range support.
   const audio = page.getByTestId("session-audio");
   await expect(audio).toHaveAttribute("src", /\/media\?token=/);
+  // The seeded recording is real audio: the browser reads its metadata, so
+  // the player keeps its element instead of giving up on a decode error.
+  await expect
+    .poll(() => audio.evaluate((a: HTMLAudioElement) => a.readyState), {
+      timeout: 15_000,
+    })
+    .toBeGreaterThanOrEqual(1);
   const src = (await audio.getAttribute("src")) ?? "";
   const media = await page.request.get(src, {
     headers: { Range: "bytes=0-3" },
@@ -92,6 +99,9 @@ test("lists the session and opens it", async ({ page }) => {
 test("retries a failed session and follows it until it settles", async ({
   page,
 }) => {
+  // The seed, the page and a real job on a cold stack: the waits below add
+  // up to more than the default 30 s, so the test gets room for all of them.
+  test.setTimeout(90_000);
   const seeded = seed(`${run}c`, true);
 
   await page.goto(`/sessions/${seeded.session_id}`);

@@ -191,12 +191,22 @@ export function RiskBoard() {
         ),
       },
       {
-        id: "placement",
-        header: "Client · project",
-        accessorFn: (r) => `${r.client.name} · ${r.project.name}`,
+        id: "client",
+        header: "Client",
+        accessorFn: (r) => r.client.name,
         cell: ({ row }) => (
-          <span className="block max-w-56 whitespace-normal">
-            {row.original.client.name} · {row.original.project.name}
+          <span className="block max-w-40 whitespace-normal">
+            {row.original.client.name}
+          </span>
+        ),
+      },
+      {
+        id: "project",
+        header: "Project",
+        accessorFn: (r) => r.project.name,
+        cell: ({ row }) => (
+          <span className="block max-w-48 whitespace-normal">
+            {row.original.project.name}
           </span>
         ),
       },

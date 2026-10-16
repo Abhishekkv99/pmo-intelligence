@@ -8,6 +8,7 @@ All notable changes to this project will be documented in this file.
 - Sign-in no longer stores users' Microsoft access and refresh tokens, and asks Microsoft for identity scopes only (`openid email profile`, no `offline_access`). Migration 002 drops `users.ms_access_token`, `ms_refresh_token` and `ms_token_expires_at`; the unused `refresh_microsoft_token` is removed.
 
 ### Removed
+- The unused CSS chart entrance animation.
 - The register's CSV import: the Admin > Import tab, `POST /register/import` and its template. Placements are entered with the quick add or the placement dialog.
 
 ### Changed
@@ -19,7 +20,8 @@ All notable changes to this project will be documented in this file.
 - A new placement page. The consultant's overall score, contract details and six dimension scores sit together at the top. Below, the health chart, what moved the scores and the calls are on the left, and the open flags, open issues, actions and other placements on the right; on a narrower screen the flags, issues and actions come first. Each signal that moved a score now shows its value as well as its weight. Critical flags and overdue actions are tinted red.
 - A new risk board. Placements are grouped by level, a section each for red, amber, green and not scored, in that order, each with its count; a level with none is hidden. Four counts at the top show how many placements are at each level across the whole board, and clicking one shows only that level (click again to show all). The search and filters sit in one bar. Long client, project and action names wrap instead of widening the table. An SME still sees one table of Technical scores.
 - A new app shell. The sidebar has an icon per page and folds to an icon rail (each page's name in a tooltip), remembered across reloads; on a phone it opens as a drawer from the top-bar button. Your name, role and Sign out moved from the top bar to the foot of the sidebar. The top bar shows where you are ("Risk board / Placement", "Sessions / Session", the first part a link back) instead of the app name, which is in the sidebar's logo. The sidebar stays in place as you move between pages.
-- Animations follow the reader's "reduce motion" setting, including the chart entrance.
+- Animations follow the reader's "reduce motion" setting.
+- The risk board shows the client and the project in separate columns.
 - `make lint` and CI type-check the backend tests with mypy strict, as they do the app.
 - The Consultant Director (CDM) replaces the tech lead: role `cdm` instead of `tech_lead`. A CDM is set on the consultant (Admin > Register > Consultants) and reads every placement of the consultants they manage, with the full health view. Projects no longer have a tech lead. Call analysis names the CDM and gives them the actions it owns; the placements table, the risk board filter, the placement page and the session page show the CDM. Migration 009 converts tech lead data: the role, each consultant's CDM from their latest project's tech lead, and speaker and owner roles.
 - The Placements table on Admin > Register shows the client and the project in separate columns.
@@ -29,6 +31,7 @@ All notable changes to this project will be documented in this file.
 - The processing queue remembers a job asked for while it runs and runs it once more when it finishes, so a change made during a run is not lost. "Scan now" during a running scan books another (`queued: true`); `queued` is false only when a scan is already waiting to start, and the Recordings tab says so.
 
 ### Fixed
+- The end-to-end seed's recording is a real (silent) WebM the browser can play; the header padded with zeros it stored made the session page's player give up, so a test that read the player failed now and then. The retry test has room for its own waits.
 - The sidebar highlights Risk board on a placement page; no item was highlighted there.
 - An SME reading a placement by id (`GET /placements/{placement_id}`) no longer sees its extension status, rate band or ended reason, which the placement health page already hides from them.
 - Editing a consultant, client or project on Admin > Register answered 500. The update flushed without reloading the row, so the response read a server-set `updated_at` that had expired, and an async session cannot load it lazily. The row is now reloaded after the flush.

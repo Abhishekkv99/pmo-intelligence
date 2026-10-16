@@ -1,6 +1,6 @@
 # Design System
 
-> **Status**: Sprint 3 complete (2026-10-13; values read back from the code in the sprint audit): the Twilight direction, its light and twilight-dark colours, fonts, logo and motion settings (Phase 1), the app shell (Phase 2), the sign-in showcase (Phase 3), the risk board (Phase 4), the placement page (Phase 5), the sessions pages (Phase 6) and Admin, Actions and Settings (Phase 7) are built. The redesigned pages follow phase by phase; each section below says what is built.
+> **Status**: Sprint 4 Phase 2 (2026-10-16): the risk board's client and project in their own columns; the unused CSS chart entrance removed. Sprint 3 complete (2026-10-13; values read back from the code in the sprint audit): the Twilight direction, its light and twilight-dark colours, fonts, logo and motion settings (Phase 1), the app shell (Phase 2), the sign-in showcase (Phase 3), the risk board (Phase 4), the placement page (Phase 5), the sessions pages (Phase 6) and Admin, Actions and Settings (Phase 7) are built. The redesigned pages follow phase by phase; each section below says what is built.
 
 PMO Intelligence is shown to management, so it should look like a premium product while staying calm and dense enough for daily PMO work. The look is called **Twilight**. It is editorial and Superhuman-like: one dramatic twilight-purple moment on a warm white canvas, large tight display type, a single lavender accent, and the product's own screens as the main imagery. Colour signals status; it never decorates.
 
@@ -128,7 +128,7 @@ Built in Phase 4 from the approved Stitch screen "Risk Board (Variant 2: Grouped
 - **Level counts**: four cards in a row (two on a phone), each a coloured dot, the level and its count in large mono. They count the whole board, whatever the filters; each is a button that shows only its level and sets the level menu to match, and a pressed card has a primary ring. A second click clears it.
 - **Filter bar**: one card holding the search and the menus (placement specialist, CDM, client, stack, level), each menu as wide as its text, so the bar fits on one line at desktop widths.
 - **Sections**: one card per level in the server's order (Red, Amber, Green, Not scored): a header strip tinted with the level's colour at 5% over a hairline at 20% (the card's edge at 30%), with the dot, the level as a heading in the text colour and the row count in a small mono tag; then the table. Not scored uses the muted surface and a grey dot. A level with no rows is not shown.
-- **Rows**: client · project wraps within a set width and the next action over at most two lines (cut with an ellipsis, the full text on hover), rather than widen the table; the due date sits above the action in mono, red with "· overdue" when past.
+- **Rows**: the client and the project each have a column (since Sprint 4) and wrap within a set width (10rem and 12rem), and the next action within 15rem over at most two lines (cut with an ellipsis, the full text on hover), rather than widen the table; the due date sits above the action in mono, red with "· overdue" when past.
 - **SME**: one table with the same styling, no counts and no sections, under "Every placement you support, lowest Technical score first."
 - The screen's subtitles on the sections ("Immediate attention required", "Elevated monitoring", "Stable performance", "Initial onboarding · baseline pending") were left out: they were invented, and not scored means no signal in the lookback, not onboarding. No thresholds are shown, since the board's response carries none. Level labels are in the text colour rather than the level's colour, since amber text fails contrast on white.
 
@@ -163,7 +163,7 @@ Built in Phase 7 from the approved Stitch screens "Admin (Variant 1: Underlined 
 ## Motion
 - The `motion` library (pinned at 13.4.6) is used in client components only, through `motion/react`.
 - `MotionProvider` (`frontend/src/components/providers/MotionProvider.tsx`) sets `reducedMotion="user"`: with the reader's "reduce motion" setting on, transforms and layout animations are skipped.
-- The CSS chart entrance classes (`.chart-animate`, kept from the frontend skeleton copied in Sprint 0) are switched off under `prefers-reduced-motion: reduce`; no component uses them now (the health chart draws without animation), so nothing on screen animates through them (BACKLOG, Tech Debt).
+- The health chart draws without animation. The CSS chart entrance kept from the frontend skeleton (`.chart-animate`, unused since the chart stopped animating) was removed in Sprint 4 Phase 2.
 
 ## Copy
 Every claim on screen is ours and true. Generated designs invented compliance badges (SOC 2, ISO 27001), "encrypted end-to-end", client email ingestion, automatic notifications and "playbooks", version numbers and counts; none of these appear in the app. Sample data on the sign-in page is plainly marked as sample data.
