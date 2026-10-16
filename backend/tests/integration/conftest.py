@@ -9,6 +9,7 @@ from fastapi import Request
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import NullPool, text
 from sqlalchemy.ext.asyncio import (
+    AsyncEngine,
     AsyncSession,
     create_async_engine,
 )
@@ -53,7 +54,7 @@ def database_url(postgres_container: PostgresContainer) -> str:
 
 
 @pytest.fixture(scope="session")
-async def engine(database_url: str) -> AsyncGenerator:
+async def engine(database_url: str) -> AsyncGenerator[AsyncEngine]:
     """Create a session-scoped async engine and set up all tables once."""
     test_engine = create_async_engine(
         database_url,
@@ -100,7 +101,7 @@ def _fresh_processing_queue() -> Generator[ProcessingQueue]:
 
 
 @pytest.fixture
-async def db_session(engine) -> AsyncGenerator[AsyncSession]:
+async def db_session(engine: AsyncEngine) -> AsyncGenerator[AsyncSession]:
     """Per-test database session with savepoint rollback for isolation."""
     async with engine.connect() as connection:
         transaction = await connection.begin()

@@ -412,7 +412,8 @@ class TestMeEndpoint:
             _app.dependency_overrides.clear()
 
         assert response.status_code == 200
-        return response.json()
+        body: dict[str, object] = response.json()
+        return body
 
     async def test_me_returns_the_role(self) -> None:
         mock_user = _make_mock_user(email="manager@example.com")

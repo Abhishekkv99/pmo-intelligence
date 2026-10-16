@@ -29,8 +29,8 @@ from app.services.processing_queue import Job, ProcessingQueue
 LONDON = ZoneInfo("Europe/London")
 
 
-def _utc(*args: int) -> datetime:
-    return datetime(*args, tzinfo=UTC)
+def _utc(year: int, month: int, day: int, hour: int, minute: int) -> datetime:
+    return datetime(year, month, day, hour, minute, tzinfo=UTC)
 
 
 class TestDailySchedule:

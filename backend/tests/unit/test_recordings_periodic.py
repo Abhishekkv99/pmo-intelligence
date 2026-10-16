@@ -1,6 +1,7 @@
 """When a scan runs: one queue job, deduplicated, queued by the loop and on request."""
 
 import asyncio
+from collections.abc import Iterator
 
 import pytest
 
@@ -21,7 +22,7 @@ from app.services.recordings.periodic import (
 
 
 @pytest.fixture
-def queue() -> ProcessingQueue:
+def queue() -> Iterator[ProcessingQueue]:
     fresh = ProcessingQueue(concurrency=1)
     set_processing_queue(fresh)
     yield fresh

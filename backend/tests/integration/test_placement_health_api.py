@@ -137,27 +137,23 @@ class World:
         return snapshot
 
     async def not_scored(self, placement: Placement) -> HealthSnapshot:
-        return await self.snapshot(
-            placement,
-            scored=False,
-            **dict.fromkeys(
-                [
-                    "delivery",
-                    "technical",
-                    "relationship",
-                    "engagement",
-                    "onboarding",
-                    "communication",
-                    "overall",
-                    "trend",
-                    "trend_delta",
-                    "technical_trend",
-                    "technical_trend_delta",
-                    "risk_level",
-                ]
-            ),
-            signal_count=0,
+        empty: dict[str, Any] = dict.fromkeys(
+            [
+                "delivery",
+                "technical",
+                "relationship",
+                "engagement",
+                "onboarding",
+                "communication",
+                "overall",
+                "trend",
+                "trend_delta",
+                "technical_trend",
+                "technical_trend_delta",
+                "risk_level",
+            ]
         )
+        return await self.snapshot(placement, scored=False, **empty, signal_count=0)
 
     async def session(
         self,
@@ -274,7 +270,7 @@ class TestRiskBoard:
     ) -> None:
         # Red before amber before green; within red, falling before flat, and
         # the lower overall first; not scored and never recomputed last, by name.
-        cases = [
+        cases: list[tuple[str, dict[str, Any]]] = [
             ("Zed Green", {"risk_level": "green", "overall": 7.8, "trend": "up"}),
             ("Yan Amber", {"risk_level": "amber", "overall": 6.0, "trend": "down"}),
             ("Xia Flat", {"risk_level": "red", "overall": 4.0, "trend": "flat"}),
@@ -418,7 +414,11 @@ class TestRiskBoard:
     ) -> None:
         role = {"ps": Role.PS, "cdm": Role.CDM}[named_as]
         person = await world.user(role, "Named")
-        mine = await world.placement("Priya Shah", **{named_as: person})
+        mine = await world.placement(
+            "Priya Shah",
+            ps=person if named_as == "ps" else None,
+            cdm=person if named_as == "cdm" else None,
+        )
         await world.snapshot(mine)
         flag = await world.flag(mine)
         await world.placement("Ann Brooks")

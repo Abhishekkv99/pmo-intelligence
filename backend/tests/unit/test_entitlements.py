@@ -93,9 +93,8 @@ class TestPlacementScope:
 class TestAssertCanReadPlacement:
     def test_allowed_returns_none(self) -> None:
         user = _user("ps")
-        assert (
-            assert_can_read_placement(user, _people(ps=user.id), uuid.uuid4()) is None
-        )
+        # Allowed: it returns without raising.
+        assert_can_read_placement(user, _people(ps=user.id), uuid.uuid4())
 
     def test_denied_is_a_404_identical_to_a_missing_row(
         self, caplog: pytest.LogCaptureFixture

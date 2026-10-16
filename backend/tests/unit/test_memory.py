@@ -5,6 +5,7 @@ from unittest.mock import mock_open, patch
 
 import pytest
 
+from app.config import settings
 from app.utils import memory
 from app.utils.memory import (
     current_rss_mib,
@@ -108,7 +109,7 @@ class TestMemoryProbe:
 class TestStartTracemalloc:
     def test_does_nothing_when_diagnostics_are_off(self) -> None:
         with (
-            patch.object(memory.settings, "memory_diagnostics_enabled", False),
+            patch.object(settings, "memory_diagnostics_enabled", False),
             patch("app.utils.memory.tracemalloc.start") as start,
         ):
             assert start_tracemalloc_if_enabled() is False
@@ -116,7 +117,7 @@ class TestStartTracemalloc:
 
     def test_starts_tracing_when_enabled(self) -> None:
         with (
-            patch.object(memory.settings, "memory_diagnostics_enabled", True),
+            patch.object(settings, "memory_diagnostics_enabled", True),
             patch("app.utils.memory.tracemalloc.is_tracing", return_value=False),
             patch("app.utils.memory.tracemalloc.start") as start,
         ):

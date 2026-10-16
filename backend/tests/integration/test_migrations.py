@@ -9,6 +9,7 @@ Alembic's env.py runs its own event loop, so it is driven in a subprocess.
 import os
 import subprocess
 import sys
+from collections.abc import AsyncIterator
 from pathlib import Path
 
 import pytest
@@ -62,7 +63,9 @@ def _alembic(database_url: str, *args: str) -> subprocess.CompletedProcess[str]:
 
 
 @pytest.fixture
-async def fresh_database_url(engine: AsyncEngine, database_url: str) -> str:
+async def fresh_database_url(
+    engine: AsyncEngine, database_url: str
+) -> AsyncIterator[str]:
     """A brand-new empty database on the test container, dropped afterwards."""
     async with engine.connect() as conn:
         conn = await conn.execution_options(isolation_level="AUTOCOMMIT")

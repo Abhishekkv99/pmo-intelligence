@@ -220,7 +220,7 @@ Next.js 16.3.8 App Router app in `frontend/`, TypeScript strict, React 19.2, sha
 | Job | Runs when | Steps |
 |-----|-----------|-------|
 | Detect Changes | always | A manual run takes its sides from the `target` input (backend, frontend or both) and fails on any branch but `develop`. Otherwise, path filters: backend, frontend, compose file; a change to `ci.yml` runs everything. A pull request compares with its base branch, a push to `main` with the previous commit, and a push to any other branch with `main`, so on `develop` everything not yet released counts as changed |
-| Backend CI | `backend/**` changed | `uv sync --frozen`; ruff check; ruff format check; `mypy app` (strict); unit tests; integration tests (testcontainers starts pgvector) |
+| Backend CI | `backend/**` changed | `uv sync --frozen`; ruff check; ruff format check; `mypy app tests` (strict; the tests too since Sprint 4); unit tests; integration tests (testcontainers starts pgvector) |
 | Frontend CI | `frontend/**` changed | `pnpm install --frozen-lockfile`; eslint; `tsc --noEmit`; Prettier check; Vitest; `next build` |
 | E2E Tests | backend, frontend or compose file changed | `docker compose up --build --wait`; `alembic upgrade head` from the runner; Playwright (Chromium) with local auth; stack logs on failure; report uploaded |
 | Deploy to staging | push or manual run on `develop`, every job above passed or skipped, `vars.AWS_ROLE_ARN` set | See below |

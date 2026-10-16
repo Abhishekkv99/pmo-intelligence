@@ -108,3 +108,4 @@
 | Feature | Files | Status |
 |---------|-------|--------|
 | Chat route spike scripts (operator tools): find a chat by title, try adding the Teams app, list members, read message metadata, subscribe to a chat's change notifications and remove the subscription, app-only with the Graph certificate and never printing message text; a local notification receiver that answers Graph's validation and logs ids, change types and delay, reached through a temporary dev tunnel. Results in `docs/integrations/TEAMS-GRAPH-SETUP.md`, "Part D" | `scripts/teams/spike_chat_route.py`, `scripts/teams/spike_receiver.py` | Done (Phase 1) |
+| Backend tests type-checked with mypy strict, as the app is: `make lint` and CI run `mypy app tests` (module names from the paths, `explicit_package_bases`) | `backend/pyproject.toml`, `Makefile`, `.github/workflows/ci.yml` | Done (Phase 2) |

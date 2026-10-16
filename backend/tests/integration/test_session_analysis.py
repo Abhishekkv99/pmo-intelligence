@@ -158,7 +158,7 @@ class FakePipeline:
         return SessionRunResult(
             analysis=self.analysis,
             cost_records=[dict(COST)],
-            node_errors=list(self.node_errors),  # type: ignore[arg-type]
+            node_errors=list(self.node_errors),
             succeeded=self.succeeded,
         )
 

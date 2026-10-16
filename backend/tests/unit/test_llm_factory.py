@@ -1,7 +1,7 @@
 """Unit tests for the shared LLM factory."""
 
 from collections.abc import Iterator
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 from langchain_openai import AzureChatOpenAI
@@ -28,7 +28,7 @@ def _fresh_factory_caches() -> Iterator[None]:
 
 class TestBuildChatLLM:
     @patch("app.ai.llm_factory.settings")
-    def test_returns_azure_chat_instance(self, mock_settings: object) -> None:
+    def test_returns_azure_chat_instance(self, mock_settings: MagicMock) -> None:
         mock_settings.azure_openai_endpoint = "https://test.openai.azure.com/"
         mock_settings.azure_openai_deployment = "gpt-52"
         mock_settings.azure_openai_api_key = "test-key"
@@ -39,7 +39,7 @@ class TestBuildChatLLM:
         assert isinstance(llm, AzureChatOpenAI)
 
     @patch("app.ai.llm_factory.settings")
-    def test_reasoning_effort_set_on_instance(self, mock_settings: object) -> None:
+    def test_reasoning_effort_set_on_instance(self, mock_settings: MagicMock) -> None:
         mock_settings.azure_openai_endpoint = "https://test.openai.azure.com/"
         mock_settings.azure_openai_deployment = "gpt-52"
         mock_settings.azure_openai_api_key = "test-key"
@@ -50,7 +50,9 @@ class TestBuildChatLLM:
         assert llm.reasoning_effort == "low"
 
     @patch("app.ai.llm_factory.settings")
-    def test_uses_azure_deployment_from_settings(self, mock_settings: object) -> None:
+    def test_uses_azure_deployment_from_settings(
+        self, mock_settings: MagicMock
+    ) -> None:
         mock_settings.azure_openai_endpoint = "https://test.openai.azure.com/"
         mock_settings.azure_openai_deployment = "my-gpt-deployment"
         mock_settings.azure_openai_api_key = "test-key"
@@ -61,7 +63,9 @@ class TestBuildChatLLM:
         assert llm.deployment_name == "my-gpt-deployment"
 
     @patch("app.ai.llm_factory.settings")
-    def test_same_effort_returns_the_same_instance(self, mock_settings: object) -> None:
+    def test_same_effort_returns_the_same_instance(
+        self, mock_settings: MagicMock
+    ) -> None:
         mock_settings.azure_openai_endpoint = "https://test.openai.azure.com/"
         mock_settings.azure_openai_deployment = "gpt-52"
         mock_settings.azure_openai_api_key = "test-key"
@@ -72,7 +76,7 @@ class TestBuildChatLLM:
 
     @patch("app.ai.llm_factory.settings")
     def test_different_effort_returns_a_different_instance(
-        self, mock_settings: object
+        self, mock_settings: MagicMock
     ) -> None:
         mock_settings.azure_openai_endpoint = "https://test.openai.azure.com/"
         mock_settings.azure_openai_deployment = "gpt-52"
@@ -83,7 +87,7 @@ class TestBuildChatLLM:
 
     @patch("app.ai.llm_factory.settings")
     def test_requests_time_out_after_the_configured_seconds(
-        self, mock_settings: object
+        self, mock_settings: MagicMock
     ) -> None:
         """langchain-openai's default is no timeout at all; a dead connection
         held the periodic scanner for 11 hours on 2026-10-05."""
@@ -103,7 +107,7 @@ class TestBuildChatLLM:
 class TestBuildEmbeddingClient:
     @patch("app.ai.llm_factory.settings")
     def test_returns_an_azure_client_for_the_endpoint(
-        self, mock_settings: object
+        self, mock_settings: MagicMock
     ) -> None:
         mock_settings.azure_openai_endpoint = "https://test.openai.azure.com/"
         mock_settings.azure_openai_api_key = "test-key"
@@ -117,7 +121,7 @@ class TestBuildEmbeddingClient:
         assert client.api_key == "test-key"
 
     @patch("app.ai.llm_factory.settings")
-    def test_the_client_is_cached(self, mock_settings: object) -> None:
+    def test_the_client_is_cached(self, mock_settings: MagicMock) -> None:
         mock_settings.azure_openai_endpoint = "https://test.openai.azure.com/"
         mock_settings.azure_openai_api_key = "test-key"
         mock_settings.azure_openai_api_version = "2025-04-01-preview"
@@ -127,7 +131,7 @@ class TestBuildEmbeddingClient:
 
     @patch("app.ai.llm_factory.settings")
     def test_requests_time_out_after_the_configured_seconds(
-        self, mock_settings: object
+        self, mock_settings: MagicMock
     ) -> None:
         mock_settings.azure_openai_endpoint = "https://test.openai.azure.com/"
         mock_settings.azure_openai_api_key = "test-key"

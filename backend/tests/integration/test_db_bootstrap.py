@@ -182,7 +182,9 @@ async def test_run_writes_a_working_database_url_then_leaves_it_alone(
     bootstrap_config: BootstrapConfig, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     client = FakeSecretsClient({"DATABASE_URL": SECRET_PLACEHOLDER, "SECRET_KEY": "k"})
-    monkeypatch.setattr(db_bootstrap.aioboto3, "Session", lambda: FakeSession(client))
+    monkeypatch.setattr(
+        "app.cli.db_bootstrap.aioboto3.Session", lambda: FakeSession(client)
+    )
 
     assert await db_bootstrap.run(bootstrap_config, rotate_password=False) == 0
     url = client.values["DATABASE_URL"]
@@ -203,7 +205,9 @@ async def test_run_with_existing_login_but_no_url_asks_for_rotation(
 ) -> None:
     await _ensure(bootstrap_config)
     client = FakeSecretsClient({"DATABASE_URL": SECRET_PLACEHOLDER})
-    monkeypatch.setattr(db_bootstrap.aioboto3, "Session", lambda: FakeSession(client))
+    monkeypatch.setattr(
+        "app.cli.db_bootstrap.aioboto3.Session", lambda: FakeSession(client)
+    )
 
     assert await db_bootstrap.run(bootstrap_config, rotate_password=False) == 1
     assert client.values["DATABASE_URL"] == SECRET_PLACEHOLDER

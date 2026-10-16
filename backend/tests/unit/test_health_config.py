@@ -106,7 +106,7 @@ class TestValidation:
     def test_the_config_is_frozen(self) -> None:
         config = load_health_config("v1")
         with pytest.raises(ValidationError):
-            config.prior = 5.0  # type: ignore[misc]
+            config.prior = 5.0
 
 
 class TestLoading:

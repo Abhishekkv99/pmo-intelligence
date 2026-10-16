@@ -1,3 +1,4 @@
+from collections.abc import AsyncIterator
 from pathlib import Path
 
 import pytest
@@ -63,7 +64,7 @@ class TestLocalStorage:
     async def test_upload_stream(
         self, storage: LocalStorageBackend, tmp_path: Path
     ) -> None:
-        async def stream():  # type: ignore[no-untyped-def]
+        async def stream() -> AsyncIterator[bytes]:
             yield b"chunk1"
             yield b"chunk2"
 

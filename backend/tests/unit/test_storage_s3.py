@@ -21,7 +21,7 @@ def _make_backend(endpoint_url: str | None = None) -> S3StorageBackend:
     )
 
 
-def _mock_s3_client() -> AsyncMock:
+def _mock_s3_client() -> tuple[AsyncMock, MagicMock]:
     """Create a mock S3 client that works as an async context manager."""
     mock_client = AsyncMock()
     mock_context = MagicMock()

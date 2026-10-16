@@ -66,6 +66,9 @@ python_version = "3.12"
 strict = true
 warn_return_any = true
 warn_unused_configs = true
+# tests/ has no __init__.py (pytest's discovery), so module names are taken
+# from the paths: tests/unit/x.py is tests.unit.x, as the tests import it
+explicit_package_bases = true
 
 # Neither ships type information (no py.typed); used by the db bootstrap CLI
 [[tool.mypy.overrides]]
@@ -82,5 +85,7 @@ module = [
     "botocore.*",
     "pgvector",
     "pgvector.*",
+    "testcontainers",
+    "testcontainers.*",
 ]
 ignore_missing_imports = true

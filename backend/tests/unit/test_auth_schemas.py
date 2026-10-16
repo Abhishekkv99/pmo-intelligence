@@ -6,6 +6,7 @@ from datetime import UTC, datetime
 import pytest
 from pydantic import ValidationError
 
+from app.models.enums import Role
 from app.schemas.auth import TokenResponse, UserLogin, UserRegister, UserResponse
 
 
@@ -78,7 +79,7 @@ class TestUserResponse:
             email="user@example.com",
             full_name="Test User",
             is_active=True,
-            role="ps",
+            role=Role.PS,
             created_at=now,
         )
         assert response.email == "user@example.com"
@@ -91,7 +92,7 @@ class TestUserResponse:
             email="manager@example.com",
             full_name="Manager",
             is_active=True,
-            role="pmo_manager",
+            role=Role.PMO_MANAGER,
             created_at=datetime.now(UTC),
         )
         dumped = response.model_dump(mode="json")
@@ -112,12 +113,14 @@ class TestUserResponse:
         # Required (though nullable), never defaulted: a response built
         # without the entitlement must fail loudly rather than read as one.
         with pytest.raises(ValidationError):
-            UserResponse(
-                id=uuid.uuid4(),
-                email="user@example.com",
-                full_name="Test User",
-                is_active=True,
-                created_at=datetime.now(UTC),
+            UserResponse.model_validate(
+                {
+                    "id": uuid.uuid4(),
+                    "email": "user@example.com",
+                    "full_name": "Test User",
+                    "is_active": True,
+                    "created_at": datetime.now(UTC),
+                }
             )
 
     def test_user_response_rejects_an_unknown_role(self) -> None:
@@ -129,4 +132,4 @@ class TestUserResponse:
             "created_at": datetime.now(UTC),
         }
         with pytest.raises(ValidationError):
-            UserResponse(**base, role="superuser")
+            UserResponse.model_validate({**base, "role": "superuser"})

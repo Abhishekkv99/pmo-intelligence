@@ -50,7 +50,7 @@ test-e2e: ## Run Playwright end-to-end tests against the stack on PMO_WEB_PORT/P
 lint: lint-backend lint-frontend ## Run all linters
 
 lint-backend: ## Lint backend (ruff check, ruff format check, mypy strict)
-	cd backend && uv run ruff check . && uv run ruff format --check . && uv run mypy app
+	cd backend && uv run ruff check . && uv run ruff format --check . && uv run mypy app tests
 
 lint-frontend: ## Lint frontend (eslint, typecheck, prettier check)
 	cd frontend && pnpm lint && pnpm typecheck && pnpm format:check

@@ -532,7 +532,11 @@ class TestAuthenticateSSO:
         service = SSOService(AsyncMock())
         user = _make_mock_user(role=role)
         user.is_active = active
-        claims = {"oid": "oid-123", "preferred_username": "x@co.com", "acct": "0"}
+        claims: dict[str, object] = {
+            "oid": "oid-123",
+            "preferred_username": "x@co.com",
+            "acct": "0",
+        }
 
         with (
             self._patched(service, claims, user),
@@ -627,13 +631,15 @@ class TestTenantAllowlist:
 
         mock_signing_key = MagicMock()
         mock_signing_key.key = "fake-key"
-        unverified = {
+        unverified: dict[str, object] = {
             "tid": "tenant-x",
             "iss": "https://login.microsoftonline.com/tenant-x/v2.0",
             "preferred_username": "someone@other.example",
         }
 
-        def fake_decode(token: str, *args: object, **kwargs: object) -> dict:
+        def fake_decode(
+            token: str, *args: object, **kwargs: object
+        ) -> dict[str, object]:
             options = kwargs.get("options")
             if isinstance(options, dict) and options.get("verify_signature") is False:
                 return unverified
