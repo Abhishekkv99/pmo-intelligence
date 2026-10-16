@@ -1,9 +1,9 @@
 # Teams / Microsoft Graph Access: Setup
 
 **Goal**: let PMO Intelligence read the consultant group chats it is explicitly added to, and nothing else.
-**Route**: route A (decided 2026-10-13, see "Part C"): find every group chat titled `PRJ ITC …` through one PMO account's chat list, add the Teams app to each through Graph, and read each with resource-specific consent (RSC). Before 2026-10-13 the route was RSC with the app added to each chat by hand, and application permission `Chat.Read.All` requested in parallel as the fallback (left ungranted; not chosen).
+**Route**: since 2026-10-16 (see "Part D"): find every group chat titled `PRJ ITC …` through the PMO accounts' chat lists (`Chat.ReadBasic.All`), and read the ones linked to an active placement with the application permission `Chat.Read.All`, through one change-notification subscription per chat; no Teams app is installed. Route A (2026-10-13, "Part C": add the Teams app to each chat through Graph and read with resource-specific consent, RSC) was dropped when the spike found that an RSC-only Teams app cannot be added to a group chat. Before 2026-10-13 the route was RSC with the app added to each chat by hand, with `Chat.Read.All` as the fallback.
 **Tenant**: Information Tech Consultants (`2b32b1fa-7899-482e-a6de-be99c0ff5516`)
-**Status**: 2026-10-13: route A chosen; its two permissions added to the app registration, not yet consented ("Part C"); opening the Teams app showed "This app is not available. Please check with your admin"; the app's certificate sign-in works and its token holds no application permission. A1–A3 done 2026-10-06 (app-only sign-in verified). A4: the package was submitted via "Submit an app to your org" on 2026-10-06, and the Teams app **PMO Intelligence 1.0.0 was seen published in the Teams admin center on 2026-10-08** (approval done; no ticket number was issued). Its availability is the org-wide default, *everyone, including guests and external users*: to be narrowed to the PMO team (BACKLOG). Installed for no one yet. Still open: chat RSC state (admin step 1) and the A5 read test, both before Phase 3 watches real chats.
+**Status**: 2026-10-16: the Sprint 4 spike ran on the tenant ("Part D"): the install through Graph is refused (`AppScopeIsNotAllowed`), reads and a per-chat change-notification subscription work with `Chat.Read.All` (a post's notification within about a second; edits and deletions notified); the route is now `Chat.Read.All` (user decision). `Chat.Read.WhereInstalled` was added and consented for the spike; it and `TeamsAppInstallation.ReadWriteAndConsentSelfForChat.All` were removed from the app registration the same day (user decision), and the admin is to revoke their consents. Earlier: 2026-10-13: route A chosen; its two permissions added to the app registration, not yet consented ("Part C"); opening the Teams app showed "This app is not available. Please check with your admin"; the app's certificate sign-in works and its token holds no application permission. A1–A3 done 2026-10-06 (app-only sign-in verified). A4: the package was submitted via "Submit an app to your org" on 2026-10-06, and the Teams app **PMO Intelligence 1.0.0 was seen published in the Teams admin center on 2026-10-08** (approval done; no ticket number was issued). Its availability is the org-wide default, *everyone, including guests and external users*: to be narrowed to the PMO team (BACKLOG). Installed for no one yet. Still open: chat RSC state (admin step 1) and the A5 read test, both before Phase 3 watches real chats.
 **Research date**: 2026-10-06. Graph rules change, so re-check the linked Microsoft pages before acting.
 
 | Part | Who | Needs admin rights? |
@@ -111,6 +111,30 @@ Role IDs read from the tenant's Microsoft Graph service principal on 2026-10-13.
 > Messages are read only in those chats, with the chat-level permission `ChatMessage.Read.Chat`. The app never posts and takes no automated action. Please also confirm that chat RSC is not `DisabledForAllApps` (`Get-MgBetaChatRscConfiguration`), and check why the Teams app "PMO Intelligence" shows "This app is not available. Please check with your admin" (Teams admin center → Manage apps → PMO Intelligence: status, publishing state, users and groups). The fallback `Chat.Read.All` is still not needed; please leave it ungranted.
 
 ---
+
+## Part D: the Sprint 4 spike (2026-10-16)
+Scripts: `scripts/teams/spike_chat_route.py` (one Graph step per command, app-only with the certificate, printing ids, times, types and status codes, never message text) and `scripts/teams/spike_receiver.py` (a local receiver for change notifications, reached through a temporary Microsoft dev tunnel). Run from the repository root, with `SECRETS` standing for `%USERPROFILE%\pmo-intelligence-secrets`:
+
+```powershell
+uv run --with msal --with requests python scripts\teams\spike_chat_route.py --pfx "SECRETS\pmo-intelligence-graph.pfx" --pfx-password-file "SECRETS\pmo-intelligence-graph.pfx-password.txt" <step> [options]
+```
+
+**Setup**: `Chat.Read.WhereInstalled` (app role `1c1b4c8e-3cc7-4c58-8470-9b92c9d5848b`) added to the app registration with `az ad app permission add` and admin-consented; the Teams app's catalog id read in Graph Explorer by a signed-in user (`appCatalogs/teamsApps?$filter=externalId eq '0f2eaf35-…'`): `74c9afc8-4084-4653-876f-2d63f325ada7` (the Azure CLI's token cannot list the catalog); a test group chat titled `PRJ ITC TEST - Alex Sample - Demo Client - 1/10/2026 - 31/3/2027` with three PMO staff; Microsoft dev tunnels (`winget install Microsoft.devtunnel`, `devtunnel user login -d`).
+
+| Step | Result |
+|------|--------|
+| `find --account <upn> --prefix "PRJ ITC TEST"` | OK: the app-only token lists the account's chats (1,010) and finds the test chat |
+| `messages` before any install | OK: readable, because `Chat.Read.All` is granted; with it held, a read proves nothing about RSC |
+| `install` (`POST /chats/{id}/installedApps` with the RSC permission set) | **HTTP 400, inner code `AppScopeIsNotAllowed`**: the Teams app declares RSC permissions only, no tab or bot, and an app needs a capability scoped to `groupChat` to be added to a group chat (static tabs may use `groupChat` from manifest 1.16) |
+| `members` | OK: three members with names and Entra ids, no install needed |
+| `subscribe --chat-id` (`/chats/{id}/messages`, v1.0, no resource data, 55 minutes, `created,updated,deleted`) | OK: Graph sent the validation request through the tunnel, the receiver echoed it, and the subscription was created |
+| A post, an edit and a deletion in the test chat | Three notifications (`created`, `updated`, `deleted`), each with the right client state and the message's resource path; the post's arrived within about a second of its creation time, the edit's and deletion's as they were made |
+| `messages` after the deletion | The deleted message is still listed, with `deletedDateTime` set |
+| `unsubscribe`, then `subscriptions` | Deleted (HTTP 204); none left. The tunnel was deleted afterwards |
+
+**Decision (user, 2026-10-16)**: `Chat.Read.All` for good. Watched chats are read with it, one subscription per chat (renewed within the three-day limit, with a `lifecycleNotificationUrl` beyond an hour), no Teams app is installed, and the code calls Graph only for `PRJ ITC` chats linked to an active placement. Not chosen: a Teams app 1.0.1 with a group-chat tab (needs the admin's approval of a new version), with or without `Chat.Read.All` as a bridge. Since nothing is added to the chats, people in them see no sign that the chat is read: HR's notice to consultants (BACKLOG open question 6) has to say so.
+
+---
 ## Results to record (goes into the Sprint 0 handover)
 
 | Item | Value |
@@ -121,10 +145,13 @@ Role IDs read from the tenant's Microsoft Graph service principal on 2026-10-13.
 | Certificate thumbprint and expiry date | `F46877044D95A517407208FF2D2FE9F382684BD3`, expires 2027-10-06 |
 | Chat RSC state (admin step 1) | not yet confirmed (needs a Teams or Global admin; before Phase 3) |
 | Teams app approved (date) | submitted 2026-10-06; seen **published, version 1.0.0** on 2026-10-08 (exact approval date not recorded). Available to: everyone (org-wide default, including guests and external users), to be narrowed to the PMO team. Installed for: no one |
-| Fallback `Chat.Read.All` status | granted 2026-10-14 with the route A permissions (not asked for; see Part C). Kept granted for now as a fallback (user decision 2026-10-14); the code calls Graph only for `PRJ ITC` chats. |
+| `Chat.Read.All` status | granted 2026-10-14 with the route A permissions (not asked for; see Part C); kept as a fallback (user decision 2026-10-14); **the route since 2026-10-16** (Part D). The code calls Graph only for `PRJ ITC` chats linked to an active placement. |
 | Admin ticket number | none issued: the app was approved without one (Sprint 0 exit gate met by the approval itself, user decision 2026-10-08) |
 | Test chat verified (A5 date) | not yet run (before Phase 3) |
 | Route A permissions (Part C) | added to the app registration 2026-10-13; admin consent granted 2026-10-14 (with `Chat.Read.All` as well) |
+| Teams app catalog id | `74c9afc8-4084-4653-876f-2d63f325ada7` (read 2026-10-16); unused since the route change |
+| `Chat.Read.WhereInstalled` | added and admin-consented 2026-10-16 for the spike; removed from the registration the same day, with `TeamsAppInstallation.ReadWriteAndConsentSelfForChat.All` (user decision); the admin to revoke both consents |
+| Spike (Part D, 2026-10-16) | install through Graph refused (`AppScopeIsNotAllowed`); per-chat subscription with `Chat.Read.All` works, notifications within about a second, edits and deletions included; route changed to `Chat.Read.All` |
 | PMO accounts covering every `PRJ ITC` chat | `Sunny.Dhanoe@InformationTechConsultants.com`, `uttam.kumar@InformationTechConsultants.com` (named by the user 2026-10-13); 151 distinct `PRJ ITC` chats between them on 2026-10-14 |
 
 ---
@@ -144,7 +171,8 @@ Role IDs read from the tenant's Microsoft Graph service principal on 2026-10-13.
 | Permission IDs (checked against the tenant) | `Chat.Read.All` app role `6b7d71aa-70aa-4810-a8d9-5d9fb2830017`; RSC `ChatMessage.Read.Chat` `9398c3de-3f6b-4958-90f3-5098714ff50c`, `ChatMember.Read.Chat` `e854bbc6-07e3-45cc-af99-b6e78fab5b80` | Graph service principal in tenant |
 
 ## Engineering notes (for Phase 3)
-- Poll each watched chat with `GET /chats/{id}/messages?$orderby=lastModifiedDateTime desc&$filter=lastModifiedDateTime gt {watermark}`. `$filter` only works when `$orderby` uses the same property. Ascending order isn't supported, and `$top` is at most 50.
+- **Do not poll for new messages** (found 2026-10-14): Microsoft allows polling a Teams resource for changes only once a day ([polling requirements](https://learn.microsoft.com/en-us/graph/api/resources/teams-api-overview)). New messages come from change notifications (one subscription per watched chat, "Part D"); the date-ranged read below is for the once-a-day catch-up and for the read that follows a notification.
+- Read each watched chat with `GET /chats/{id}/messages?$orderby=lastModifiedDateTime desc&$filter=lastModifiedDateTime gt {watermark}`. `$filter` only works when `$orderby` uses the same property. Ascending order isn't supported, and `$top` is at most 50.
 - Store the watermark on `teams_groups`. Edits and deletions show up as newer `lastModifiedDateTime` values.
 - System event messages (for example "member added") come through with `messageType` = `systemEventMessage` and must be filtered out before the chat pipeline.
 - The app must call from the tenant that owns the chat. Chats in a partner tenant need that tenant's own consent.

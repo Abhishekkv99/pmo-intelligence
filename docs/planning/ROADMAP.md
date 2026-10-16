@@ -30,8 +30,8 @@ Not a PRD phase: moved ahead of Teams chat so the tool can be demonstrated to ma
 - **Exit gate**: the user approves the sign-in page, the risk board and the placement page on staging after a demo walk-through. **Met 2026-10-13**: walked on staging with five placements entered by the quick add (Not scored, since no real call has been processed yet); one change, the risk board's project in its own column, went to BACKLOG (see the Sprint 3 handover)
 
 ## Milestone 3: Teams Chat (Sprint 4, 2026-10-14 – 2026-10-27)
-Microsoft allows polling a Teams resource only once a day, so new posts arrive through one change-notification subscription (a webhook) for every chat the app is installed in, with a once-a-day catch-up read, in place of the PRD's poll every 2 to 5 minutes (user decision 2026-10-14).
-- [ ] Graph connector (route A: chats found by title, the app added to each through Graph, read with RSC), change notifications, message store
+Microsoft allows polling a Teams resource only once a day, so new posts arrive through change notifications (a webhook), with a once-a-day catch-up read, in place of the PRD's poll every 2 to 5 minutes (user decision 2026-10-14). Since the spike (2026-10-16) the chats are read with `Chat.Read.All`, one subscription per watched chat, with no Teams app installed (user decision).
+- [ ] Graph connector (chats found by title, read with `Chat.Read.All`), change notifications, message store
 - [ ] Chat pipeline and cadence tracking; messages on the timeline
 - [ ] Gone-quiet and missed-commitment triggers
 - **Exit gate**: one real group watched for a week; new posts appear within 5 minutes; no message read outside the watched groups

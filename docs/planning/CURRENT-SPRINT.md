@@ -52,11 +52,12 @@ Microsoft Graph pages read 2026-10-14; Graph rules change, so re-check before ac
 | Pipeline unit (2026-10-14) | **One job per chat, batched**: a notification queues the chat's job (the queue merges repeats); the job takes every unanalysed message in the chat, with the messages before them as context, classifies them in one call, drops noise, and extracts from the rest | One run per message |
 | Catalog id (2026-10-14) | **A one-off lookup kept as a setting**: a signed-in person runs `appCatalogs/teamsApps?$filter=externalId eq '0f2eaf35-928a-4321-9261-692893f270ff'` in Graph Explorer during the spike; the id goes into `TEAMS_CATALOG_APP_ID`. No new permission | Request `AppCatalog.Read.All` |
 | Cost guard (2026-10-14) | **Count first, a person confirms**: watching a chat stores its whole history at once; analysing stored history waits until Admin > Teams shows the message count and an estimated LLM cost and a PMO manager presses "Analyse history". New messages are analysed as they arrive | A monthly cap; no guard |
-| Placement ends (2026-10-14) | **Remove the app, keep the data**: the app removes itself from the chat (the chat shows it), so nothing more is read; stored messages and signals stay (retention is product Phase 5); an extension adds it back | Stop processing but stay installed; keep watching until turned off |
+| Placement ends (2026-10-14) | **Remove the app, keep the data**: the app removes itself from the chat (the chat shows it), so nothing more is read; stored messages and signals stay (retention is product Phase 5); an extension adds it back. **Changed 2026-10-16** (route below): the chat's subscription is deleted and nothing more is read; the data stays | Stop processing but stay installed; keep watching until turned off |
+| **Route after the spike (2026-10-16)** | **`Chat.Read.All` for good**: the install through Graph was refused (`AppScopeIsNotAllowed`: an RSC-only Teams app cannot be added to a group chat). Watched chats are read with the tenant-wide application permission `Chat.Read.All` (granted 2026-10-14), with **one change-notification subscription per watched chat** (`/chats/{id}/messages`, v1.0) and no app install; members read with `Chat.ReadBasic.All`. Our code calls Graph only for `PRJ ITC` chats linked to an active placement. **Replaces** the app-wide `installedToChats` subscription (the "Live route" row), the install and removal in Phase 4, and RSC reads; chats no longer show that anything was added, so HR's notice must say the group is read | A Teams app 1.0.1 with a group-chat tab, with `Chat.Read.All` as a bridge until approved; the same package, waiting for approval |
 
 ## Task Checklist
 
->>> CURRENT PHASE: Phase 0 (plan awaiting approval)
+>>> CURRENT PHASE: Phase 1 (spike done; commit checkpoint)
 
 Every phase: re-read this plan, code and tests, the doc list walked item by item, the commit checkpoint, then stop. Backend: `make test-backend` with `-rf`; frontend Vitest with `--maxWorkers=4`; e2e with one worker after `docker compose up --build -d --wait <changed service>`. Every Graph call in tests is mocked (an `httpx` mock transport); no test calls Microsoft. Test data uses made-up names only: real chat titles name real consultants, so the title shapes are reproduced with invented names. Every push: both CI filters read before saying what it runs and deploys, and the deploy recorded in DEPLOYMENT's status in the next commit.
 
@@ -68,21 +69,21 @@ Every phase: re-read this plan, code and tests, the doc list walked item by item
 - [x] This file; `ROADMAP.md` (Milestone 3 dated Sprint 4, the webhook replacing the poll noted); `BACKLOG.md` (the four pulled items marked for Sprint 4; open question 4 notes the webhook and `Chat.Read.WhereInstalled`)
 
 **Commit checkpoint**
-- [ ] `docs: plan sprint 4`
+- [x] `docs: plan sprint 4` (a53aba4, 2026-10-14; pushed)
 
 ### Phase 1: Spike on the tenant (scripts only, nothing deployed)
 **Setup (the user and the tenant admin)**
-- [ ] `Chat.Read.WhereInstalled` added to the Graph app registration (`az ad app permission add`, with the user's go-ahead) and admin consent requested (the request text added to `TEAMS-GRAPH-SETUP.md`)
-- [ ] The catalog id looked up in Graph Explorer by a signed-in person and recorded
-- [ ] A test group chat titled `PRJ ITC TEST - <made-up name> - <made-up client> - 1/10/2026 - 31/3/2027` with the user and one colleague
+- [x] (added by the user and admin-consented 2026-10-16; unused after the route change) `Chat.Read.WhereInstalled` (app role `1c1b4c8e-3cc7-4c58-8470-9b92c9d5848b`, read from the tenant 2026-10-14) added to the Graph app registration (`az ad app permission add`, by the user) and admin consent requested (the request text added to `TEAMS-GRAPH-SETUP.md`)
+- [x] The catalog id looked up in Graph Explorer by a signed-in person and recorded: **`74c9afc8-4084-4653-876f-2d63f325ada7`** (2026-10-16, by the user; `distributionMethod` organization, `externalId` the manifest id; the Azure CLI's token could not: it lacks `AppCatalog.Submit`/`AppCatalog.Read.All`, tried 2026-10-14)
+- [x] (created by the user 2026-10-16, three PMO staff) A test group chat titled `PRJ ITC TEST - <made-up name> - <made-up client> - 1/10/2026 - 31/3/2027` with the user and one colleague
 
 **Code work**
-- [ ] `scripts/teams/spike_chat_route.py` (run with `uv run --with msal --with requests`, certificate as in `verify_chat_access.py`): (1) add the app to the test chat (`POST /chats/{id}/installedApps` with the RSC permission set); (2) list its members (`ChatMember.Read.Chat`); (3) read its messages (`ChatMessage.Read.Chat`), printing ids, times, types and author ids only, never content; (4) create one subscription to `installedToChats/getAllMessages` without resource data, pointing at a local receiver; (5) remove the app again (`DELETE installedApps`), confirming the "placement ends" path
-- [ ] `scripts/teams/spike_receiver.py`: a local HTTP receiver that answers the validation token and logs each notification's subscription id, change type and resource path only, reached through a temporary tunnel (Microsoft dev tunnels) for the length of the spike
-- [ ] Results: install works (or the exact error) while the app shows "not available"; an RSC-only package installs; a test post's notification arrives and how fast. **If the install or the subscription fails, stop and decide with the user before Phase 3**
+- [x] (written 2026-10-14, run against the tenant 2026-10-16; `subscribe --chat-id` added after the route change) `scripts/teams/spike_chat_route.py` (run with `uv run --with msal --with requests`, certificate as in `verify_chat_access.py`): (1) add the app to the test chat (`POST /chats/{id}/installedApps` with the RSC permission set); (2) list its members (`ChatMember.Read.Chat`); (3) read its messages (`ChatMessage.Read.Chat`), printing ids, times, types and author ids only, never content; (4) create one subscription to `installedToChats/getAllMessages` without resource data, pointing at a local receiver; (5) remove the app again (`DELETE installedApps`), confirming the "placement ends" path
+- [x] (written and checked locally 2026-10-14: validation echo, 202, client state check) `scripts/teams/spike_receiver.py`: a local HTTP receiver that answers the validation token and logs each notification's subscription id, change type and resource path only, reached through a temporary tunnel (Microsoft dev tunnels) for the length of the spike
+- [x] (run 2026-10-16; see "Spike results so far" and `TEAMS-GRAPH-SETUP.md` Part D: install refused, `AppScopeIsNotAllowed`; route changed to `Chat.Read.All` by the user; a per-chat subscription notified a post within about a second, and its edit and deletion) Results: install works (or the exact error) while the app shows "not available"; an RSC-only package installs; a test post's notification arrives and how fast. **If the install or the subscription fails, stop and decide with the user before Phase 3**
 
 **Doc updates (concurrent)**
-- [ ] `docs/integrations/TEAMS-GRAPH-SETUP.md` (a "Part D: spike" with steps and results; the results table: catalog id, `Chat.Read.WhereInstalled`, install and notification results), `FEATURES.md` (the spike scripts as operator tools), `CHANGELOG.md` (README: no new make target)
+- [x] (also `BACKLOG.md`: the RSC items superseded, two follow-ups; `ROADMAP.md` and `ARCHITECTURE.md` "Teams Connector" and `> Status:`: the route) `docs/integrations/TEAMS-GRAPH-SETUP.md` (a "Part D: spike" with steps and results; the results table: catalog id, `Chat.Read.WhereInstalled`, install and notification results), `FEATURES.md` (the spike scripts as operator tools), `CHANGELOG.md` (README: no new make target)
 
 **Commit checkpoint**
 - [ ] `chore: add the chat route spike scripts`
@@ -104,7 +105,7 @@ Every phase: re-read this plan, code and tests, the doc list walked item by item
 ### Phase 3: Data model, settings and the Graph client
 **Code work**
 - [ ] `app/models/enums.py`: `MessageClass` (the PRD's classes: consultant update, question, stakeholder context, praise, concern, escalation, administrative, noise, with meanings for the prompts), `TeamsChatMatch` (`matched`, `chosen`, `needs_choice`, `unmatched`, `unparsed`), `TeamsWatchState` (`not_watched`, `installing`, `watching`, `removed`, `failed`), `HistoryState` (`none`, `stored`, `analysing`, `analysed`), `SnapshotReason.CHAT`
-- [ ] Migration 010: `teams_groups` (`graph_chat_id` unique, `title`, the parsed title fields, `placement_id`, match status and candidates, `consultant_member_oid` and its match status, watch state, `installed_at`, `removed_at`, `sync_requested_at`, `last_synced_at`, `last_message_at`, history state, `error_message`), `messages` (`teams_group_id`, `graph_message_id` unique with the group, `author_entra_oid`, `author_name`, `author_role`, `posted_at`, `last_modified_at`, `deleted_at`, `body_text`, `reply_to_message_id`, `message_type`, `message_class`, `is_noise`, `is_history`, `analysed_at`), `graph_subscriptions` (`subscription_id`, `resource`, `expires_at`), the FK `processing_costs.message_id` → `messages`, and the snapshot reason's CHECK; the PRD's `kind`/`graph_team_id`/`delta_token` columns not built (group chats only, no delta for chats)
+- [ ] Migration 010: `teams_groups` (`graph_chat_id` unique, `title`, the parsed title fields, `placement_id`, match status and candidates, `consultant_member_oid` and its match status, watch state, `installed_at`, `removed_at`, `sync_requested_at`, `last_synced_at`, `last_message_at`, history state, `error_message`), `messages` (`teams_group_id`, `graph_message_id` unique with the group, `author_entra_oid`, `author_name`, `author_role`, `posted_at`, `last_modified_at`, `deleted_at`, `body_text`, `reply_to_message_id`, `message_type`, `message_class`, `is_noise`, `is_history`, `analysed_at`), `graph_subscriptions` (`subscription_id`, `teams_group_id`, `resource`, `expires_at`; one per watched chat since 2026-10-16), the FK `processing_costs.message_id` → `messages`, and the snapshot reason's CHECK; the PRD's `kind`/`graph_team_id`/`delta_token` columns not built (group chats only, no delta for chats)
 - [ ] `app/config.py`: `GRAPH_TENANT_ID`, `GRAPH_CLIENT_ID`, `GRAPH_CERTIFICATE_PFX_BASE64`, `GRAPH_CERTIFICATE_PASSWORD`, `GRAPH_CLIENT_STATE` (the webhook secret), `TEAMS_CATALOG_APP_ID`, `TEAMS_DISCOVERY_ACCOUNTS`, `TEAMS_ENABLED` (off by default), `TEAMS_NOTIFICATION_BASE_URL`; `.env.example`
 - [ ] `app/services/teams/graph_client.py`: msal certificate token (cached until expiry), one `httpx.AsyncClient` with a finite timeout and an injectable transport, paging through `@odata.nextLink`, `Retry-After` and exponential backoff on 429, 503 and 504, pacing under the per-chat 1 rps; any failure a `GraphError`. `uv add msal` (mypy override if untyped)
 - [ ] Infra: `app_secret_keys` gains the Graph secrets and `GRAPH_CLIENT_STATE`; the non-secret ids in the backend environment; `teams_enabled` module variable (false until Phase 5's rollout). Terraform plan shown, applied only with approval (replaces the backend task definition, so the backend redeploys); the values put with `put-secret-value` by the user
@@ -121,7 +122,7 @@ Every phase: re-read this plan, code and tests, the doc list walked item by item
 - [ ] `app/services/teams/chat_titles.py`: the tolerant parser (hyphen or en dash with or without spaces, `PRJ ITC-` and `PRJ ITC - <stack> -`, dates `D/M/YYYY`, `D/M/YY`, `D-M-YY`, `YYYY-MM-DD`, in brackets or not, a missing or extra part reported); the quick add's `parse_line` left as it is
 - [ ] Matching (`chat_match.py`): client by normalised name, consultant with `name_match.match_folder` (first or last name), placement by consultant, client and start date (any of the client's projects); exactly one is `matched`, else `needs_choice` or `unmatched`; `matched` and `chosen` never changed by a later scan
 - [ ] Discovery job (`teams_discovery`, fixed id, backlog priority): lists `TEAMS_DISCOVERY_ACCOUNTS`' chats (`Chat.ReadBasic.All`), keeps `PRJ ITC` titles, merges by chat id, upserts `teams_groups`, re-matches the undecided ones; once a day (the loop pattern of `recordings/periodic.py`) and on "Scan now"
-- [ ] Watch policy (`teams_watch` job per chat): a chat linked to an active placement whose end date has not passed is watched: the app added (`POST installedApps`), its members read and the consultant matched by name (a single match sets `consultants.entra_oid`; otherwise Admin asks); a watched chat whose placement ended or whose end date passed has the app removed (`DELETE installedApps`) and keeps its data; re-evaluated after discovery, a register edit and the daily run
+- [ ] Watch policy (`teams_watch` job per chat; changed 2026-10-16, no install): a chat linked to an active placement whose end date has not passed is watched: its subscription created (Phase 5's manager), its members read (`Chat.ReadBasic.All`) and the consultant matched by name (a single match sets `consultants.entra_oid`; otherwise Admin asks); a watched chat whose placement ended or whose end date passed has its subscription deleted and keeps its data; re-evaluated after discovery, a register edit and the daily run
 - [ ] Routes (`app/api/v1/teams.py`, `pmo_manager` and `admin`; `{chat_id}` routes under `require_roles`, the coverage test extended like `{folder_id}`): `GET /teams/chats` (with the last scan), `POST /teams/scan`, `PUT /teams/chats/{chat_id}/placement`, `POST /teams/chats/{chat_id}/placement` (create from the title through the quick add's writer, the line prefilled and editable), `PUT /teams/chats/{chat_id}/consultant-member`
 - [ ] Admin > Teams tab (`components/admin/teams/TeamsTab.tsx`, `hooks/useTeamsChats.ts`): the last scan and Scan now; every `PRJ ITC` chat with its title, match, placement, watch state, consultant member, last message and history state; pickers for the placement and the consultant member; "Create placement from title"; polls like the Recordings tab
 - [ ] Tests: the parser on every title shape seen (made-up names); matching; discovery and watch jobs on a mock transport (install, remove, member match, failure recorded); every route called and its response read; `TeamsTab.test.tsx`; an Admin e2e (the tab lists seeded chats; links one)
@@ -134,10 +135,10 @@ Every phase: re-read this plan, code and tests, the doc list walked item by item
 
 ### Phase 5: Messages in: history, webhook, subscription and catch-up
 **Code work**
-- [ ] History: when a chat becomes watched, its whole history is read once (`GET /chats/{id}/messages`, paced) and stored (HTML to plain text; system events stored as such and never analysed; deletions kept as `deleted_at` with the text cleared), marked `is_history`; the chat's history state becomes `stored`
+- [ ] History: when a chat becomes watched, its whole history is read once (`GET /chats/{id}/messages` with `Chat.Read.All`, paced) and stored (HTML to plain text; system events stored as such and never analysed; deletions kept as `deleted_at` with the text cleared), marked `is_history`; the chat's history state becomes `stored`
 - [ ] Webhook (`POST /teams/notifications` and `POST /teams/lifecycle`, public, guarded by `require_graph_client_state`, listed as token-scoped in the coverage test): answers the validation token as text/plain; checks `clientState` in constant time; for each notification records `sync_requested_at` on its chat and queues the chat's sync job (`CHAT_PRIORITY`); answers 202 at once; a notification for a chat not watched is dropped and logged
 - [ ] Sync job (`teams_sync`, one per chat): reads messages changed since the chat's watermark (`lastModifiedDateTime gt`), stores new, edited and deleted ones, queues the chat's analysis; a sync is triggered only by a notification, the daily catch-up or a lifecycle `missed`, never on a timer, so the polling rule holds
-- [ ] Subscription manager: creates the one `installedToChats` subscription when absent, renews it a day before its three-day expiry, re-authorises on `reauthorizationRequired`, recreates on `subscriptionRemoved`, and on `missed` queues a sync of every watched chat; a daily catch-up sync of every watched chat (one date-ranged read each)
+- [ ] Subscription manager (changed 2026-10-16: one per watched chat): creates each watched chat's `/chats/{id}/messages` subscription when absent (with a `lifecycleNotificationUrl`), renews each a day before its three-day expiry, re-authorises on `reauthorizationRequired`, recreates on `subscriptionRemoved`, deletes it when the chat stops being watched, and on `missed` queues that chat's sync; a daily catch-up sync of every watched chat (one date-ranged read each)
 - [ ] Takeover step: chats whose `sync_requested_at` is newer than `last_synced_at` are queued again (a notification taken by the non-owner task during a deploy is not lost); counts logged, zero included
 - [ ] Rollout to staging: `teams_enabled` true (Terraform, with approval); the subscription created; the test chat checked (a post appears in the database within 5 minutes)
 - [ ] Tests: validation echo, client state refused, notification to job, sync (new, edited, deleted, system event), history paging, subscription create, renew and lifecycle events, takeover requeue
@@ -204,6 +205,15 @@ Every phase: re-read this plan, code and tests, the doc list walked item by item
 - [ ] Real calls on staging and the PRD Phase 1 and 2 exit gates (BACKLOG High Priority)
 - [ ] The Teams app's availability narrowed to the PMO team (admin action, BACKLOG)
 
+## Spike results so far (2026-10-16)
+- `Chat.Read.WhereInstalled` added to the registration by the user and admin-consented (the app's role assignments now hold it, with `Chat.ReadBasic.All`, `TeamsAppInstallation.ReadWriteAndConsentSelfForChat.All` and `Chat.Read.All`).
+- Catalog id `74c9afc8-4084-4653-876f-2d63f325ada7`.
+- `find`: the app-only token lists the user's chats (1,010) and finds the test chat `19:636e6d06b6e246868d954183af6900cc@thread.v2`.
+- `messages` **before any install**: read OK. The read is allowed by the tenant-wide `Chat.Read.All` (still granted as the fallback), so it proves nothing about the RSC route while that permission is held.
+- `install`: **HTTP 400, inner code `AppScopeIsNotAllowed`** (request `9bb3e4ba-7a0f-4953-890d-d4abcb539ba5`). A Teams app that declares only RSC permissions, with no tab or bot, cannot be installed into a group chat: the manifest must declare a capability scoped to `groupChat` (static tabs may use `groupChat` from manifest 1.16; ours is 1.30). This answers the spike's open question; the plan says stop and decide with the user.
+- `members` (2026-10-16): OK, 3 members with names and Entra ids, read without any install.
+- **Route decided 2026-10-16: `Chat.Read.All` for good** (see the decisions table); `subscribe --chat-id` added to the script for the per-chat subscription test.
+
 ## Judgement calls for approval with the plan
 - The webhook routes are public (Graph cannot send a Bearer token), guarded by the client state, and listed as token-scoped in the route-coverage test
 - `messages` keeps the body text of every message in a watched chat (the PRD's "the raw chat, kept so a flag can quote it"); system events are stored but never analysed
@@ -213,22 +223,24 @@ Every phase: re-read this plan, code and tests, the doc list walked item by item
 - Sprint risk: nine phases in two weeks. The cut line, if needed: Phases 1 to 7 are the milestone; Phase 8's page work can move to Sprint 5 with the exit gate judged from Admin > Teams and the database
 
 ## Blockers and Dependencies
-- Admin consent for `Chat.Read.WhereInstalled` (tenant admin): needed for the spike's subscription step and Phase 5
-- The catalog id of the Teams app "PMO Intelligence" (a one-off lookup by a signed-in person)
-- Whether an install through Graph works while the app shows "not available" (spike)
+- (done 2026-10-16) Admin consent for `Chat.Read.WhereInstalled`; no longer needed after the route change
+- (done 2026-10-16) The catalog id; no longer needed after the route change
+- (answered 2026-10-16) The install through Graph: refused, `AppScopeIsNotAllowed`; route changed to `Chat.Read.All`
 - The Graph certificate's values put into the app secret by the user (Phase 3)
 - The week-long exit-gate watch needs Phase 5 on staging by 2026-10-20
+- (done 2026-10-16) Microsoft dev tunnels installed and signed in; the spike's tunnel deleted afterwards
 
-## Session State (last updated: 2026-10-14 12:00)
+## Session State (last updated: 2026-10-16 15:50)
 - **Sprint**: 4 — Teams Chat
-- **Current phase**: Phase 0 — plan approved 2026-10-14; doc updates done, commit checkpoint
-- **Last completed task**: every planning question answered (16 decisions above); the task checklist written
-- **Next task**: the `docs: plan sprint 4` commit (awaiting the user), then Phase 1 (the spike) once asked to continue
-- **Last commit**: b4efa3a "docs: record the chat discovery results and the granted permissions", pushed 2026-10-14
-- **Uncommitted changes**: this file (Sprint 3's version is in git at b4efa3a), `ROADMAP.md`, `BACKLOG.md`
-- **Blockers**: none for planning
-- **Tests passing**: 763 unit + 282 integration (backend) + 265 frontend unit; 23 e2e = 1333 (unchanged since Sprint 3)
-- **Files modified this session**: this file, `docs/planning/ROADMAP.md`, `docs/planning/BACKLOG.md`
+- **Current phase**: Phase 1 — the spike done; commit checkpoint (`chore: add the chat route spike scripts`), awaiting the user
+- **Last completed task**: the per-chat subscription test (created, updated and deleted notifications; the post's within about a second); the subscription and the tunnel deleted; Part D written
+- **Next task**: the Phase 1 commit and push (approved); then Phase 2 (backlog clean-ups) when asked
+- **Last commit**: a53aba4 "docs: plan sprint 4", pushed 2026-10-14 (docs only)
+- **Uncommitted changes**: the two spike scripts (new); this file; `docs/integrations/TEAMS-GRAPH-SETUP.md`, `docs/tracking/FEATURES.md`, `docs/tracking/CHANGELOG.md`, `docs/planning/BACKLOG.md`, `docs/planning/ROADMAP.md`, `docs/ARCHITECTURE.md`
+- **Blockers**: none
+- **Tests passing**: 763 unit + 282 integration (backend) + 265 frontend unit; 23 e2e = 1333 (unchanged since Sprint 3; no app code changed)
+- **Files modified this session**: the uncommitted changes above
+- **Key decisions this session**: `Chat.Read.All` for good, one subscription per watched chat, no app install (2026-10-16); the two unused permissions removed from the app registration (2026-10-16; the admin to revoke their consents)
 - **Recovery instructions**:
   - Read this file first, then `docs/handover/sprint-03-handover.md` and `docs/integrations/TEAMS-GRAPH-SETUP.md` (Part C).
   - The discovery script of 2026-10-14 is not in the repo (it lived in an earlier session's scratchpad).
