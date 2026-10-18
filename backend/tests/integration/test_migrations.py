@@ -42,6 +42,7 @@ EXPECTED_TABLES = {
     "signals",
     "source_recordings",
     "teams_groups",
+    "teams_scans",
     "users",
 }
 
@@ -475,3 +476,17 @@ class TestMigrations:
             assert chat_snapshots == 0
         finally:
             await engine.dispose()
+
+    async def test_011_adds_the_teams_scans_table_and_removes_it(
+        self, fresh_database_url: str
+    ) -> None:
+        assert _alembic(fresh_database_url, "upgrade", "010").returncode == 0
+        assert "teams_scans" not in await _tables(fresh_database_url)
+
+        upgrade = _alembic(fresh_database_url, "upgrade", "011")
+        assert upgrade.returncode == 0, upgrade.stderr
+        assert "teams_scans" in await _tables(fresh_database_url)
+
+        downgrade = _alembic(fresh_database_url, "downgrade", "010")
+        assert downgrade.returncode == 0, downgrade.stderr
+        assert "teams_scans" not in await _tables(fresh_database_url)

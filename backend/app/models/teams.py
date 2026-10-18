@@ -1,4 +1,5 @@
-"""Teams group chats, their messages, and the Graph subscriptions that watch them.
+"""Teams group chats, their messages, the Graph subscriptions that watch them,
+and the discovery passes that find them.
 
 A PMO group chat is titled ``PRJ ITC <stack> - <consultant> - <client> -
 <start> - <end>`` and belongs to one placement. A chat linked to an active
@@ -18,6 +19,7 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     Index,
+    Integer,
     String,
     Text,
     UniqueConstraint,
@@ -30,6 +32,7 @@ from app.models.enums import (
     FolderMatchStatus,
     HistoryState,
     MessageClass,
+    ScanStatus,
     SpeakerRole,
     TeamsChatMatch,
     TeamsWatchState,
@@ -210,3 +213,37 @@ class GraphSubscription(Base, UUIDMixin, TimestampMixin):
     expires_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, index=True
     )
+
+
+class TeamsScan(Base, UUIDMixin, TimestampMixin):
+    """One discovery pass over the PMO accounts' chat lists, and how it ended."""
+
+    __tablename__ = "teams_scans"
+    __table_args__ = (
+        CheckConstraint(check_in("status", ScanStatus), name="ck_teams_scans_status"),
+    )
+
+    started_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, index=True
+    )
+    finished_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    status: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+        default=ScanStatus.RUNNING.value,
+        server_default=ScanStatus.RUNNING.value,
+    )
+    # PRJ ITC group chats found across the accounts (each chat once).
+    chats_seen: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default="0"
+    )
+    chats_added: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default="0"
+    )
+    # Chats tied to a placement by this pass (new, or newly resolved).
+    chats_matched: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default="0"
+    )
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)

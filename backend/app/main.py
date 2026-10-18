@@ -78,12 +78,17 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
         register_recordings_scan,
     )
     from app.services.session_service import register_session_processing
+    from app.services.teams.jobs import (
+        PeriodicTeamsDiscovery,
+        register_teams_processing,
+    )
 
     # Runners and takeover steps are registered before the takeover starts,
     # so the first owner already recovers what a previous task left running.
     register_recordings_scan()
     register_session_processing()
     register_health_processing()
+    register_teams_processing()
 
     processing_queue = get_processing_queue()
     processing_ownership = ProcessingOwnership(engine)
@@ -104,10 +109,18 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
         daily_health = DailyHealthRecompute()
         daily_health.start()
 
+    # Every task queues discovery; only the owner runs it.
+    teams_discovery: PeriodicTeamsDiscovery | None = None
+    if settings.teams_discovery_enabled:
+        teams_discovery = PeriodicTeamsDiscovery()
+        teams_discovery.start()
+
     yield
 
     if periodic_scan is not None:
         await periodic_scan.stop()
+    if teams_discovery is not None:
+        await teams_discovery.stop()
     if daily_health is not None:
         await daily_health.stop()
 

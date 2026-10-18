@@ -139,8 +139,13 @@ class Settings(BaseSettings):
     # this many times (after Retry-After, else an exponential backoff).
     graph_timeout_seconds: float = 30.0
     graph_max_retries: int = 5
-    # The PMO accounts whose chat lists discovery reads (user principal
-    # names, JSON list): between them they are in every PRJ ITC chat.
+    # Discovery: the PMO accounts' chat lists read for PRJ ITC titles (chat
+    # titles only, Chat.ReadBasic.All), at start and then every interval, and
+    # each chat tied to its placement. Its own switch, so chats can be listed
+    # and linked before any is watched. The accounts are user principal names
+    # (JSON list): between them they are in every PRJ ITC chat.
+    teams_discovery_enabled: bool = False
+    teams_discovery_interval_seconds: int = 86_400
     teams_discovery_accounts: list[str] = []
     # The public base URL Graph sends notifications to (the staging site);
     # the notification and lifecycle routes are appended to it.

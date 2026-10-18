@@ -13,7 +13,7 @@ from app.models.session import (
     SourceRecording,
 )
 from app.models.signal import Action, Issue, Signal
-from app.models.teams import GraphSubscription, Message, TeamsGroup
+from app.models.teams import GraphSubscription, Message, TeamsGroup, TeamsScan
 from app.models.user import User
 
 __all__ = [
@@ -39,5 +39,6 @@ __all__ = [
     "Signal",
     "SourceRecording",
     "TeamsGroup",
+    "TeamsScan",
     "User",
 ]
