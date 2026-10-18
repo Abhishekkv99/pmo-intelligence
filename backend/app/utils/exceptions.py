@@ -57,3 +57,21 @@ class EmailDeliveryError(AppError):
 
     def __init__(self, message: str = "Email could not be sent"):
         super().__init__(message=message, status_code=502)
+
+
+class GraphError(AppError):
+    """A Microsoft Graph request failed (502).
+
+    ``graph_status`` is Graph's HTTP status (None when no answer came) and
+    ``graph_code`` its error code, such as ``Forbidden`` or ``NotFound``.
+    """
+
+    def __init__(
+        self,
+        message: str = "Microsoft Graph request failed",
+        graph_status: int | None = None,
+        graph_code: str | None = None,
+    ):
+        super().__init__(message=message, status_code=502)
+        self.graph_status = graph_status
+        self.graph_code = graph_code

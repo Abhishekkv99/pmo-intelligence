@@ -123,6 +123,29 @@ class Settings(BaseSettings):
     url_download_timeout_seconds: int = 1800
     url_download_max_redirects: int = 5
 
+    # Teams chat through Microsoft Graph. The Graph app (its own registration,
+    # not the SSO one) signs in app-only with a certificate, given as the
+    # base64 of its .pfx and the .pfx password (both from the app secret).
+    # Watched chats are read with Chat.Read.All, one change-notification
+    # subscription per chat; graph_client_state is the secret every
+    # notification must carry. Off unless enabled.
+    teams_enabled: bool = False
+    graph_tenant_id: str = ""
+    graph_client_id: str = ""
+    graph_certificate_pfx_base64: str = ""
+    graph_certificate_password: str = ""
+    graph_client_state: str = ""
+    # Every Graph request stops after this long; a 429, 503 or 504 is retried
+    # this many times (after Retry-After, else an exponential backoff).
+    graph_timeout_seconds: float = 30.0
+    graph_max_retries: int = 5
+    # The PMO accounts whose chat lists discovery reads (user principal
+    # names, JSON list): between them they are in every PRJ ITC chat.
+    teams_discovery_accounts: list[str] = []
+    # The public base URL Graph sends notifications to (the staging site);
+    # the notification and lifecycle routes are appended to it.
+    teams_notification_base_url: str = ""
+
     # Processing queue: how many pipeline jobs run at once
     processing_concurrency: int = 1
     # Start tracemalloc and log per-job allocation growth (costly; diagnostics only)

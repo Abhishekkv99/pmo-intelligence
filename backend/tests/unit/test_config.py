@@ -61,3 +61,35 @@ def test_session_node_timeout_is_under_the_client_timeout(
     assert s.session_node_timeout_seconds < s.azure_openai_timeout_seconds
     assert s.session_reasoning_effort == "medium"
     assert s.session_resolved_issue_lookback_days == 30
+
+
+def test_teams_is_off_with_finite_graph_limits_unless_set(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    for name in (
+        "TEAMS_ENABLED",
+        "GRAPH_TIMEOUT_SECONDS",
+        "GRAPH_MAX_RETRIES",
+        "TEAMS_DISCOVERY_ACCOUNTS",
+    ):
+        monkeypatch.delenv(name, raising=False)
+
+    s = Settings()
+
+    assert s.teams_enabled is False
+    assert s.graph_timeout_seconds == 30.0
+    assert s.graph_max_retries == 5
+    assert s.teams_discovery_accounts == []
+
+
+def test_teams_discovery_accounts_read_from_json(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(
+        "TEAMS_DISCOVERY_ACCOUNTS", '["ana@example.com", "ben@example.com"]'
+    )
+
+    assert Settings().teams_discovery_accounts == [
+        "ana@example.com",
+        "ben@example.com",
+    ]

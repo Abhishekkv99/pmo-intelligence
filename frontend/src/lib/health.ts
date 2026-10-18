@@ -42,6 +42,7 @@ export type HealthView = (typeof HEALTH_VIEWS)[number];
 
 export const SNAPSHOT_REASONS = [
   "call",
+  "chat",
   "register",
   "daily",
   "catch_up",
@@ -91,6 +92,7 @@ export const TREND_LABELS: Record<Trend, string> = {
 /** Why a snapshot was computed, as the page says it. */
 export const SNAPSHOT_REASON_LABELS: Record<SnapshotReason, string> = {
   call: "After a call",
+  chat: "After chat messages",
   register: "After a register edit",
   daily: "Daily recompute",
   catch_up: "Catch-up after a deploy",

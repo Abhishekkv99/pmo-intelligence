@@ -11,6 +11,11 @@ resource "random_password" "secret_key" {
   special = false
 }
 
+resource "random_password" "graph_client_state" {
+  length  = 64
+  special = false
+}
+
 locals {
   # Every key the backend reads from the secret; anything not secret is a
   # plain environment variable in ecs.tf
@@ -26,6 +31,13 @@ locals {
     "AZURE_CLIENT_SECRET",
     "AZURE_TENANT_ID",
     "AZURE_ALLOWED_TENANT_IDS",
+    # Teams chat: the Graph app's certificate (base64 of the .pfx) and its
+    # password, and the secret every change notification carries. Put into
+    # the secret before an apply that adds them: a task whose secret lacks
+    # a key it names does not start.
+    "GRAPH_CERTIFICATE_PFX_BASE64",
+    "GRAPH_CERTIFICATE_PASSWORD",
+    "GRAPH_CLIENT_STATE",
   ]
 }
 
@@ -54,6 +66,10 @@ resource "aws_secretsmanager_secret_version" "app" {
     AZURE_CLIENT_SECRET        = "CHANGE_ME"
     AZURE_TENANT_ID            = "CHANGE_ME"
     AZURE_ALLOWED_TENANT_IDS   = ""
+    # Not read until TEAMS_ENABLED is true
+    GRAPH_CERTIFICATE_PFX_BASE64 = ""
+    GRAPH_CERTIFICATE_PASSWORD   = ""
+    GRAPH_CLIENT_STATE           = random_password.graph_client_state.result
   })
 
   lifecycle {

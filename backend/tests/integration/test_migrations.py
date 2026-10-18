@@ -25,8 +25,10 @@ EXPECTED_TABLES = {
     "alembic_version",
     "clients",
     "consultants",
+    "graph_subscriptions",
     "health_snapshots",
     "issues",
+    "messages",
     "placements",
     "processing_costs",
     "processing_jobs",
@@ -39,6 +41,7 @@ EXPECTED_TABLES = {
     "sessions",
     "signals",
     "source_recordings",
+    "teams_groups",
     "users",
 }
 
@@ -175,6 +178,43 @@ async def _columns(url: str, table: str) -> set[str]:
                 {"table": table},
             )
             return {row[0] for row in rows}
+    finally:
+        await check.dispose()
+
+
+TEAMS_TABLES = {"graph_subscriptions", "messages", "teams_groups"}
+
+# One placement, the least a health snapshot needs.
+REGISTER_ROWS = (
+    "INSERT INTO clients (id, name, normalized_name, created_at, updated_at)"
+    " VALUES ('00000000-0000-0000-0000-0000000000c1', 'Acme', 'acme', now(), now())",
+    "INSERT INTO projects (id, client_id, name, created_at, updated_at) VALUES"
+    " ('00000000-0000-0000-0000-0000000000b1',"
+    " '00000000-0000-0000-0000-0000000000c1', 'Payments', now(), now())",
+    "INSERT INTO consultants (id, full_name, skills, status, created_at,"
+    " updated_at) VALUES ('00000000-0000-0000-0000-0000000000d1', 'Jo', '[]',"
+    " 'placed', now(), now())",
+    "INSERT INTO placements (id, consultant_id, project_id, start_date,"
+    " extension_status, status, created_at, updated_at) VALUES"
+    " ('00000000-0000-0000-0000-0000000000e1',"
+    " '00000000-0000-0000-0000-0000000000d1',"
+    " '00000000-0000-0000-0000-0000000000b1', '2026-09-01', 'not_due', 'active',"
+    " now(), now())",
+)
+
+
+async def _foreign_key_count(url: str, table: str, name: str) -> int:
+    check = create_async_engine(url)
+    try:
+        async with check.connect() as conn:
+            count = await conn.scalar(
+                text(
+                    "SELECT count(*) FROM information_schema.table_constraints "
+                    "WHERE table_name = :table AND constraint_name = :name"
+                ),
+                {"table": table, "name": name},
+            )
+            return int(count or 0)
     finally:
         await check.dispose()
 
@@ -392,5 +432,46 @@ class TestMigrations:
             assert "cdm_user_id" not in await _columns(
                 fresh_database_url, "consultants"
             )
+        finally:
+            await engine.dispose()
+
+    async def test_010_adds_the_teams_tables_the_cost_key_and_chat_reason_and_back(
+        self, fresh_database_url: str
+    ) -> None:
+        cost_key = ("processing_costs", "processing_costs_message_id_fkey")
+        assert _alembic(fresh_database_url, "upgrade", "009").returncode == 0
+        assert not TEAMS_TABLES & await _tables(fresh_database_url)
+        assert await _foreign_key_count(fresh_database_url, *cost_key) == 0
+
+        upgrade = _alembic(fresh_database_url, "upgrade", "010")
+        assert upgrade.returncode == 0, upgrade.stderr
+        assert TEAMS_TABLES.issubset(await _tables(fresh_database_url))
+        assert await _foreign_key_count(fresh_database_url, *cost_key) == 1
+        engine = create_async_engine(fresh_database_url)
+        try:
+            async with engine.begin() as conn:
+                for statement in REGISTER_ROWS:
+                    await conn.execute(text(statement))
+                # A chat snapshot is allowed from 010 on.
+                await conn.execute(
+                    text(
+                        "INSERT INTO health_snapshots (id, placement_id, computed_at,"
+                        " reason, scored, signal_count, weights_version, evidence,"
+                        " created_at, updated_at) VALUES"
+                        " ('00000000-0000-0000-0000-0000000000f1',"
+                        " '00000000-0000-0000-0000-0000000000e1', now(), 'chat',"
+                        " false, 0, 'v1', '{}', now(), now())"
+                    )
+                )
+
+            downgrade = _alembic(fresh_database_url, "downgrade", "009")
+            assert downgrade.returncode == 0, downgrade.stderr
+            assert not TEAMS_TABLES & await _tables(fresh_database_url)
+            assert await _foreign_key_count(fresh_database_url, *cost_key) == 0
+            async with engine.connect() as conn:
+                chat_snapshots = await conn.scalar(
+                    text("SELECT count(*) FROM health_snapshots")
+                )
+            assert chat_snapshots == 0
         finally:
             await engine.dispose()

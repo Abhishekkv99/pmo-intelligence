@@ -1,4 +1,4 @@
-"""Enumerations for users, the register, sessions, signals, issues, actions and health.
+"""Enumerations for users, the register, sessions, Teams chat, signals and health.
 
 The single source for these value sets: models, migrations, schemas, tests and
 docs cite them from here rather than repeating the strings. Values are stored
@@ -341,10 +341,83 @@ RISK_TRIGGER_SEVERITY: dict[RiskTrigger, FlagSeverity] = {
 }
 
 
+class TeamsChatMatch(enum.StrEnum):
+    """How a Teams group chat was tied to a placement, from its title.
+
+    Discovery re-matches only ``needs_choice``, ``unmatched`` and ``unparsed``
+    chats; a chat ``matched`` or ``chosen`` by a person is never overwritten.
+    """
+
+    MATCHED = "matched"
+    CHOSEN = "chosen"
+    NEEDS_CHOICE = "needs_choice"
+    UNMATCHED = "unmatched"
+    UNPARSED = "unparsed"  # the title could not be read
+
+
+class TeamsWatchState(enum.StrEnum):
+    """Whether a Teams group chat is read (one change-notification subscription)."""
+
+    NOT_WATCHED = "not_watched"
+    WATCHING = "watching"
+    # The placement ended: the subscription is deleted, the stored data kept.
+    STOPPED = "stopped"
+    FAILED = "failed"
+
+
+class HistoryState(enum.StrEnum):
+    """A watched chat's history: read once when first watched, analysed on request."""
+
+    NONE = "none"
+    STORED = "stored"
+    ANALYSING = "analysing"
+    ANALYSED = "analysed"
+
+
+class MessageClass(enum.StrEnum):
+    """What a Teams chat message is, as the chat pipeline classifies it."""
+
+    CONSULTANT_UPDATE = "consultant_update"
+    QUESTION = "question"
+    STAKEHOLDER_CONTEXT = "stakeholder_context"
+    PRAISE = "praise"
+    CONCERN = "concern"
+    ESCALATION = "escalation"
+    ADMINISTRATIVE = "administrative"
+    NOISE = "noise"
+
+
+# What each class is, for the classify prompt (PRD, "Chat pipeline"). Noise
+# stops there, with no further model call.
+MESSAGE_CLASS_MEANINGS: dict[MessageClass, str] = {
+    MessageClass.CONSULTANT_UPDATE: (
+        "the consultant reports progress, plans or how the work is going"
+    ),
+    MessageClass.QUESTION: "someone asks for help, information or a decision",
+    MessageClass.STAKEHOLDER_CONTEXT: (
+        "a PMO person, SME, CDM or PS adds context about the client, the project "
+        "or the consultant"
+    ),
+    MessageClass.PRAISE: "credit for the consultant or their work",
+    MessageClass.CONCERN: "a worry or problem raised, short of an escalation",
+    MessageClass.ESCALATION: (
+        "a problem with the client, the work or the consultant that needs "
+        "someone to step in"
+    ),
+    MessageClass.ADMINISTRATIVE: (
+        "logistics: leave, timesheets, meeting times, access requests"
+    ),
+    MessageClass.NOISE: (
+        "greetings, thanks, reactions or anything else with nothing to extract"
+    ),
+}
+
+
 class SnapshotReason(enum.StrEnum):
     """What caused a health recompute."""
 
     CALL = "call"  # a call was analysed
+    CHAT = "chat"  # chat messages were analysed
     REGISTER = "register"  # the placement or its project was edited
     DAILY = "daily"  # the daily recompute
     CATCH_UP = "catch_up"  # a takeover found the latest snapshot out of date

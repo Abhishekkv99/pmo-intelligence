@@ -187,3 +187,27 @@ variable "health_daily_enabled" {
   type        = bool
   default     = false
 }
+
+variable "teams_enabled" {
+  description = "Read the PMO group chats through Microsoft Graph (TEAMS_ENABLED); needs the Graph keys in the app secret"
+  type        = bool
+  default     = false
+}
+
+variable "graph_tenant_id" {
+  description = "Entra tenant of the Graph app (GRAPH_TENANT_ID)"
+  type        = string
+  default     = ""
+}
+
+variable "graph_client_id" {
+  description = "Application (client) id of the Graph app, not the SSO app (GRAPH_CLIENT_ID)"
+  type        = string
+  default     = ""
+}
+
+variable "teams_discovery_accounts" {
+  description = "PMO accounts (user principal names) whose chat lists discovery reads (TEAMS_DISCOVERY_ACCOUNTS)"
+  type        = list(string)
+  default     = []
+}

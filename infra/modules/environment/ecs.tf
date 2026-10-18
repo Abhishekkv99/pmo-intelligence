@@ -42,6 +42,12 @@ locals {
     { name = "RECORDINGS_SOURCE_PREFIX", value = var.recordings_source_prefix },
     { name = "RECORDINGS_SCAN_ENABLED", value = tostring(var.recordings_scan_enabled) },
     { name = "HEALTH_DAILY_ENABLED", value = tostring(var.health_daily_enabled) },
+    # Teams chat; the certificate and the client state are in the secret
+    { name = "TEAMS_ENABLED", value = tostring(var.teams_enabled) },
+    { name = "GRAPH_TENANT_ID", value = var.graph_tenant_id },
+    { name = "GRAPH_CLIENT_ID", value = var.graph_client_id },
+    { name = "TEAMS_DISCOVERY_ACCOUNTS", value = jsonencode(var.teams_discovery_accounts) },
+    { name = "TEAMS_NOTIFICATION_BASE_URL", value = local.url },
   ]
 
   backend_secrets = [

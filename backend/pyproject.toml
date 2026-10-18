@@ -28,6 +28,7 @@ dependencies = [
     "slowapi>=0.1.9",
     "cryptography>=46.0.5",
     "tzdata>=2026.1",
+    "msal>=1.39.0",
 ]
 
 [build-system]
@@ -83,6 +84,8 @@ module = [
     "asyncpg.*",
     "botocore",
     "botocore.*",
+    "msal",
+    "msal.*",
     "pgvector",
     "pgvector.*",
     "testcontainers",

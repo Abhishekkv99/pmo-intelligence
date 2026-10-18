@@ -39,6 +39,11 @@ module "environment" {
   # (docs/DEPLOYMENT.md, "Health recompute").
   health_daily_enabled   = true
   bootstrap_admin_emails = var.bootstrap_admin_emails
+  # Teams chat stays off until its rollout (docs/DEPLOYMENT.md, "12. Teams
+  # chat"); the Graph app "PMO Intelligence Graph" in the ITC tenant.
+  teams_enabled   = false
+  graph_tenant_id = "2b32b1fa-7899-482e-a6de-be99c0ff5516"
+  graph_client_id = "d3b0556f-bcf2-4a5a-8d05-37f40aaa03b3"
 
   db_instance_class = "db.t4g.micro"
 }
