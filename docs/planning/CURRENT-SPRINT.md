@@ -57,7 +57,7 @@ Microsoft Graph pages read 2026-10-14; Graph rules change, so re-check before ac
 
 ## Task Checklist
 
->>> CURRENT PHASE: Phase 3 (next, when asked; Phase 2 committed 2026-10-17, not pushed)
+>>> CURRENT PHASE: Phase 3 (next, when asked; Phase 2 committed and pushed, 1c250a0 and 4db9586)
 
 Every phase: re-read this plan, code and tests, the doc list walked item by item, the commit checkpoint, then stop. Backend: `make test-backend` with `-rf`; frontend Vitest with `--maxWorkers=4`; e2e with one worker after `docker compose up --build -d --wait <changed service>`. Every Graph call in tests is mocked (an `httpx` mock transport); no test calls Microsoft. Test data uses made-up names only: real chat titles name real consultants, so the title shapes are reproduced with invented names. Every push: both CI filters read before saying what it runs and deploys, and the deploy recorded in DEPLOYMENT's status in the next commit.
 
@@ -97,7 +97,7 @@ Every phase: re-read this plan, code and tests, the doc list walked item by item
 - [x] (2026-10-16: backend 1046 passed, 764 unit + 282 integration; frontend 266; e2e 23 of 23 with one worker, `sessions.spec.ts` 3 of 3 runs alone with the default workers; `make lint` clean) Tests: `RiskBoard.test.tsx` (the two columns); e2e 23 of 23 with one worker, then `sessions.spec.ts` three times alone; `uv run mypy app tests` clean
 
 **Doc updates (concurrent)**
-- [ ] `ARCHITECTURE.md` (Risk board row; CI table's mypy step; `> Status:`), `DESIGN.md` (risk board columns; the chart entrance removed), `BACKLOG.md` (the four items ticked), `TESTS.md`, `FEATURES.md`, `CHANGELOG.md`, `DEPLOYMENT.md` status for the push (README: `make lint` row if its description changes)
+- [x] (2026-10-16 with the two commits; DEPLOYMENT's status after the push, 2026-10-18) `ARCHITECTURE.md` (Risk board row; CI table's mypy step; `> Status:`), `DESIGN.md` (risk board columns; the chart entrance removed), `BACKLOG.md` (the four items ticked), `TESTS.md`, `FEATURES.md`, `CHANGELOG.md`, `DEPLOYMENT.md` status for the push (README: `make lint` row if its description changes)
 
 **Commit checkpoint**
 - [x] (1c250a0 and the feat commit, 2026-10-17; the shared docs split by hunk) `test: type-check the backend tests` and `feat: show the risk board's project in its own column` (two commits; the seed and CSS fixes with the second, or as `fix:`/`chore:` if the user prefers)
@@ -230,16 +230,16 @@ Every phase: re-read this plan, code and tests, the doc list walked item by item
 - The week-long exit-gate watch needs Phase 5 on staging by 2026-10-20
 - (done 2026-10-16) Microsoft dev tunnels installed and signed in; the spike's tunnel deleted afterwards
 
-## Session State (last updated: 2026-10-17 00:10)
+## Session State (last updated: 2026-10-18)
 - **Sprint**: 4 — Teams Chat
-- **Current phase**: Phase 2 — backlog clean-ups, complete and committed (not pushed yet)
-- **Phase progress**: 5 of 5 code tasks complete; docs and commit checkpoint done
-- **Last completed task**: the Phase 2 commits: 1c250a0 "test: type-check the backend tests", then "feat: show the risk board's project in its own column"
-- **Next task**: push to `develop` when the user says so (both sides deploy to staging: `backend/**` and `frontend/**` changed, so processing restarts), then record the deploy in DEPLOYMENT's `> Status:` in the next commit; then Phase 3 (data model, settings and the Graph client) when asked
-- **Last commit**: the Phase 2 feat commit (hash recorded after it is made), after 1c250a0
-- **Uncommitted changes**: none (just committed)
+- **Current phase**: Phase 2 — backlog clean-ups, complete, pushed and deployed to staging; Phase 3 next, when asked
+- **Phase progress**: 5 of 5 code tasks, the doc list and the commit checkpoint done
+- **Last completed task**: the push (`62b2a0a..4db9586`, CI run 38982363100: Backend CI, Frontend CI, E2E and the staging deploy green; both sides deployed 23:41 – 23:44 UTC 2026-10-16; ownership taken after 115 s, takeover steps 0 rows, no migration) and its DEPLOYMENT status entry
+- **Next task**: Phase 3 (data model, settings and the Graph client) when the user asks; it needs the Graph certificate's values put into the app secret by the user
+- **Last commit**: 4db9586 "feat: show the risk board's project in its own column" (after 1c250a0 "test: type-check the backend tests"), pushed 2026-10-16
+- **Uncommitted changes**: `docs/DEPLOYMENT.md` (the deploy's status) and this file, for a `docs:` commit
 - **Blockers**: none
-- **Tests passing**: 764 unit + 282 integration (backend, one `pytest -rf` run) + 266 frontend unit (`--maxWorkers=4`); 23 e2e (one worker) = 1335; `sessions.spec.ts` 3 of 3 runs alone with the default workers; `make lint` clean (mypy on 206 files)
+- **Tests passing**: 764 unit + 282 integration (backend, one `pytest -rf` run) + 266 frontend unit (`--maxWorkers=4`); 23 e2e (one worker) = 1335; `sessions.spec.ts` 3 of 3 runs alone with the default workers; `make lint` clean (mypy on 206 files); the same green in CI run 38982363100
 - **Files created this session**: `backend/app/cli/e2e_recording.webm`
 - **Files modified this session**: `frontend/src/components/health/RiskBoard.tsx` and its test; `frontend/src/app/globals.css`; `frontend/tests/e2e/sessions.spec.ts`; `backend/app/cli/seed_e2e_session.py`; `backend/pyproject.toml`; `Makefile`; `.github/workflows/ci.yml`; 18 files under `backend/tests/`; `README.md`; `docs/ARCHITECTURE.md`, `docs/DESIGN.md`, `docs/planning/BACKLOG.md`, `docs/tracking/{TESTS,FEATURES,CHANGELOG}.md`; this file
 - **Key decisions this session**: `Chat.Read.All` for good, one subscription per watched chat, no app install (2026-10-16); the two unused permissions removed from the app registration (2026-10-16; the admin to revoke their consents); the seed's recording made with Chromium's MediaRecorder and committed as a fixture (user choice 2026-10-16, over a WAV built in code or an ffmpeg image); mypy module names from paths with `explicit_package_bases`, not a `tests/__init__.py` (which would change pytest's discovery)
