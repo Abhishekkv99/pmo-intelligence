@@ -31,6 +31,11 @@ vi.mock("./recordings/RecordingsTab", () => ({
     <div data-testid="recordings-tab">{String(enabled)}</div>
   ),
 }));
+vi.mock("./teams/TeamsTab", () => ({
+  TeamsTab: ({ enabled }: { enabled: boolean }) => (
+    <div data-testid="teams-tab">{String(enabled)}</div>
+  ),
+}));
 
 import { AdminView } from "./AdminView";
 
@@ -90,6 +95,7 @@ describe("AdminView", () => {
       "Register",
       "Users and roles",
       "Recordings",
+      "Teams",
       "Processing",
     ]);
   });
@@ -100,6 +106,14 @@ describe("AdminView", () => {
     render(<AdminView />);
 
     expect(screen.getByTestId("recordings-tab")).toHaveTextContent("true");
+  });
+
+  it("lets the teams tab poll only while it is open", () => {
+    signInAs("admin");
+    search = "tab=teams";
+    render(<AdminView />);
+
+    expect(screen.getByTestId("teams-tab")).toHaveTextContent("true");
   });
 
   it("falls back to the register for an unknown tab", () => {
@@ -133,7 +147,7 @@ describe("AdminView", () => {
 
     expect(
       screen.getByText(
-        "The placement register, who can sign in, the recordings folder and the processing queue.",
+        "The placement register, who can sign in, the recordings folder, the PMO group chats and the processing queue.",
       ),
     ).toBeInTheDocument();
   });

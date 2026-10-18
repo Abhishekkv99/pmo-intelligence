@@ -40,7 +40,7 @@ import type { PlacementOption, RecordingFolder } from "@/types/recordings";
 import type { Placement } from "@/types/register";
 import { FilteredSelect, type FilteredOption } from "./FilteredSelect";
 
-interface DialogShellProps {
+export interface DialogShellProps {
   title: string;
   description: ReactNode;
   onClose: () => void;
@@ -53,7 +53,7 @@ interface DialogShellProps {
   children?: ReactNode;
 }
 
-function DialogShell({
+export function DialogShell({
   title,
   description,
   onClose,

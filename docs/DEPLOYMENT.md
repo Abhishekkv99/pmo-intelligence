@@ -347,7 +347,8 @@ The backend reads the PMO group chats through Microsoft Graph as the Graph app "
 | `GRAPH_CLIENT_STATE` | app secret | A random secret every change notification must carry (64 hex characters) |
 | `GRAPH_TENANT_ID`, `GRAPH_CLIENT_ID` | task environment (`graph_tenant_id`, `graph_client_id` in `infra/environments/staging/main.tf`) | The ITC tenant and the Graph app's client id; not secret |
 | `TEAMS_ENABLED` | task environment (`teams_enabled`, default false) | Off until the rollout |
-| `TEAMS_DISCOVERY_ACCOUNTS` | task environment (`teams_discovery_accounts`, default empty) | The PMO accounts whose chat lists discovery reads (Sprint 4 Phase 4) |
+| `TEAMS_DISCOVERY_ENABLED` | task environment (`teams_discovery_enabled`, default false; true in staging from Sprint 4 Phase 4) | The daily discovery of the `PRJ ITC` chats: chat titles only, no member list and no message |
+| `TEAMS_DISCOVERY_ACCOUNTS` | task environment (`teams_discovery_accounts`, default empty; in staging `Sunny.Dhanoe@InformationTechConsultants.com` and `uttam.kumar@InformationTechConsultants.com`) | The PMO accounts whose chat lists discovery reads |
 | `TEAMS_NOTIFICATION_BASE_URL` | task environment | The environment's own URL |
 
 **Order matters**: put the three keys into the app secret **before** the Terraform apply that adds them to the task definition. ECS refuses to start a task whose secret lacks a key the task definition names, and Terraform never writes the staging secret's value (`ignore_changes`).
@@ -375,6 +376,8 @@ The backend reads the PMO group chats through Microsoft Graph as the Graph app "
 2. **Terraform** (`infra/environments/staging/`): `terraform plan -out=tfplan`, then `terraform apply tfplan` after approval. The plan adds `random_password.graph_client_state` (used only as a new environment's placeholder), replaces the backend task definition and updates the service in place (2 to add, 1 to change, 1 to destroy). The backend redeploys with the usual ownership handover ("Redeploying without a change").
 
 Done for staging 2026-10-18 (Sprint 4 Phase 3): the secret first, then the apply, revision 4 to 5.
+
+**Discovery on** (Sprint 4 Phase 4): `teams_discovery_enabled = true` and the two accounts in `infra/environments/staging/main.tf`, then plan and apply as above (1 to add, 1 to change, 1 to destroy: the backend task definition replaced). The new task queues a discovery pass at start: the log shows `Teams discovery every 86400 s` from every task, then, from the owner, `Teams discovery <id>: N chats (A new, M matched)` (or `Teams discovery <id> failed: <reason>`), and Admin > Teams lists the chats. Watching stays off (`teams_enabled` false), so no member list is read.
 
 **Check**: the new backend task starts and takes processing ownership; `aws ecs describe-task-definition --task-definition pmo-intelligence-staging-backend --query "taskDefinition.containerDefinitions[?name=='backend'].secrets[].name"` lists the three Graph keys. Nothing calls Graph while `TEAMS_ENABLED` is false.
 

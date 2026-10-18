@@ -30,6 +30,8 @@ export const API_ROUTES = {
   recordingFolders: "/recording-folders",
   recordingsScan: "/recordings/scan",
   recordings: "/recordings",
+  teamsChats: "/teams/chats",
+  teamsScan: "/teams/scan",
   sessionUpload: "/sessions/upload",
   sessionUrl: "/sessions/url",
   sessions: "/sessions",

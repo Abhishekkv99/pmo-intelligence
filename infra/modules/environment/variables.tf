@@ -194,6 +194,12 @@ variable "teams_enabled" {
   default     = false
 }
 
+variable "teams_discovery_enabled" {
+  description = "List the PMO accounts' chats daily and tie the PRJ ITC ones to placements (TEAMS_DISCOVERY_ENABLED): titles only, no messages; needs the Graph keys in the app secret"
+  type        = bool
+  default     = false
+}
+
 variable "graph_tenant_id" {
   description = "Entra tenant of the Graph app (GRAPH_TENANT_ID)"
   type        = string

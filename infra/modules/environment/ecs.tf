@@ -44,6 +44,7 @@ locals {
     { name = "HEALTH_DAILY_ENABLED", value = tostring(var.health_daily_enabled) },
     # Teams chat; the certificate and the client state are in the secret
     { name = "TEAMS_ENABLED", value = tostring(var.teams_enabled) },
+    { name = "TEAMS_DISCOVERY_ENABLED", value = tostring(var.teams_discovery_enabled) },
     { name = "GRAPH_TENANT_ID", value = var.graph_tenant_id },
     { name = "GRAPH_CLIENT_ID", value = var.graph_client_id },
     { name = "TEAMS_DISCOVERY_ACCOUNTS", value = jsonencode(var.teams_discovery_accounts) },

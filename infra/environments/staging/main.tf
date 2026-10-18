@@ -44,6 +44,13 @@ module "environment" {
   teams_enabled   = false
   graph_tenant_id = "2b32b1fa-7899-482e-a6de-be99c0ff5516"
   graph_client_id = "d3b0556f-bcf2-4a5a-8d05-37f40aaa03b3"
+  # Discovery (chat titles only) on from Sprint 4 Phase 4; the two PMO
+  # accounts are in every PRJ ITC chat between them.
+  teams_discovery_enabled = true
+  teams_discovery_accounts = [
+    "Sunny.Dhanoe@InformationTechConsultants.com",
+    "uttam.kumar@InformationTechConsultants.com",
+  ]
 
   db_instance_class = "db.t4g.micro"
 }

@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { hasGlobalRole } from "@/lib/roles";
 import { RecordingsTab } from "./recordings/RecordingsTab";
 import { RegisterTab } from "./register/RegisterTab";
+import { TeamsTab } from "./teams/TeamsTab";
 import { UsersTab } from "./users/UsersTab";
 import { ProcessingStatusPanel } from "./ProcessingStatusPanel";
 
@@ -15,6 +16,7 @@ export const ADMIN_TABS = [
   { value: "register", label: "Register" },
   { value: "users", label: "Users and roles" },
   { value: "recordings", label: "Recordings" },
+  { value: "teams", label: "Teams" },
   { value: "processing", label: "Processing" },
 ] as const;
 
@@ -48,8 +50,8 @@ export function AdminView() {
         </h2>
         {isGlobal && (
           <p className="text-sm text-muted-foreground">
-            The placement register, who can sign in, the recordings folder and
-            the processing queue.
+            The placement register, who can sign in, the recordings folder, the
+            PMO group chats and the processing queue.
           </p>
         )}
       </div>
@@ -77,6 +79,9 @@ export function AdminView() {
           </TabsContent>
           <TabsContent value="recordings">
             <RecordingsTab enabled={tab === "recordings"} />
+          </TabsContent>
+          <TabsContent value="teams">
+            <TeamsTab enabled={tab === "teams"} />
           </TabsContent>
           <TabsContent value="processing">
             <ProcessingStatusPanel enabled={tab === "processing"} />
