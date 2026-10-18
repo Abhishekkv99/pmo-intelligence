@@ -58,7 +58,7 @@ Microsoft Graph pages read 2026-10-14; Graph rules change, so re-check before ac
 
 ## Task Checklist
 
->>> CURRENT PHASE: Phase 3 (committed 2026-10-18; the Terraform apply waits for the Graph keys in the app secret, then Phase 4 when asked)
+>>> CURRENT PHASE: Phase 4 (next, when asked; Phase 3 committed, pushed, deployed and applied 2026-10-18)
 
 Every phase: re-read this plan, code and tests, the doc list walked item by item, the commit checkpoint, then stop. Backend: `make test-backend` with `-rf`; frontend Vitest with `--maxWorkers=4`; e2e with one worker after `docker compose up --build -d --wait <changed service>`. Every Graph call in tests is mocked (an `httpx` mock transport); no test calls Microsoft. Test data uses made-up names only: real chat titles name real consultants, so the title shapes are reproduced with invented names. Every push: both CI filters read before saying what it runs and deploys, and the deploy recorded in DEPLOYMENT's status in the next commit.
 
@@ -109,14 +109,14 @@ Every phase: re-read this plan, code and tests, the doc list walked item by item
 - [x] (2026-10-18: `app/models/teams.py`, `alembic/versions/010_create_teams_chat_tables.py`; `teams_groups.members` added for the member picker; the downgrade deletes `chat` snapshots; migration tests 11 of 11 with `alembic check`) Migration 010: `teams_groups` (`graph_chat_id` unique, `title`, the parsed title fields, `placement_id`, match status and candidates, `consultant_member_oid` and its match status, watch state, `watched_at`, `stopped_at`, `sync_requested_at`, `last_synced_at`, `last_message_at`, history state, `error_message`), `messages` (`teams_group_id`, `graph_message_id` unique with the group, `author_entra_oid`, `author_name`, `author_role`, `posted_at`, `last_modified_at`, `deleted_at`, `body_text`, `reply_to_message_id`, `message_type` (Graph's value as given, no CHECK), `message_class`, `is_noise`, `is_history`, `analysed_at`), `graph_subscriptions` (`subscription_id`, `teams_group_id`, `resource`, `expires_at`; one per watched chat since 2026-10-16), the FK `processing_costs.message_id` → `messages`, and the snapshot reason's CHECK; the PRD's `kind`/`graph_team_id`/`delta_token` columns not built (group chats only, no delta for chats)
 - [x] (2026-10-18; also `GRAPH_TIMEOUT_SECONDS` 30 and `GRAPH_MAX_RETRIES` 5) `app/config.py`: `GRAPH_TENANT_ID`, `GRAPH_CLIENT_ID`, `GRAPH_CERTIFICATE_PFX_BASE64`, `GRAPH_CERTIFICATE_PASSWORD`, `GRAPH_CLIENT_STATE` (the webhook secret), `TEAMS_DISCOVERY_ACCOUNTS` (UPNs; `TEAMS_CATALOG_APP_ID` dropped 2026-10-18, no install), `TEAMS_ENABLED` (off by default), `TEAMS_NOTIFICATION_BASE_URL`; `.env.example`
 - [x] (2026-10-18: the .pfx read with `cryptography` into msal's PEM credential; requests naming one chat or user spaced 1.25 s; `GraphError` in `app/utils/exceptions.py`; `msal` 1.39.0 added, untyped) `app/services/teams/graph_client.py`: msal certificate token (cached until expiry), one `httpx.AsyncClient` with a finite timeout and an injectable transport, paging through `@odata.nextLink`, `Retry-After` and exponential backoff on 429, 503 and 504, pacing under the per-chat 1 rps; any failure a `GraphError`. `uv add msal` (mypy override if untyped)
-- [ ] (code done 2026-10-18: `secrets.tf`, `ecs.tf`, `variables.tf`, staging `main.tf`; `random_password.graph_client_state` as a new environment's placeholder; planned for staging 2026-10-18, 2 to add, 1 to change, 1 to destroy, plan file `tfplan-teams`; **not applied**: the user first puts the three keys into the secret, DEPLOYMENT "12. Teams chat", since a task whose secret lacks a named key does not start) Infra: `app_secret_keys` gains the Graph secrets and `GRAPH_CLIENT_STATE`; the non-secret ids in the backend environment; `teams_enabled` module variable (false until Phase 5's rollout). Terraform plan shown, applied only with approval (replaces the backend task definition, so the backend redeploys); the values put with `put-secret-value` by the user
+- [x] (2026-10-18: `secrets.tf`, `ecs.tf`, `variables.tf`, staging `main.tf`; `random_password.graph_client_state` as a new environment's placeholder; the three keys put into the secret first, on the user's say-so, since a task whose secret lacks a named key does not start; applied 10:42 UTC, 2 added, 1 changed, 1 destroyed, revision 4 to 5, ownership after 110 s) Infra: `app_secret_keys` gains the Graph secrets and `GRAPH_CLIENT_STATE`; the non-secret ids in the backend environment; `teams_enabled` module variable (false until Phase 5's rollout). Terraform plan shown, applied only with approval (replaces the backend task definition, so the backend redeploys); the values put with `put-secret-value` by the user
 - [x] (2026-10-18: `test_migrations.py` 11, `test_graph_client.py` 23, `test_config.py` 7; backend 1072 passed, frontend 266, e2e 23 of 23 with one worker; `make lint` clean) Tests: migration up and down; the Graph client (token reuse, paging, `Retry-After`, backoff limit, error mapping) on a mock transport; settings
 
 **Doc updates (concurrent)**
 - [x] (2026-10-18; README unchanged: no new make target or doc) `ARCHITECTURE.md` (Data Model: migration 010 with differences from the draft; Backend rows for Settings, Enumerations, the Graph client; Infrastructure; `> Status:`), `DEPLOYMENT.md` (a new section "12. Teams chat (Graph secrets, catalog id)"; status), `.env.example`, `FEATURES.md`, `TESTS.md`, `CHANGELOG.md`
 
 **Commit checkpoint**
-- [x] (2026-10-18; not pushed) `feat: add the teams chat data model and graph client`
+- [x] (06ee758, 2026-10-18; pushed, CI run 39119613355 green, both sides deployed) `feat: add the teams chat data model and graph client`
 
 ### Phase 4: Discovery, title matching, watching and Admin > Teams
 **Code work**
@@ -231,15 +231,15 @@ Every phase: re-read this plan, code and tests, the doc list walked item by item
 - The week-long exit-gate watch needs Phase 5 on staging by 2026-10-20
 - (done 2026-10-16) Microsoft dev tunnels installed and signed in; the spike's tunnel deleted afterwards
 
-## Session State (last updated: 2026-10-18 11:40)
+## Session State (last updated: 2026-10-18 11:50)
 - **Sprint**: 4 — Teams Chat
-- **Current phase**: Phase 3 — data model, settings and the Graph client; committed, the staging Terraform apply waiting
-- **Phase progress**: 5 of 6 code tasks done (the infra task's code done, its apply waiting), the doc list and the commit checkpoint done
-- **Last completed task**: the Phase 3 commit `feat: add the teams chat data model and graph client`
-- **Next task**: the user puts the Graph keys into the app secret (DEPLOYMENT "12. Teams chat", step 1) and approves the Terraform apply; then Phase 4
-- **Last commit**: 450ba8c "docs: record the phase 2 staging deploy" (not pushed; `develop` 1 ahead of `origin/develop`)
-- **Uncommitted changes**: none (just committed)
-- **Blockers**: the Terraform apply waits for the Graph keys in `pmo-intelligence/staging/app` (the user)
+- **Current phase**: Phase 3 — complete (committed, pushed, deployed, Terraform applied); Phase 4 next, when asked
+- **Phase progress**: 6 of 6 code tasks, the doc list and the commit checkpoint done
+- **Last completed task**: the staging rollout of Phase 3: the Graph keys put into the app secret (10:31 UTC, on the user's say-so), the push (CI run 39119613355 green; both sides deployed 10:36 – 10:39 UTC; migration 010 applied; ownership after 120 s), the Terraform apply (10:42 UTC, revision 4 to 5; ownership after 110 s; takeover steps 0 rows)
+- **Next task**: Phase 4 (discovery, title matching, watching and Admin > Teams) when the user asks; it needs the UPNs of the PMO discovery accounts (Sunny Dhanoe, Uttam Kumar) for `TEAMS_DISCOVERY_ACCOUNTS`
+- **Last commit**: "docs: record the phase 3 staging rollout" (after 06ee758 "feat: add the teams chat data model and graph client"), both pushed 2026-10-18
+- **Uncommitted changes**: none
+- **Blockers**: none
 - **Tests passing**: 789 unit + 283 integration (backend, one `pytest -rf` run) + 266 frontend unit (`--maxWorkers=4`; two earlier full runs had load timeouts, BACKLOG) + 23 e2e (one worker, migration 010 applied locally) = 1361; `make lint` clean (mypy on 210 files)
 - **Files created this session**: `backend/app/models/teams.py`, `backend/alembic/versions/010_create_teams_chat_tables.py`, `backend/app/services/teams/__init__.py`, `backend/app/services/teams/graph_client.py`, `backend/tests/unit/test_graph_client.py`
 - **Files modified this session**: `backend/app/models/{enums,processing_cost,__init__}.py`, `backend/app/config.py`, `backend/app/utils/exceptions.py`, `backend/pyproject.toml`, `backend/uv.lock`, `backend/tests/integration/test_migrations.py`, `backend/tests/unit/test_config.py`, `frontend/src/lib/health.ts`, `.env.example`, `infra/modules/environment/{secrets,ecs,variables}.tf`, `infra/environments/staging/main.tf`, `docs/ARCHITECTURE.md`, `docs/DEPLOYMENT.md`, `docs/tracking/{FEATURES,TESTS,CHANGELOG}.md`, this file
@@ -250,7 +250,7 @@ Every phase: re-read this plan, code and tests, the doc list walked item by item
   - **Local stack**: `docker compose up --build -d --wait`, `make migrate`, `make test-e2e`. Add `PMO_API_PORT=8100 PMO_WEB_PORT=3100` when another project holds ports 8000/3000. The local database is at migration 010.
   - **Push and `gh`**: use `Abhishekkv99`'s token per command, never a change to the default login: `git -c credential.helper= -c credential.helper='!f() { echo username=x-access-token; echo "password=$(gh auth token --user Abhishekkv99)"; }; f' push origin develop`.
   - **AWS sign-in**: `aws sso login --profile pmo-intelligence`. Nothing is ever deleted or overwritten in the main ITC account (`430006376054`).
-  - **Terraform**: the staging plan `infra/environments/staging/tfplan-teams` (git-ignored) is stale once the code changes; plan again before applying.
+  - **Terraform**: staging is applied and clean (62 managed resources); the Phase 3 plan file was deleted after the apply.
 
 ## Decisions Log
 | Decision | Rationale |
