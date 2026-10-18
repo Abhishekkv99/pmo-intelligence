@@ -149,6 +149,9 @@ class QuickAdd:
         # The placements an applied quick add created or changed (empty when
         # it wrote nothing), whose health the route then recomputes.
         self.changed_placement_ids: list[uuid.UUID] = []
+        # Each line's placement (found or created) by line number, once
+        # applied; a Teams chat is linked to the one its title wrote.
+        self.placement_of_line: dict[int, uuid.UUID] = {}
 
     async def run(self, lines: list[str], *, dry_run: bool) -> QuickAddResult:
         numbered = [
@@ -173,6 +176,7 @@ class QuickAdd:
         else:
             await savepoint.rollback()
             self.changed_placement_ids = []
+            self.placement_of_line = {}
         logger.info(
             "Register quick add: lines=%d errors=%d dry_run=%s applied=%s",
             len(results),
@@ -276,6 +280,7 @@ class QuickAdd:
                 placement.stack = parsed.stack
             if line.changes:
                 self._changed(placement.id)
+            self.placement_of_line[line.number] = placement.id
             return placement
 
         projects = self.register.projects
@@ -301,6 +306,7 @@ class QuickAdd:
             stack=parsed.stack,
         )
         self._changed(created.id)
+        self.placement_of_line[line.number] = created.id
         return created
 
     def _changed(self, placement_id: uuid.UUID) -> None:

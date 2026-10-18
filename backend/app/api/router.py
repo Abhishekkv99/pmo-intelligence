@@ -8,6 +8,7 @@ from app.api.v1 import (
     recordings,
     register,
     sessions,
+    teams,
     users,
 )
 
@@ -25,3 +26,4 @@ api_router.include_router(sessions.router, prefix="/v1", tags=["sessions"])
 api_router.include_router(
     placement_health.router, prefix="/v1", tags=["placement-health"]
 )
+api_router.include_router(teams.router, prefix="/v1", tags=["teams"])

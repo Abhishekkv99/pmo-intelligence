@@ -311,3 +311,23 @@ def graph_client_from_settings() -> GraphClient:
     return GraphClient(
         MsalTokenSource(settings.graph_tenant_id, settings.graph_client_id, credential)
     )
+
+
+_shared: GraphClient | None = None
+
+
+def get_graph_client() -> GraphClient:
+    """The process's one Graph client (one token, one connection pool), made on
+    first use from settings. Raises GraphError when Graph is not configured."""
+    global _shared
+    if _shared is None:
+        _shared = graph_client_from_settings()
+    return _shared
+
+
+async def close_graph_client() -> None:
+    """Close the shared client at shutdown; the next use makes a new one."""
+    global _shared
+    if _shared is not None:
+        await _shared.aclose()
+        _shared = None

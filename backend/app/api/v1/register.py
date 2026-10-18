@@ -50,6 +50,7 @@ from app.schemas.register import (
 from app.services.health_jobs import request_recompute, request_recomputes
 from app.services.register_quick_add import QuickAdd
 from app.services.register_service import ConsultantRow, ProjectRow, RegisterService
+from app.services.teams.jobs import request_placement_watch
 from app.utils.entitlements import sees_technical_only
 
 router = APIRouter()
@@ -174,6 +175,7 @@ async def create_placement(body: PlacementCreate, db: DbSession) -> PlacementRes
     row = await service.placement_row(placement.id)
     await db.commit()
     request_recompute(placement.id, SnapshotReason.REGISTER)
+    request_placement_watch([placement.id])
     return _placement(row)
 
 
@@ -202,6 +204,7 @@ async def update_placement(
     row = await service.placement_row(placement.id)
     await db.commit()
     request_recompute(placement.id, SnapshotReason.REGISTER)
+    request_placement_watch([placement.id])
     return _placement(row)
 
 
@@ -229,6 +232,7 @@ async def quick_add(
     if result.applied:
         await db.commit()
         request_recomputes(adder.changed_placement_ids, SnapshotReason.REGISTER)
+        request_placement_watch(adder.changed_placement_ids)
     return result
 
 

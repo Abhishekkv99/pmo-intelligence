@@ -32,7 +32,7 @@ from app.services.teams.chat_titles import (
     is_pmo_title,
     parse_chat_title,
 )
-from app.services.teams.graph_client import GraphClient, graph_client_from_settings
+from app.services.teams.graph_client import GraphClient, get_graph_client
 
 logger = logging.getLogger(__name__)
 
@@ -88,13 +88,9 @@ class TeamsDiscovery:
         scan = await self.teams.start_scan(datetime.now(UTC))
         scan_id = scan.id
         await self.session.commit()
-        graph: GraphClient | None = None
         try:
             async with asyncio.timeout(SCAN_TIME_LIMIT_SECONDS):
-                source = self.source
-                if source is None:
-                    graph = graph_client_from_settings()
-                    source = GraphChatSource(graph)
+                source = self.source or GraphChatSource(get_graph_client())
                 counts = await self._discover(source)
             await self.session.commit()
         except Exception as exc:
@@ -125,9 +121,6 @@ class TeamsDiscovery:
                 status=ScanStatus.COMPLETED,
                 **vars(counts),
             )
-        finally:
-            if graph is not None:
-                await graph.aclose()
         await self.session.commit()
         await self.session.refresh(scan)
         return scan

@@ -13,10 +13,13 @@ import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings
 from app.db.repositories.user_repo import UserRepository
 from app.models.enums import Role
 from app.models.user import User
 from app.services.auth_service import AuthService
+from app.services.processing_queue import get_processing_queue
+from app.services.teams.jobs import WATCH_PLACEMENT_JOB_KIND
 
 pytestmark = pytest.mark.asyncio
 
@@ -434,3 +437,40 @@ class TestUserList:
                 "signed_in_with_microsoft": False,
             }
         ]
+
+
+class TestTeamsWatchAfterAnEdit:
+    async def test_creating_and_editing_a_placement_queue_its_chats_review(
+        self,
+        manager_client: AsyncClient,
+        db_session: AsyncSession,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.setattr(settings, "teams_enabled", True)
+        w = await _world(manager_client, db_session)
+        placement_id = uuid.UUID(w["placement"]["id"])
+
+        edited = await manager_client.patch(
+            f"/api/v1/placements/{placement_id}", json={"status": "ended"}
+        )
+
+        assert edited.status_code == 200
+        reviews = [
+            job
+            for job in get_processing_queue().snapshot().pending
+            if job.kind == WATCH_PLACEMENT_JOB_KIND
+        ]
+        assert [job.id for job in reviews] == [placement_id]
+
+    async def test_nothing_is_queued_while_teams_is_off(
+        self,
+        manager_client: AsyncClient,
+        db_session: AsyncSession,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.setattr(settings, "teams_enabled", False)
+
+        await _world(manager_client, db_session)
+
+        kinds = {job.kind for job in get_processing_queue().snapshot().pending}
+        assert WATCH_PLACEMENT_JOB_KIND not in kinds

@@ -44,7 +44,7 @@ PLACEMENT_GUARDS = {require_placement_scope, require_logged_placement_scope}
 SESSION_GUARDS = {require_session_scope, require_logged_session_scope}
 
 # Path parameters of rows outside any placement: global roles only.
-ROLE_ONLY_IDS = ("{recording_id}", "{folder_id}", "{user_id}")
+ROLE_ONLY_IDS = ("{recording_id}", "{folder_id}", "{user_id}", "{chat_id}")
 
 # Reachable without a user at all. Each entry is a decision, not an oversight.
 PUBLIC = {

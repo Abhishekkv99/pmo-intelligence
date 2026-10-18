@@ -19,7 +19,7 @@ Applied on the server for every route; the route-coverage test (`backend/tests/u
 | `require_logged_session_scope` | The session page; also writes an `access_log` row for the session's placement | `404`, identical to a missing session |
 | `require_media_token` | The one route reached without the Bearer token (the audio player's source on local storage): a 15-minute token naming the session | `404`, identical to a missing session |
 
-A route addressed by a recording, recordings folder or user id (`{recording_id}`, `{folder_id}`, `{user_id}`) must carry `require_roles(...)`: those rows belong to no placement, so only the global roles reach them. A route addressed by a session id (`{session_id}`) must carry a session-scope guard. A route reached without the Bearer token is listed as token-scoped and must carry a token guard. The coverage test checks all of this.
+A route addressed by a recording, recordings folder, user or Teams chat id (`{recording_id}`, `{folder_id}`, `{user_id}`, `{chat_id}`) must carry `require_roles(...)`: those rows belong to no placement, so only the global roles reach them. A route addressed by a session id (`{session_id}`) must carry a session-scope guard. A route reached without the Bearer token is listed as token-scoped and must carry a token guard. The coverage test checks all of this.
 
 **Roles** are `pmo_manager`, `sme`, `cdm` (Consultant Director: the consultancy-side manager of the consultant; it replaced the PRD's `tech_lead` on 2026-10-11), `ps` and `admin`, defined in `backend/app/models/enums.py`.
 - **Global roles** (`pmo_manager`, `admin`) read every placement.
@@ -121,6 +121,24 @@ The PMO recordings folder (Admin > Recordings). PMO managers and admins only; an
 - **Which placement**: the folder consultant's placement whose dates cover the call's UK date (`start_date` ≤ day ≤ `expected_end_date`, open-ended without one), whatever its status.
 - **`PlacementChoice`** (409): `{detail, placements: [{id, client_name, project_name, start_date, expected_end_date, status}]}`: the covering placements when several cover the call, else every placement of the consultant. Send one back as `placement_id`.
 - **`SessionCreated`**: `{id, placement_id, source, status, held_at}`; `source` is `s3 | upload | url | graph`, `status` starts at `uploaded`.
+
+### Teams chats
+The PMO group chats (Admin > Teams). PMO managers and admins only; any other role gets `403 {"detail": "Not authorised for this operation"}`. Discovery finds the chats titled `PRJ ITC …` in the PMO accounts' chat lists (titles only) and ties each to its placement from its title; here a person settles the rest. Nothing on this page reads a message.
+
+| Method | Path | Auth | Request | Response |
+|--------|------|------|---------|----------|
+| GET | `/teams/chats` | `pmo_manager`, `admin` | — | `TeamsChatList` (below): every chat, by title |
+| POST | `/teams/scan` | `pmo_manager`, `admin`; 10/min | — | `202 {queued}`; `queued` is false when a pass is already waiting to start. **409** `{"detail": "Teams discovery is off on this environment"}` while `TEAMS_DISCOVERY_ENABLED` is off |
+| PUT | `/teams/chats/{chat_id}/placement` | `pmo_manager`, `admin` | `{placement_id}` | `204`; the chat becomes `chosen` and later passes keep it; its consultant member is looked for again; its watch review is queued. 404 for an unknown chat, 422 for an unknown placement |
+| POST | `/teams/chats/{chat_id}/placement` | `pmo_manager`, `admin`; 10/min | `{line}`, one quick add line (1–500 characters; `quick_add_line` prefilled, maybe edited) | `QuickAddResult` (see "Register"), always 200: when `applied`, the placement the line found or created is linked (`chosen`), and its health recompute and the chat's watch review are queued; otherwise nothing is written and the line's `errors` say why. 404 for an unknown chat |
+| PUT | `/teams/chats/{chat_id}/consultant-member` | `pmo_manager`, `admin` | `{oid}`, a member's Entra id | `204`; the member is the consultant (`chosen`), and their Entra id is recorded on the consultant when the consultant has none and no other consultant holds it. 404 for an unknown chat, 422 for someone not among the chat's members |
+
+- **`TeamsChatList`**: `{chats: [TeamsChatItem], latest_scan: TeamsScanSummary | null, discovery_enabled, watching_enabled}`; the two flags are `TEAMS_DISCOVERY_ENABLED` and `TEAMS_ENABLED`.
+- **`TeamsChatItem`**: `{id, title, parsed: {stack, consultant, client, start_date, end_date} | null, quick_add_line, match_status, placement: TeamsPlacement | null, candidates: [TeamsPlacement], watch_state, watched_at, stopped_at, members: [{oid, name}], consultant_member: {oid, name} | null, consultant_member_match, last_message_at, history_state, error_message}`. `parsed` is null when the title could not be read, and `error_message` then says why ("Title not read: …"), or why the members could not be read ("Members not read: …"). `quick_add_line` is the title rewritten as a quick add line when it was read, else the title itself.
+- **`TeamsPlacement`**: `{id, consultant_name, client_name, project_name, start_date, expected_end_date, status}`.
+- **`TeamsScanSummary`**: `{id, started_at, finished_at, status, chats_seen, chats_added, chats_matched, error_message}`; `status` is `running | completed | failed`.
+- **Values**: `match_status` is `matched | chosen | needs_choice | unmatched | unparsed` (`TeamsChatMatch`); `watch_state` `not_watched | watching | stopped | failed` (`TeamsWatchState`); `consultant_member_match` `matched | chosen | needs_choice | unmatched` (`FolderMatchStatus`); `history_state` `none | stored | analysing | analysed` (`HistoryState`).
+- **Watching**: with `TEAMS_ENABLED`, a chat tied to an active placement whose expected end has not passed (UK date) is watched, and its members are read to find the consultant; a chat whose placement ended stops being watched and keeps what it had. The review runs after every discovery pass, a register edit of the placement, and the links above.
 
 ### Sessions
 Reading a session is for anyone whose scope covers its placement (the global roles read all; a PS or SME reads the placements naming them, a CDM the placements of the consultants they manage). Creating, retrying and correcting the kind are for PMO managers and admins.

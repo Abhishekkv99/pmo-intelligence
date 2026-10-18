@@ -134,6 +134,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     await processing_queue.stop()
     await processing_ownership.release()
 
+    from app.services.teams.graph_client import close_graph_client
+
+    await close_graph_client()
+
 
 def create_app() -> FastAPI:
     app = FastAPI(
