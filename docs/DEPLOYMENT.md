@@ -338,7 +338,7 @@ Every analysed call, register edit and applied import queues its placement's hea
 - **Nothing to configure**: the weights are the versioned file `backend/app/health/config/v1.json` (`HEALTH_CONFIG_VERSION`), shipped in the image.
 
 ### 12. Teams chat (Graph secrets, then Terraform)
-The backend reads the PMO group chats through Microsoft Graph as the Graph app "PMO Intelligence Graph" (not the SSO app), signing in app-only with its certificate. The route and permissions are in `docs/integrations/TEAMS-GRAPH-SETUP.md` ("Part D"). Teams chat stays off (`TEAMS_ENABLED=false`) until its rollout in Sprint 4 Phase 5.
+The backend reads the PMO group chats through Microsoft Graph as the Graph app "PMO Intelligence Graph" (not the SSO app), signing in app-only with its certificate. The route and permissions are in `docs/integrations/TEAMS-GRAPH-SETUP.md` ("Part D"). Teams chat stays off (`TEAMS_ENABLED=false`) until its rollout in Sprint 4 Phase 5 ("Watching on" below).
 
 | Setting | Where | Value |
 |---------|-------|-------|
@@ -349,7 +349,8 @@ The backend reads the PMO group chats through Microsoft Graph as the Graph app "
 | `TEAMS_ENABLED` | task environment (`teams_enabled`, default false) | Off until the rollout |
 | `TEAMS_DISCOVERY_ENABLED` | task environment (`teams_discovery_enabled`, default false; true in staging from Sprint 4 Phase 4) | The daily discovery of the `PRJ ITC` chats: chat titles only, no member list and no message |
 | `TEAMS_DISCOVERY_ACCOUNTS` | task environment (`teams_discovery_accounts`, default empty; in staging `Sunny.Dhanoe@InformationTechConsultants.com` and `uttam.kumar@InformationTechConsultants.com`) | The PMO accounts whose chat lists discovery reads |
-| `TEAMS_NOTIFICATION_BASE_URL` | task environment | The environment's own URL |
+| `TEAMS_NOTIFICATION_BASE_URL` | task environment | The environment's own URL; Graph posts to `/api/v1/teams/notifications` and `/api/v1/teams/lifecycle` under it |
+| `TEAMS_SUBSCRIPTION_CHECK_SECONDS` | default 21600 | How often every watched chat's subscription is checked (renewed within a day of its expiry) |
 
 **Order matters**: put the three keys into the app secret **before** the Terraform apply that adds them to the task definition. ECS refuses to start a task whose secret lacks a key the task definition names, and Terraform never writes the staging secret's value (`ignore_changes`).
 
@@ -380,6 +381,14 @@ Done for staging 2026-10-18 (Sprint 4 Phase 3): the secret first, then the apply
 **Discovery on** (Sprint 4 Phase 4): `teams_discovery_enabled = true` and the two accounts in `infra/environments/staging/main.tf`, then plan and apply as above (1 to add, 1 to change, 1 to destroy: the backend task definition replaced). The new task queues a discovery pass at start: the log shows `Teams discovery every 86400 s` from every task, then, from the owner, `Teams discovery <id>: N chats (A new, M matched)` (or `Teams discovery <id> failed: <reason>`), and Admin > Teams lists the chats. Watching stays off (`teams_enabled` false), so no member list is read.
 
 **Check**: the new backend task starts and takes processing ownership; `aws ecs describe-task-definition --task-definition pmo-intelligence-staging-backend --query "taskDefinition.containerDefinitions[?name=='backend'].secrets[].name"` lists the three Graph keys. Nothing calls Graph while `TEAMS_ENABLED` is false.
+
+**Watching on** (Sprint 4 Phase 5): `teams_enabled = true` in `infra/environments/staging/main.tf`, then plan and apply as above (the backend task definition replaced, `TEAMS_ENABLED=true`). The secret already holds `GRAPH_CLIENT_STATE`, and `TEAMS_NOTIFICATION_BASE_URL` is the site, which Graph must reach when a subscription is made (it posts a validation token to both routes). The new owner then, in the log:
+- `Teams subscriptions checked every 21600 s; catch-up every 86400 s` from every task, then `Teams catch-up: N watched chat(s), M queued`;
+- on its daily discovery pass (or Admin > Teams "Scan now"), the watch review of each linked chat: `Teams chat <id>: watched, N member(s), consultant member <match>`;
+- per watched chat: `Teams chat <id>: subscription <sub id> created, until <time>`, then `Teams chat <id>: history synced, N read (N new, …)`;
+- per post: `Teams chat <id>: changes synced, 1 read (1 new, 0 edited, 0 deleted)` within seconds of a post.
+
+**Check**: Admin > Teams shows the linked chats `watching` with their history `stored` and a last message; a test post appears in the database (its chat's last message) within 5 minutes. To list the app's live subscriptions, as the Graph app: `GET https://graph.microsoft.com/v1.0/subscriptions` (each with its resource and expiry). A failed renewal or creation logs `Processing job teams_subscription <chat id> failed` and is tried again by the next check (6 hours). To stop reading every chat at once, set `teams_enabled = false` and apply: nothing more is synced and the subscriptions expire within three days; a chat whose placement ends has its subscription deleted by its review.
 
 **The certificate's expiry** is in `credential_expiries` (`infra/shared/`, "6. Credential expiry reminders"). A renewed certificate means running step 1 again with the new `.pfx`, then a backend redeploy ("Redeploying without a change"), since a task reads its secrets when it starts.
 

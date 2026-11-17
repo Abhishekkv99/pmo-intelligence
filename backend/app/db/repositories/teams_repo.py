@@ -4,12 +4,20 @@ import logging
 import uuid
 from datetime import datetime
 
-from sqlalchemy import select, update
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.enums import ScanStatus, TeamsChatMatch, TeamsWatchState
+from app.models.enums import (
+    HistoryState,
+    Role,
+    ScanStatus,
+    SpeakerRole,
+    TeamsChatMatch,
+    TeamsWatchState,
+)
 from app.models.register import Client, Consultant, Placement, Project
-from app.models.teams import TeamsGroup, TeamsScan
+from app.models.teams import GraphSubscription, Message, TeamsGroup, TeamsScan
+from app.models.user import User
 from app.schemas.teams import TeamsPlacement
 from app.services.teams.chat_match import PlacementCandidate
 
@@ -177,6 +185,142 @@ class TeamsRepository:
             select(TeamsScan).order_by(TeamsScan.started_at.desc()).limit(1)
         )
         return result.scalar_one_or_none()
+
+    # --- Messages, syncs and subscriptions (Sprint 4 Phase 5) ---------------
+
+    async def watching_chat_ids(self) -> list[uuid.UUID]:
+        result = await self.session.execute(
+            select(TeamsGroup.id).where(
+                TeamsGroup.watch_state == TeamsWatchState.WATCHING.value
+            )
+        )
+        return list(result.scalars())
+
+    async def subscribed_or_watching_chat_ids(self) -> list[uuid.UUID]:
+        """Chats watched, and chats that still have a subscription to remove."""
+        result = await self.session.execute(
+            select(TeamsGroup.id)
+            .outerjoin(
+                GraphSubscription, GraphSubscription.teams_group_id == TeamsGroup.id
+            )
+            .where(
+                (TeamsGroup.watch_state == TeamsWatchState.WATCHING.value)
+                | GraphSubscription.id.is_not(None)
+            )
+        )
+        return list(result.scalars())
+
+    async def chats_needing_sync(self) -> list[uuid.UUID]:
+        """Watched chats whose history is unread, or that were asked to sync
+        after their last sync started."""
+        result = await self.session.execute(
+            select(TeamsGroup.id).where(
+                TeamsGroup.watch_state == TeamsWatchState.WATCHING.value,
+                (TeamsGroup.history_state == HistoryState.NONE.value)
+                | (
+                    TeamsGroup.sync_requested_at.is_not(None)
+                    & (
+                        TeamsGroup.last_synced_at.is_(None)
+                        | (TeamsGroup.sync_requested_at > TeamsGroup.last_synced_at)
+                    )
+                ),
+            )
+        )
+        return list(result.scalars())
+
+    async def messages_by_graph_id(
+        self, chat_id: uuid.UUID, graph_ids: list[str]
+    ) -> dict[str, Message]:
+        if not graph_ids:
+            return {}
+        result = await self.session.execute(
+            select(Message).where(
+                Message.teams_group_id == chat_id,
+                Message.graph_message_id.in_(graph_ids),
+            )
+        )
+        return {m.graph_message_id: m for m in result.scalars()}
+
+    async def latest_modified_at(self, chat_id: uuid.UUID) -> datetime | None:
+        """The newest change stored for the chat: the next sync reads after it."""
+        latest: datetime | None = await self.session.scalar(
+            select(func.max(Message.last_modified_at)).where(
+                Message.teams_group_id == chat_id
+            )
+        )
+        return latest
+
+    async def latest_post_at(self, chat_id: uuid.UUID) -> datetime | None:
+        """When the newest message (not a system event, not deleted) was posted."""
+        latest: datetime | None = await self.session.scalar(
+            select(func.max(Message.posted_at)).where(
+                Message.teams_group_id == chat_id,
+                Message.message_type == "message",
+                Message.deleted_at.is_(None),
+            )
+        )
+        return latest
+
+    async def author_roles(self, placement: Placement | None) -> dict[str, SpeakerRole]:
+        """Entra id to role for the people of the chat's placement and the PMO."""
+        roles: dict[str, SpeakerRole] = {}
+        managers = await self.session.execute(
+            select(User.entra_oid).where(
+                User.role == Role.PMO_MANAGER.value, User.entra_oid.is_not(None)
+            )
+        )
+        for (oid,) in managers.all():
+            roles[str(oid)] = SpeakerRole.PMO_MANAGER
+        if placement is None:
+            return roles
+        cdm_user_id = await self.session.scalar(
+            select(Consultant.cdm_user_id).where(
+                Consultant.id == placement.consultant_id
+            )
+        )
+        people = (
+            (placement.ps_user_id, SpeakerRole.PS),
+            (placement.sme_user_id, SpeakerRole.SME),
+            (cdm_user_id, SpeakerRole.CDM),
+        )
+        for user_id, role in people:
+            if user_id is None:
+                continue
+            oid = await self.session.scalar(
+                select(User.entra_oid).where(User.id == user_id)
+            )
+            if oid:
+                roles[str(oid)] = role
+        return roles
+
+    async def subscription_for_chat(
+        self, chat_id: uuid.UUID
+    ) -> GraphSubscription | None:
+        sub: GraphSubscription | None = await self.session.scalar(
+            select(GraphSubscription).where(GraphSubscription.teams_group_id == chat_id)
+        )
+        return sub
+
+    async def subscriptions_by_id(
+        self, subscription_ids: list[str]
+    ) -> dict[str, tuple[GraphSubscription, TeamsGroup]]:
+        """The known subscriptions among ``subscription_ids``, with their chats."""
+        if not subscription_ids:
+            return {}
+        result = await self.session.execute(
+            select(GraphSubscription, TeamsGroup)
+            .join(TeamsGroup, TeamsGroup.id == GraphSubscription.teams_group_id)
+            .where(GraphSubscription.subscription_id.in_(subscription_ids))
+        )
+        return {sub.subscription_id: (sub, chat) for sub, chat in result.tuples()}
+
+    async def request_sync(self, chat_ids: list[uuid.UUID], at: datetime) -> None:
+        if chat_ids:
+            await self.session.execute(
+                update(TeamsGroup)
+                .where(TeamsGroup.id.in_(chat_ids))
+                .values(sync_requested_at=at)
+            )
 
     async def fail_running_scans(self, finished_at: datetime, reason: str) -> int:
         """Mark every pass still ``running`` as failed; returns how many."""

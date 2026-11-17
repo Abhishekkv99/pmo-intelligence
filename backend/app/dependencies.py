@@ -1,6 +1,8 @@
+import hmac
 import logging
 import uuid
 from collections.abc import AsyncGenerator, Awaitable, Callable
+from dataclasses import dataclass, field
 from typing import Annotated, Any
 
 from fastapi import Depends, Request
@@ -8,6 +10,7 @@ from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings
 from app.db.repositories.access_log_repo import AccessLogRepository
 from app.db.repositories.user_repo import UserRepository
 from app.db.session import async_session_factory
@@ -23,7 +26,12 @@ from app.utils.entitlements import (
     assert_has_role,
     may_use_app,
 )
-from app.utils.exceptions import AuthenticationError, NotFoundError
+from app.utils.exceptions import (
+    AuthenticationError,
+    AuthorizationError,
+    NotFoundError,
+    ValidationError,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -242,3 +250,77 @@ async def require_media_token(session_id: uuid.UUID, token: str) -> uuid.UUID:
     """404 unless ``token`` is a live media token for ``session_id``."""
     check_media_token(token, session_id)
     return session_id
+
+
+# Graph's change and lifecycle notifications carry no user: each carries the
+# client state the subscription was made with, a secret only Graph and this
+# app know. The guard keeps the notifications whose client state (and tenant,
+# when given) match, compared in constant time, and refuses a request with
+# none. A subscription's validation request (a ``validationToken`` query
+# parameter, no body) passes through, so the route can echo the token.
+
+MAX_VALIDATION_TOKEN = 4096
+
+
+@dataclass(frozen=True)
+class GraphNotifications:
+    """A validation request (``validation_token``) or the notifications whose
+    client state matched (``items``)."""
+
+    validation_token: str | None = None
+    items: list[dict[str, Any]] = field(default_factory=list)
+
+
+def _client_state_matches(item: dict[str, Any], expected: bytes) -> bool:
+    given = str(item.get("clientState") or "").encode()
+    return hmac.compare_digest(given, expected)
+
+
+@_token_guard
+async def require_graph_client_state(request: Request) -> GraphNotifications:
+    token = request.query_params.get("validationToken")
+    if token is not None:
+        if len(token) > MAX_VALIDATION_TOKEN:
+            raise ValidationError("Validation token too long")
+        return GraphNotifications(validation_token=token)
+    expected = settings.graph_client_state.encode()
+    if not expected:
+        raise AuthorizationError("Graph notifications are not accepted here")
+    try:
+        body = await request.json()
+    except ValueError as exc:
+        raise ValidationError("Graph notification body is not JSON") from exc
+    value = body.get("value") if isinstance(body, dict) else None
+    if not isinstance(value, list):
+        raise ValidationError("Graph notification body has no value list")
+    items: list[dict[str, Any]] = []
+    refused = 0
+    for item in value:
+        if (
+            isinstance(item, dict)
+            and _client_state_matches(item, expected)
+            and (
+                not item.get("tenantId")
+                or not settings.graph_tenant_id
+                or str(item["tenantId"]).lower() == settings.graph_tenant_id.lower()
+            )
+        ):
+            items.append(item)
+        else:
+            refused += 1
+    if refused:
+        logger.warning(
+            "Graph notifications refused: %d of %d with a wrong client state "
+            "or tenant (path=%s)",
+            refused,
+            len(value),
+            request.url.path,
+        )
+    if not items:
+        raise AuthorizationError("Graph notification refused")
+    return GraphNotifications(items=items)
+
+
+GraphNotificationBatch = Annotated[
+    GraphNotifications, Depends(require_graph_client_state)
+]

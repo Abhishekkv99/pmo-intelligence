@@ -150,6 +150,9 @@ class Settings(BaseSettings):
     # The public base URL Graph sends notifications to (the staging site);
     # the notification and lifecycle routes are appended to it.
     teams_notification_base_url: str = ""
+    # How often every watched chat's subscription is checked and renewed when
+    # it expires within a day (Graph's limit is three days).
+    teams_subscription_check_seconds: int = 21_600
 
     # Processing queue: how many pipeline jobs run at once
     processing_concurrency: int = 1

@@ -80,6 +80,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     from app.services.session_service import register_session_processing
     from app.services.teams.jobs import (
         PeriodicTeamsDiscovery,
+        PeriodicTeamsUpkeep,
         register_teams_processing,
     )
 
@@ -115,12 +116,21 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
         teams_discovery = PeriodicTeamsDiscovery()
         teams_discovery.start()
 
+    # Every task queues subscription checks and the daily catch-up; only the
+    # owner runs them. Graph's notifications reach whichever task serves them.
+    teams_upkeep: PeriodicTeamsUpkeep | None = None
+    if settings.teams_enabled:
+        teams_upkeep = PeriodicTeamsUpkeep()
+        teams_upkeep.start()
+
     yield
 
     if periodic_scan is not None:
         await periodic_scan.stop()
     if teams_discovery is not None:
         await teams_discovery.stop()
+    if teams_upkeep is not None:
+        await teams_upkeep.stop()
     if daily_health is not None:
         await daily_health.stop()
 

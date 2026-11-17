@@ -61,6 +61,10 @@ TOKEN_SCOPED = {
     # The audio player's source on local storage (an <audio> tag sends no
     # Bearer token); 404 on S3, where the page gets a presigned URL.
     ("GET", "/api/v1/sessions/{session_id}/media"),
+    # Microsoft Graph's change and lifecycle notifications: no user, only the
+    # subscription's client state, which the guard checks on each one.
+    ("POST", "/api/v1/teams/notifications"),
+    ("POST", "/api/v1/teams/lifecycle"),
 }
 
 # Authenticated, but about the caller alone: nothing to scope.

@@ -9,6 +9,7 @@ from app.api.v1 import (
     register,
     sessions,
     teams,
+    teams_notifications,
     users,
 )
 
@@ -27,3 +28,6 @@ api_router.include_router(
     placement_health.router, prefix="/v1", tags=["placement-health"]
 )
 api_router.include_router(teams.router, prefix="/v1", tags=["teams"])
+api_router.include_router(
+    teams_notifications.router, prefix="/v1", tags=["teams-notifications"]
+)

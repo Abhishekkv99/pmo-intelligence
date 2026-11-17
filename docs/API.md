@@ -140,6 +140,18 @@ The PMO group chats (Admin > Teams). PMO managers and admins only; any other rol
 - **Values**: `match_status` is `matched | chosen | needs_choice | unmatched | unparsed` (`TeamsChatMatch`); `watch_state` `not_watched | watching | stopped | failed` (`TeamsWatchState`); `consultant_member_match` `matched | chosen | needs_choice | unmatched` (`FolderMatchStatus`); `history_state` `none | stored | analysing | analysed` (`HistoryState`).
 - **Watching**: with `TEAMS_ENABLED`, a chat tied to an active placement whose expected end has not passed (UK date) is watched, and its members are read to find the consultant; a chat whose placement ended stops being watched and keeps what it had. The review runs after every discovery pass, a register edit of the placement, and the links above.
 
+### Teams notifications (Microsoft Graph)
+Where Graph posts changes to the watched chats and their subscriptions' lifecycle events (Sprint 4 Phase 5). Public: no user, listed as token-scoped; each carries `require_graph_client_state`. Rate limit 600 a minute each.
+
+| Method | Path | Who | Body | Response |
+|--------|------|-----|------|----------|
+| POST | `/teams/notifications` | Graph | `{value: [notification]}`, or none with `?validationToken=` | `200` text/plain echoing the validation token; else `202`, empty |
+| POST | `/teams/lifecycle` | Graph | `{value: [lifecycle notification]}`, or none with `?validationToken=` | as above |
+
+- **Client state**: a notification is kept only when its `clientState` equals `GRAPH_CLIENT_STATE` (constant-time) and its `tenantId`, when given, is `GRAPH_TENANT_ID`; a request with none kept answers **403** `{"detail": "Graph notification refused"}` (also while `GRAPH_CLIENT_STATE` is empty); a body without a `value` list **422**. Refusals are logged with counts only.
+- **Changes**: each kept notification's `subscriptionId` names its chat (`graph_subscriptions`); its chat's `sync_requested_at` is set and its sync queued. A subscription not on record, or a chat not `watching`, is dropped and logged; the answer is still 202.
+- **Lifecycle** (`lifecycleEvent`): `reauthorizationRequired` queues the subscription's renewal, `subscriptionRemoved` its re-creation, `missed` a sync of the chat.
+
 ### Sessions
 Reading a session is for anyone whose scope covers its placement (the global roles read all; a PS or SME reads the placements naming them, a CDM the placements of the consultants they manage). Creating, retrying and correcting the kind are for PMO managers and admins.
 

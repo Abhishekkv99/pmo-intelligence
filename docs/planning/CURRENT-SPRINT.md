@@ -1,7 +1,7 @@
 # Sprint 4: Teams Chat
 
 **Status**: `in-progress` (plan approved 2026-10-14)
-**Duration**: 2026-10-14 – 2026-10-27 (2 weeks)
+**Duration**: 2026-10-14 – 2026-12-01 (re-planned 2026-11-17 from 2026-10-27; no work 2026-10-19 – 2026-11-16)
 **Objective**: PRD Phase 3 (ROADMAP Milestone 3): read the PMO group chats (titled `PRJ ITC …`) through Microsoft Graph, store their messages, run the chat pipeline into the one `signals` table, track cadence, add the gone-quiet and missed-commitment triggers, and show messages on the placement page.
 **Exit gate (PRD)**: one real group watched for a week; new posts appear within 5 minutes; no message read outside the watched groups.
 **Branch**: `develop`
@@ -45,6 +45,7 @@ Microsoft Graph pages read 2026-10-14; Graph rules change, so re-check before ac
 | Working days (gone quiet, 2026-10-14) | **Monday to Friday minus England and Wales bank holidays**, the holidays and the 5 days in the health configuration (a new version, v2) | Monday to Friday only; 7 calendar days |
 | Missed commitment (2026-10-14) | **Overdue plus no consultant update**: an open action past its due date becomes `overdue` (any owner); a consultant-owned overdue action opens the flag only if the consultant has neither posted in the chat nor had a completed call since the due date; the chat pipeline may close actions from messages, as calls do | Any consultant action past due opens the flag; past due by N working days |
 | Dates (2026-10-14) | **2026-10-14 – 2026-10-27** (two weeks) | Three weeks; one week |
+| Re-plan (2026-11-17) | **End 2026-12-01**, phases dated from the exit gate's week: Phase 5 17–20 Nov (on staging by Fri 20 Nov, the week starting then), Phase 6 23–25 Nov, Phase 7 26 Nov, Phase 8 27 Nov, Phase 9 30 Nov – 1 Dec (the week ends 27 Nov). Scope unchanged | Carry on without dates; close Sprint 4 at Phase 5 and move Phases 6–9 to Sprint 5 |
 | Backlog pulled in (2026-10-14) | **All four**: the risk board's project in its own column; the `sessions.spec.ts` seed (a decodable WebM, the cold-start allowance on the retry test); remove the unused `.chart-animate` CSS; mypy strict on the backend tests, with `make lint` and CI widened to `app tests` | Any subset |
 | Graph certificate (2026-10-14) | **In the app secret**: two new keys in `pmo-intelligence/staging/app` (`GRAPH_CERTIFICATE_PFX_BASE64`, `GRAPH_CERTIFICATE_PASSWORD`), injected as environment variables; Terraform adds the key names, the values are put with `put-secret-value` | A separate secret |
 | Start (2026-10-14) | **A spike on the tenant first**: a script installs the app into one test chat titled `PRJ ITC TEST …`, reads it with RSC, and creates and validates one `installedToChats` subscription; the build phases start only once it works; if it fails, stop and decide | Build and test as we go |
@@ -138,23 +139,23 @@ Every phase: re-read this plan, code and tests, the doc list walked item by item
 **Commit checkpoint**
 - [x] (82c036d, eb4a4f4, f37584e, 2026-10-18; pushed and on staging, the discovery Terraform applied (revision 6); daily passes checked 2026-11-17) `feat: find, match and watch the pmo group chats`
 
-### Phase 5: Messages in: history, webhook, subscription and catch-up
+### Phase 5: Messages in: history, webhook, subscription and catch-up (17–20 Nov)
 **Code work**
-- [ ] History: when a chat becomes watched, its whole history is read once (`GET /chats/{id}/messages` with `Chat.Read.All`, paced) and stored (HTML to plain text; system events stored as such and never analysed; deletions kept as `deleted_at` with the text cleared), marked `is_history`; the chat's history state becomes `stored`
-- [ ] Webhook (`POST /teams/notifications` and `POST /teams/lifecycle`, public, guarded by `require_graph_client_state`, listed as token-scoped in the coverage test): answers the validation token as text/plain; checks `clientState` in constant time; for each notification records `sync_requested_at` on its chat and queues the chat's sync job (`CHAT_PRIORITY`); answers 202 at once; a notification for a chat not watched is dropped and logged
-- [ ] Sync job (`teams_sync`, one per chat): reads messages changed since the chat's watermark (`lastModifiedDateTime gt`), stores new, edited and deleted ones, queues the chat's analysis; a sync is triggered only by a notification, the daily catch-up or a lifecycle `missed`, never on a timer, so the polling rule holds
-- [ ] Subscription manager (changed 2026-10-16: one per watched chat): creates each watched chat's `/chats/{id}/messages` subscription when absent (with a `lifecycleNotificationUrl`), renews each a day before its three-day expiry, re-authorises on `reauthorizationRequired`, recreates on `subscriptionRemoved`, deletes it when the chat stops being watched, and on `missed` queues that chat's sync; a daily catch-up sync of every watched chat (one date-ranged read each)
-- [ ] Takeover step: chats whose `sync_requested_at` is newer than `last_synced_at` are queued again (a notification taken by the non-owner task during a deploy is not lost); counts logged, zero included
+- [x] (2026-11-17: `messages.py` `TeamsSync`, the first sync of a watched chat; `message_text.py` for HTML; the author role from the chat (consultant member, PS, SME, CDM, PMO managers by Entra id, else other)) History: when a chat becomes watched, its whole history is read once (`GET /chats/{id}/messages` with `Chat.Read.All`, paced) and stored (HTML to plain text; system events stored as such and never analysed; deletions kept as `deleted_at` with the text cleared), marked `is_history`; the chat's history state becomes `stored`
+- [x] (2026-11-17: `api/v1/teams_notifications.py`, `notifications.py`, `require_graph_client_state` in `dependencies.py` (also checks `tenantId`; a request with none kept 403); the chat found by its subscription id; own rate limit 600/min) Webhook (`POST /teams/notifications` and `POST /teams/lifecycle`, public, guarded by `require_graph_client_state`, listed as token-scoped in the coverage test): answers the validation token as text/plain; checks `clientState` in constant time; for each notification records `sync_requested_at` on its chat and queues the chat's sync job (`CHAT_PRIORITY`); answers 202 at once; a notification for a chat not watched is dropped and logged
+- [x] (2026-11-17: 5 minutes of overlap below the newest stored change; `last_synced_at` is when the last sync started; an edit clears the pipeline's class; queueing the analysis is Phase 6's) Sync job (`teams_sync`, one per chat): reads messages changed since the chat's watermark (`lastModifiedDateTime gt`), stores new, edited and deleted ones, queues the chat's analysis; a sync is triggered only by a notification, the daily catch-up or a lifecycle `missed`, never on a timer, so the polling rule holds
+- [x] (2026-11-17: `subscriptions.py`, job `teams_subscription` per chat after every watch review, on lifecycle events and every 6 h (`PeriodicTeamsUpkeep`, `TEAMS_SUBSCRIPTION_CHECK_SECONDS`); 4,230-minute lifetime; a 404 on renewal makes it again; the catch-up at start and then daily) Subscription manager (changed 2026-10-16: one per watched chat): creates each watched chat's `/chats/{id}/messages` subscription when absent (with a `lifecycleNotificationUrl`), renews each a day before its three-day expiry, re-authorises on `reauthorizationRequired`, recreates on `subscriptionRemoved`, deletes it when the chat stops being watched, and on `missed` queues that chat's sync; a daily catch-up sync of every watched chat (one date-ranged read each)
+- [x] (2026-11-17: `teams syncs` re-queue, also chats whose history is unread) Takeover step: chats whose `sync_requested_at` is newer than `last_synced_at` are queued again (a notification taken by the non-owner task during a deploy is not lost); counts logged, zero included
 - [ ] Rollout to staging: `teams_enabled` true (Terraform, with approval); the subscription created; the test chat checked (a post appears in the database within 5 minutes)
-- [ ] Tests: validation echo, client state refused, notification to job, sync (new, edited, deleted, system event), history paging, subscription create, renew and lifecycle events, takeover requeue
+- [x] (2026-11-17: `test_teams_messages.py` 13, `test_teams_jobs.py` 13 (was 5), `test_teams_sync.py` 10, `test_teams_subscriptions.py` 11, `test_teams_notifications_api.py` 13, coverage 66; backend 1249 passed (892 unit, 357 integration); `make lint` clean) Tests: validation echo, client state refused, notification to job, sync (new, edited, deleted, system event), history paging, subscription create, renew and lifecycle events, takeover requeue
 
 **Doc updates (concurrent)**
-- [ ] `docs/API.md` (the notification routes), `ARCHITECTURE.md` (Teams chat section; Infrastructure; `> Status:`), `DEPLOYMENT.md` (section 12: turning it on, checking the subscription; status), `TEAMS-GRAPH-SETUP.md` ("Engineering notes" updated: webhook, not polling), `FEATURES.md`, `TESTS.md`, `CHANGELOG.md`
+- [x] (2026-11-17; also the System Design and Teams Connector lines that still said "poll every 2–5 min") `docs/API.md` (the notification routes), `ARCHITECTURE.md` (Teams chat section; Infrastructure; `> Status:`), `DEPLOYMENT.md` (section 12: turning it on, checking the subscription; status), `TEAMS-GRAPH-SETUP.md` ("Engineering notes" updated: webhook, not polling), `FEATURES.md`, `TESTS.md`, `CHANGELOG.md`
 
 **Commit checkpoint**
 - [ ] `feat: receive teams chat messages through change notifications`
 
-### Phase 6: Chat pipeline
+### Phase 6: Chat pipeline (23–25 Nov)
 **Code work**
 - [ ] `app/ai/node.py`: `llm_node` generalised (state type and operation prefix as parameters; the session pipeline unchanged in behaviour)
 - [ ] `app/ai/chat/` (LangGraph, gpt-5.4-mini, structured output, every node non-fatal, timed, costed, with `CHAT_NODE_TIMEOUT_SECONDS`): `classify` (each new message's `MessageClass`; noise stops there), then in parallel `signals` (dimension, polarity, severity, confidence, quote, note, indicator per `SIGNAL_INDICATORS_BY_CATEGORY`) and `actions` (owner role, due date worked out from the post's UK date, earlier open actions it closes), then `emit` (every quote must be found in the one message it cites, through `TranscriptIndex`; the author's role from the chat's mapping, not the model). Prompts cite the enumerations from `enums.py`
@@ -169,7 +170,7 @@ Every phase: re-read this plan, code and tests, the doc list walked item by item
 **Commit checkpoint**
 - [ ] `feat: analyse teams chat messages`
 
-### Phase 7: Cadence, overdue actions and the two triggers
+### Phase 7: Cadence, overdue actions and the two triggers (26 Nov)
 **Code work**
 - [ ] Health configuration `config/v2.json`: v1's values plus `gone_quiet` (5 working days, the England and Wales bank holidays for 2026 and 2027) and `missed_commitment`; `TriggerSettings` gains both; `HEALTH_CONFIG_VERSION` default `v2`
 - [ ] Cadence (pure, in `app/health/`): working days since the consultant's last post; posts per week; questions to the consultant left unanswered (counted, shown, not a trigger)
@@ -183,7 +184,7 @@ Every phase: re-read this plan, code and tests, the doc list walked item by item
 **Commit checkpoint**
 - [ ] `feat: add the gone-quiet and missed-commitment triggers`
 
-### Phase 8: Messages on the pages
+### Phase 8: Messages on the pages (27 Nov)
 **Code work**
 - [ ] Backend: the risk board's `last_post_at` and `days_since_last_post` (the consultant's latest post); the placement health response's notable messages (those that produced a signal or action, newest first, with author role, time, class and the signals' quotes) and the chat's cadence; evidence from a message resolved to its message; the SME view keeps Technical evidence only
 - [ ] Frontend: a "Last post" column on the risk board; a "Messages" section on the placement page after "Calls" (notable messages, cadence line); `EvidenceItem` shows a message's evidence as "posted <time>"; a message-sourced action reads "agreed in the chat". No Stitch round: the new pieces follow the existing table and section patterns (a judgement call for approval)
@@ -195,10 +196,10 @@ Every phase: re-read this plan, code and tests, the doc list walked item by item
 **Commit checkpoint**
 - [ ] `feat: show teams messages on the board and placement page`
 
-### Phase 9: Staging, exit gate, audit and handover
+### Phase 9: Staging, exit gate, audit and handover (30 Nov – 1 Dec)
 **Code work and setup**
 - [ ] Every watched chat on staging listed; the history count and estimate shown; "Analyse history" pressed only on the user's say-so
-- [ ] The exit gate: one real group watched for a week (from the Phase 5 rollout, so it ends inside the sprint only if Phase 5 is on staging by 2026-10-20); new posts in the database within 5 minutes; no message stored from a chat that is not watched (a query over `messages` against `teams_groups`)
+- [ ] The exit gate: one real group watched for a week (from the Phase 5 rollout, so it ends inside the sprint only if Phase 5 is on staging by 2026-11-20); new posts in the database within 5 minutes; no message stored from a chat that is not watched (a query over `messages` against `teams_groups`)
 
 **Doc updates (concurrent)**
 - [ ] `ROADMAP.md` (the exit gate), `BACKLOG.md` (anything not done), `docs/tracking/SPRINT-AUDIT.md` (Rule C), `docs/handover/sprint-04-handover.md`
@@ -232,15 +233,15 @@ Every phase: re-read this plan, code and tests, the doc list walked item by item
 - (done 2026-10-16) The catalog id; no longer needed after the route change
 - (answered 2026-10-16) The install through Graph: refused, `AppScopeIsNotAllowed`; route changed to `Chat.Read.All`
 - The Graph certificate's values put into the app secret by the user (Phase 3)
-- The week-long exit-gate watch needs Phase 5 on staging by 2026-10-20
+- The week-long exit-gate watch needs Phase 5 on staging by 2026-11-20 (re-planned 2026-11-17; was 2026-10-20)
 - (done 2026-10-16) Microsoft dev tunnels installed and signed in; the spike's tunnel deleted afterwards
 
 ## Session State (last updated: 2026-11-17)
 - **Sprint**: 4 — Teams Chat (planned end 2026-10-27; overrun, no work between 2026-10-18 and 2026-11-17)
-- **Current phase**: Phase 5 — messages in (history, webhook, subscription, catch-up); not started
+- **Current phase**: Phase 5 — messages in; built and tested 2026-11-17, the commit pushed, the staging rollout (`teams_enabled` true, Terraform) waiting for the user's approval
 - **Phase progress**: Phases 0–4 done; Phase 4 verified on staging 2026-11-17 (see DEPLOYMENT status): f37584e deployed, task definition revision 6, discovery passing daily (160 chats, 5 linked to placements, watching off)
 - **Last completed task**: Phase 4 rollout check and its records
-- **Next task**: decide whether to re-plan the sprint's dates; then Phase 5's first task, the history read
+- **Next task**: Phase 5 rollout: plan and apply `teams_enabled = true` on staging with approval, then check a test post arrives within 5 minutes; then Phase 6
 - **Last commit**: f37584e "feat: add the teams tab to admin and turn on discovery in staging" (pushed)
 - **Uncommitted changes**: this file and `docs/DEPLOYMENT.md` (the Phase 4 records)
 - **Blockers**: none; `gh` on this Mac still needs `gh auth login` as `Abhishekkv99` (pushing and CI checks)
