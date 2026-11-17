@@ -62,7 +62,7 @@ Microsoft Graph pages read 2026-10-14; Graph rules change, so re-check before ac
 
 ## Task Checklist
 
->>> CURRENT PHASE: Phase 4 (2026-10-18: everything built and tested; the tab's commit, the push and the discovery Terraform apply wait for the user)
+>>> CURRENT PHASE: Phase 5 (Phase 4 rolled out and checked on staging 2026-11-17)
 
 Every phase: re-read this plan, code and tests, the doc list walked item by item, the commit checkpoint, then stop. Backend: `make test-backend` with `-rf`; frontend Vitest with `--maxWorkers=4`; e2e with one worker after `docker compose up --build -d --wait <changed service>`. Every Graph call in tests is mocked (an `httpx` mock transport); no test calls Microsoft. Test data uses made-up names only: real chat titles name real consultants, so the title shapes are reproduced with invented names. Every push: both CI filters read before saying what it runs and deploys, and the deploy recorded in DEPLOYMENT's status in the next commit.
 
@@ -136,7 +136,7 @@ Every phase: re-read this plan, code and tests, the doc list walked item by item
 - [x] (2026-10-18; also `DEPLOYMENT.md` section 12, the discovery switch; README unchanged: no make target or doc added) `docs/API.md` (Teams section), `ARCHITECTURE.md` (Backend and Frontend rows; a "Teams chat (as built)" section; `> Status:`), `DESIGN.md` (the Teams tab), `TEAMS-GRAPH-SETUP.md`, `FEATURES.md`, `TESTS.md`, `CHANGELOG.md`
 
 **Commit checkpoint**
-- [ ] `feat: find, match and watch the pmo group chats`
+- [x] (82c036d, eb4a4f4, f37584e, 2026-10-18; pushed and on staging, the discovery Terraform applied (revision 6); daily passes checked 2026-11-17) `feat: find, match and watch the pmo group chats`
 
 ### Phase 5: Messages in: history, webhook, subscription and catch-up
 **Code work**
@@ -235,27 +235,23 @@ Every phase: re-read this plan, code and tests, the doc list walked item by item
 - The week-long exit-gate watch needs Phase 5 on staging by 2026-10-20
 - (done 2026-10-16) Microsoft dev tunnels installed and signed in; the spike's tunnel deleted afterwards
 
-## Session State (last updated: 2026-10-18 19:00)
-- **Sprint**: 4 — Teams Chat
-- **Current phase**: Phase 4 — discovery, title matching, watching and Admin > Teams; built and tested, the last commit and the staging rollout waiting
-- **Phase progress**: 6 of 6 code tasks and the doc list done; the commit of the tab, the push and the Terraform apply for discovery waiting for the user
-- **Last completed task**: the Admin > Teams tab (`frontend/src/components/admin/teams/`, `useTeamsChats.ts`, `lib/teams.ts`, `types/teams.ts`), its Vitest, the Teams e2e seed and `admin-teams.spec.ts`, the Terraform for `teams_discovery_enabled` and the two accounts (planned: 1 to add, 1 to change, 1 to destroy; plan file `infra/environments/staging/tfplan-discovery`, git-ignored)
-- **Next task**: push (deploys both sides, migration 011 on staging); after the deploy, apply the discovery Terraform (with the user's approval); check the first discovery pass in the log and on Admin > Teams; record it in DEPLOYMENT's status; then Phase 5
-- **Last commit**: eb4a4f4 "feat: watch the pmo group chats and add the teams admin routes" (not pushed, nor 82c036d; 4120c4a is pushed)
-- **Uncommitted changes**: none (the tab committed as "feat: add the teams tab to admin and turn on discovery in staging")
-- **Blockers**: none
-- **Tests passing**: 865 unit + 323 integration (backend, one `pytest -rf` run) + 277 frontend unit (`--maxWorkers=4`) + 24 e2e (one worker, rebuilt stack) = 1489; `make lint` clean (mypy on 228 files)
-- **Files created this session**: Phase 3's (see git 06ee758); Phase 4: `backend/app/services/teams/{chat_titles,chat_match,discovery,jobs,watch,admin}.py`, `backend/app/api/v1/teams.py`, `backend/app/schemas/teams.py`, `backend/app/db/repositories/teams_repo.py`, `backend/alembic/versions/011_create_teams_scans.py`, `backend/tests/unit/test_{chat_titles,chat_match,teams_jobs,teams_watch}.py`, `backend/tests/integration/test_{teams_discovery,teams_watch,teams_api}.py`, `backend/app/cli/seed_e2e_teams.py`, `backend/tests/unit/test_seed_e2e_teams.py`, `frontend/src/components/admin/teams/{TeamsTab,dialogs,TeamsTab.test}.tsx`, `frontend/src/hooks/useTeamsChats.ts`, `frontend/src/lib/teams.ts`, `frontend/src/types/teams.ts`, `frontend/tests/e2e/admin-teams.spec.ts`
-- **Files modified this session**: Phase 4: `backend/app/{config,main}.py`, `backend/app/models/{teams,__init__}.py`, `backend/app/api/router.py`, `backend/app/api/v1/register.py`, `backend/app/services/register_quick_add.py`, `backend/app/services/teams/graph_client.py` (shared client), `backend/tests/unit/test_entitlement_coverage.py`, `backend/tests/integration/{test_migrations,test_register_api}.py`, `docs/API.md`, `docs/DESIGN.md`, `docs/DEPLOYMENT.md`, `docs/integrations/TEAMS-GRAPH-SETUP.md`, `frontend/src/components/admin/{AdminView,AdminView.test}.tsx`, `frontend/src/components/admin/recordings/dialogs.tsx` (`DialogShell` exported), `frontend/src/lib/constants.ts`, `infra/modules/environment/{ecs,variables}.tf`, `infra/environments/staging/main.tf`, `.env.example`, `docs/ARCHITECTURE.md` (also the Data Model's migration order), `docs/tracking/{FEATURES,TESTS,CHANGELOG}.md`, this file
-- **Key decisions this session**: Phase 4 decisions in the table (watching selected in Phase 4, discovery's own switch, `teams_scans`, the two accounts); judgement calls: an end date before the start leaves a title unparsed; the parse reason kept in `teams_groups.error_message`; the consultant matched only among placements with the title's client and start date; discovery queued at every start and then daily, like the recordings scan; a review job per placement for register edits (`teams_watch_placement`); a failed member read leaves the chat `failed`; a consultant's Entra id recorded only when none and no other consultant holds it; choosing a placement resets the consultant member; create-from-title answers the quick add's result (always 200); one shared Graph client per process; the tab's layout (user); the tab polls 10 s while a discovery pass runs, 60 s otherwise; the dialogs share the Recordings `DialogShell`
+## Session State (last updated: 2026-11-17)
+- **Sprint**: 4 — Teams Chat (planned end 2026-10-27; overrun, no work between 2026-10-18 and 2026-11-17)
+- **Current phase**: Phase 5 — messages in (history, webhook, subscription, catch-up); not started
+- **Phase progress**: Phases 0–4 done; Phase 4 verified on staging 2026-11-17 (see DEPLOYMENT status): f37584e deployed, task definition revision 6, discovery passing daily (160 chats, 5 linked to placements, watching off)
+- **Last completed task**: Phase 4 rollout check and its records
+- **Next task**: decide whether to re-plan the sprint's dates; then Phase 5's first task, the history read
+- **Last commit**: f37584e "feat: add the teams tab to admin and turn on discovery in staging" (pushed)
+- **Uncommitted changes**: this file and `docs/DEPLOYMENT.md` (the Phase 4 records)
+- **Blockers**: none; `gh` on this Mac still needs `gh auth login` as `Abhishekkv99` (pushing and CI checks)
+- **Tests passing**: 865 unit + 323 integration (backend) + 277 frontend unit + 24 e2e = 1489 at f37584e, re-run on this Mac 2026-11-17; `make lint` clean; staging `terraform plan`: no changes
 - **Recovery instructions**:
   - Read this file first, then `docs/handover/sprint-03-handover.md` and `docs/integrations/TEAMS-GRAPH-SETUP.md` (Part D).
-  - The discovery script of 2026-10-14 is not in the repo (it lived in an earlier session's scratchpad).
-  - **Local stack**: `docker compose up --build -d --wait`, `make migrate`, `make test-e2e`. Add `PMO_API_PORT=8100 PMO_WEB_PORT=3100` when another project holds ports 8000/3000. The local database is at migration 010.
+  - **Machine**: macOS (Apple silicon) from 2026-11-17; tools in `~/.local` (Node 22.23.5, pnpm 12.6.0 by corepack, Terraform 1.17.2, `gh` 2.104.0, the Docker CLI with Compose and Buildx plugins). Docker is Colima, not Docker Desktop: `colima start` after a reboot, and `export DOCKER_HOST="unix://$HOME/.colima/default/docker.sock" TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE=/var/run/docker.sock` for the integration tests and compose. The local database is at migration 011. `infra/environments/staging/terraform.tfvars` (git-ignored) recreated from the live task definition.
+  - **Local stack**: `docker compose up --build -d --wait`, `make migrate`, `make test-e2e`. Add `PMO_API_PORT=8100 PMO_WEB_PORT=3100` when another project holds ports 8000/3000.
   - **Push and `gh`**: use `Abhishekkv99`'s token per command, never a change to the default login: `git -c credential.helper= -c credential.helper='!f() { echo username=x-access-token; echo "password=$(gh auth token --user Abhishekkv99)"; }; f' push origin develop`.
-  - **AWS sign-in**: `aws sso login --profile pmo-intelligence`. Nothing is ever deleted or overwritten in the main ITC account (`430006376054`).
-  - **Terraform**: staging has 62 managed resources; the discovery change is planned (`tfplan-discovery`) and not applied; plan again before applying if anything changed.
-  - **Docker Desktop** stops when the machine sleeps or the session restarts; start it (`"/c/Program Files/Docker/Docker/Docker Desktop.exe"`) and wait for `docker info` before integration tests or e2e.
+  - **AWS**: the project account is `260172548683` (profile `AdministratorAccess-260172548683` on this Mac; `aws sso login` with it). Nothing is ever deleted or overwritten in the main ITC account (`430006376054`). Region `eu-west-2`; cluster `pmo-intelligence`; logs `/ecs/pmo-intelligence-staging/*` (older than about a month are gone).
+  - **Terraform**: staging state in `pmo-intelligence-tfstate-260172548683`; plan again before any apply.
 
 ## Decisions Log
 | Decision | Rationale |
