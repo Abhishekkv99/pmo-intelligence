@@ -146,14 +146,14 @@ Every phase: re-read this plan, code and tests, the doc list walked item by item
 - [x] (2026-11-17: 5 minutes of overlap below the newest stored change; `last_synced_at` is when the last sync started; an edit clears the pipeline's class; queueing the analysis is Phase 6's) Sync job (`teams_sync`, one per chat): reads messages changed since the chat's watermark (`lastModifiedDateTime gt`), stores new, edited and deleted ones, queues the chat's analysis; a sync is triggered only by a notification, the daily catch-up or a lifecycle `missed`, never on a timer, so the polling rule holds
 - [x] (2026-11-17: `subscriptions.py`, job `teams_subscription` per chat after every watch review, on lifecycle events and every 6 h (`PeriodicTeamsUpkeep`, `TEAMS_SUBSCRIPTION_CHECK_SECONDS`); 4,230-minute lifetime; a 404 on renewal makes it again; the catch-up at start and then daily) Subscription manager (changed 2026-10-16: one per watched chat): creates each watched chat's `/chats/{id}/messages` subscription when absent (with a `lifecycleNotificationUrl`), renews each a day before its three-day expiry, re-authorises on `reauthorizationRequired`, recreates on `subscriptionRemoved`, deletes it when the chat stops being watched, and on `missed` queues that chat's sync; a daily catch-up sync of every watched chat (one date-ranged read each)
 - [x] (2026-11-17: `teams syncs` re-queue, also chats whose history is unread) Takeover step: chats whose `sync_requested_at` is newer than `last_synced_at` are queued again (a notification taken by the non-owner task during a deploy is not lost); counts logged, zero included
-- [ ] Rollout to staging: `teams_enabled` true (Terraform, with approval); the subscription created; the test chat checked (a post appears in the database within 5 minutes)
+- [ ] (2026-11-18: applied 04:31 UTC on the user's go-ahead; the 5 linked chats watched, subscribed and their histories stored, 991 messages, no error; **waiting**: a live post seen within 5 minutes) Rollout to staging: `teams_enabled` true (Terraform, with approval); the subscription created; the test chat checked (a post appears in the database within 5 minutes)
 - [x] (2026-11-17: `test_teams_messages.py` 13, `test_teams_jobs.py` 13 (was 5), `test_teams_sync.py` 10, `test_teams_subscriptions.py` 11, `test_teams_notifications_api.py` 13, coverage 66; backend 1249 passed (892 unit, 357 integration); `make lint` clean) Tests: validation echo, client state refused, notification to job, sync (new, edited, deleted, system event), history paging, subscription create, renew and lifecycle events, takeover requeue
 
 **Doc updates (concurrent)**
 - [x] (2026-11-17; also the System Design and Teams Connector lines that still said "poll every 2–5 min") `docs/API.md` (the notification routes), `ARCHITECTURE.md` (Teams chat section; Infrastructure; `> Status:`), `DEPLOYMENT.md` (section 12: turning it on, checking the subscription; status), `TEAMS-GRAPH-SETUP.md` ("Engineering notes" updated: webhook, not polling), `FEATURES.md`, `TESTS.md`, `CHANGELOG.md`
 
 **Commit checkpoint**
-- [ ] `feat: receive teams chat messages through change notifications`
+- [x] (66ab2bc, 2026-11-17; pushed, CI run 44134251713 green, backend deployed with Teams off: ownership after 160 s, the `teams syncs` re-queue logged 0 rows; on staging the validation token echoes as text/plain and a wrong client state answers 403) `feat: receive teams chat messages through change notifications`
 
 ### Phase 6: Chat pipeline (23–25 Nov)
 **Code work**
@@ -238,10 +238,10 @@ Every phase: re-read this plan, code and tests, the doc list walked item by item
 
 ## Session State (last updated: 2026-11-17)
 - **Sprint**: 4 — Teams Chat (planned end 2026-10-27; overrun, no work between 2026-10-18 and 2026-11-17)
-- **Current phase**: Phase 5 — messages in; built and tested 2026-11-17, the commit pushed, the staging rollout (`teams_enabled` true, Terraform) waiting for the user's approval
+- **Current phase**: Phase 5 — messages in; on staging and watching since 2026-11-18 04:31 UTC (5 chats, 991 history messages); the exit-gate week runs from 2026-11-18 to 2026-11-25
 - **Phase progress**: Phases 0–4 done; Phase 4 verified on staging 2026-11-17 (see DEPLOYMENT status): f37584e deployed, task definition revision 6, discovery passing daily (160 chats, 5 linked to placements, watching off)
 - **Last completed task**: Phase 4 rollout check and its records
-- **Next task**: Phase 5 rollout: plan and apply `teams_enabled = true` on staging with approval, then check a test post arrives within 5 minutes; then Phase 6
+- **Next task**: check the first live post arrives within 5 minutes (logs: `changes synced`), then Phase 6 (chat pipeline)
 - **Last commit**: f37584e "feat: add the teams tab to admin and turn on discovery in staging" (pushed)
 - **Uncommitted changes**: this file and `docs/DEPLOYMENT.md` (the Phase 4 records)
 - **Blockers**: none; `gh` on this Mac still needs `gh auth login` as `Abhishekkv99` (pushing and CI checks)
